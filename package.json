@@ -5,8 +5,8 @@
   "description": "Firefox extension: inline follow-up comment threads on gemini.google.com",
   "scripts": {
     "start": "web-ext run --target=firefox-desktop --url=https://gemini.google.com/app",
-    "lint": "web-ext lint",
-    "build": "web-ext build --overwrite-dest"
+    "lint": "web-ext lint --ignore-files test \"test/**\"",
+    "build": "web-ext build --overwrite-dest --ignore-files test \"test/**\" package.json package-lock.json README.md mise.toml"
   },
   "devDependencies": {
     "web-ext": "^8.3.0"
