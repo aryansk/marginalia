@@ -1,0 +1,401 @@
+/* content.css — all UI is namespaced under .ga-* and uses explicit properties
+   so Gemini's page styles don't leak in (or out). */
+
+:root {
+  --ga-bg: #ffffff;
+  --ga-fg: #1f1f24;
+  --ga-muted: #5f6368;
+  --ga-border: #dadce0;
+  --ga-accent: #4f8cff;
+  --ga-accent-2: #9b5cff;
+  --ga-user-bg: #eef3ff;
+  --ga-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ga-bg: #1e1f22;
+    --ga-fg: #e8eaed;
+    --ga-muted: #9aa0a6;
+    --ga-border: #3c4043;
+    --ga-user-bg: #2a3650;
+    --ga-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ---------- highlight ---------- */
+.ga-highlight {
+  background: rgba(155, 92, 255, 0.22);
+  border-bottom: 2px solid rgba(155, 92, 255, 0.55);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ga-highlight:hover,
+.ga-highlight-active {
+  background: rgba(155, 92, 255, 0.4);
+}
+
+/* ---------- gutter ---------- */
+.ga-gutter {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  z-index: 2147483000;
+  pointer-events: none;
+  font-family: "Google Sans", Roboto, system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- comment box ---------- */
+.ga-box {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  background: var(--ga-bg);
+  color: var(--ga-fg);
+  border: 1px solid var(--ga-border);
+  border-radius: 12px;
+  box-shadow: var(--ga-shadow);
+  pointer-events: auto;
+  transition: top 0.18s ease, opacity 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+.ga-box.ga-active {
+  border-color: var(--ga-accent);
+  box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.35), var(--ga-shadow);
+}
+.ga-box.ga-dimmed {
+  opacity: 0.45;
+  transform: scale(0.985);
+}
+.ga-box.ga-dimmed:hover {
+  opacity: 0.85;
+}
+.ga-box.ga-orphan {
+  border-style: dashed;
+}
+
+.ga-box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ga-border);
+  position: relative;
+}
+.ga-box-snippet {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ga-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ga-iconbtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ga-muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ga-iconbtn:hover {
+  background: rgba(127, 127, 127, 0.16);
+  color: var(--ga-fg);
+}
+
+/* top-right loading spinner */
+.ga-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(127, 127, 127, 0.3);
+  border-top-color: var(--ga-accent);
+  border-radius: 50%;
+  display: none;
+  animation: ga-spin 0.8s linear infinite;
+}
+.ga-box.ga-loading .ga-spinner {
+  display: inline-block;
+}
+@keyframes ga-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ga-orphan-badge {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  font-size: 10px;
+  background: #b3261e;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* messages */
+.ga-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ga-msg {
+  font-size: 13px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.ga-msg-user {
+  align-self: flex-end;
+  max-width: 90%;
+  background: var(--ga-user-bg);
+  color: var(--ga-fg);
+  padding: 6px 10px;
+  border-radius: 12px 12px 2px 12px;
+  white-space: pre-wrap;
+}
+.ga-msg-model {
+  align-self: stretch;
+  color: var(--ga-fg);
+}
+.ga-msg-model.ga-msg-streaming::after {
+  content: "▋";
+  color: var(--ga-muted);
+  animation: ga-blink 1s steps(2) infinite;
+}
+@keyframes ga-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* markdown inside model messages */
+.ga-msg-model p {
+  margin: 0 0 8px;
+}
+.ga-msg-model p:last-child {
+  margin-bottom: 0;
+}
+.ga-msg-model h1,
+.ga-msg-model h2,
+.ga-msg-model h3,
+.ga-msg-model h4,
+.ga-msg-model h5,
+.ga-msg-model h6 {
+  margin: 10px 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.ga-msg-model ul,
+.ga-msg-model ol {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+.ga-msg-model li {
+  margin: 2px 0;
+}
+.ga-msg-model code {
+  font-family: "Roboto Mono", ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  background: rgba(127, 127, 127, 0.16);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.ga-msg-model pre {
+  background: rgba(127, 127, 127, 0.14);
+  padding: 8px 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.ga-msg-model pre code {
+  background: none;
+  padding: 0;
+}
+.ga-msg-model blockquote {
+  border-left: 3px solid var(--ga-border);
+  margin: 6px 0;
+  padding-left: 10px;
+  color: var(--ga-muted);
+}
+.ga-msg-model a {
+  color: var(--ga-accent);
+}
+
+/* composer */
+.ga-composer {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  padding: 8px;
+  border-top: 1px solid var(--ga-border);
+}
+.ga-input {
+  flex: 1;
+  resize: none;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ga-fg);
+  background: transparent;
+  border: 1px solid var(--ga-border);
+  border-radius: 10px;
+  padding: 7px 10px;
+  max-height: 120px;
+  outline: none;
+}
+.ga-input:focus {
+  border-color: var(--ga-accent);
+}
+.ga-input:disabled {
+  opacity: 0.6;
+}
+.ga-send {
+  appearance: none;
+  border: none;
+  background: linear-gradient(135deg, var(--ga-accent), var(--ga-accent-2));
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.ga-send:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* delete confirm */
+.ga-confirm {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 5;
+  background: var(--ga-bg);
+  color: var(--ga-fg);
+  border: 1px solid var(--ga-border);
+  border-radius: 10px;
+  box-shadow: var(--ga-shadow);
+  padding: 8px 10px;
+  font-size: 12px;
+  align-items: center;
+  gap: 8px;
+}
+.ga-confirm.ga-confirm-show {
+  display: flex;
+}
+.ga-confirm-actions {
+  display: flex;
+  gap: 6px;
+}
+.ga-confirm button {
+  appearance: none;
+  border: 1px solid var(--ga-border);
+  background: transparent;
+  color: var(--ga-fg);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.ga-confirm-yes {
+  background: #b3261e !important;
+  color: #fff !important;
+  border-color: #b3261e !important;
+}
+
+/* ---------- modal ---------- */
+.ga-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483600;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 4vw;
+  font-family: "Google Sans", Roboto, system-ui, sans-serif;
+}
+.ga-modal {
+  width: min(820px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ga-bg);
+  color: var(--ga-fg);
+  border-radius: 14px;
+  box-shadow: var(--ga-shadow);
+  overflow: hidden;
+}
+.ga-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ga-border);
+}
+.ga-modal-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ga-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-modal-body {
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ga-modal-body .ga-msg {
+  font-size: 14px;
+}
+.ga-modal-empty {
+  color: var(--ga-muted);
+  font-size: 13px;
+}
+
+/* ---------- toast ---------- */
+.ga-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 2147483600;
+  background: #323232;
+  color: #fff;
+  font-family: Roboto, system-ui, sans-serif;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: var(--ga-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.ga-toast.ga-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

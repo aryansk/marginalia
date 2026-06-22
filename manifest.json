@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Assist",
+  "version": "0.1.0",
+  "description": "Inline Google-Docs-style follow-up comment threads on gemini.google.com — highlight text, ask Gemini in the margin, keep your place.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gemini-assist@local",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  },
+  "permissions": ["contextMenus", "storage", "scripting"],
+  "host_permissions": ["https://gemini.google.com/*"],
+  "background": {
+    "scripts": ["src/gemini/client.js", "src/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": [
+        "src/content/util.js",
+        "src/content/store.js",
+        "src/content/markdown.js",
+        "src/content/anchor.js",
+        "src/content/selection.js",
+        "src/content/thread-ui.js",
+        "src/content/modal.js",
+        "src/content/gutter.js",
+        "src/content/content.js"
+      ],
+      "css": ["src/styles/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_icon": "icons/icon.svg",
+    "default_title": "Gemini Assist — settings",
+    "default_popup": "src/options/options.html"
+  }
+}

@@ -1,0 +1,108 @@
+// options.js — settings page (runs as an extension page, not a content script).
+const SETTINGS_KEY = "ga:settings";
+const DEFAULTS = {
+  scope: "section",
+  shortcut: { ctrl: true, shift: true, alt: false, meta: false, key: "h" },
+  debug: false,
+};
+
+const els = {
+  shortcutBtn: document.getElementById("shortcut-btn"),
+  shortcutReset: document.getElementById("shortcut-reset"),
+  shortcutStatus: document.getElementById("shortcut-status"),
+  clearBtn: document.getElementById("clear-btn"),
+  clearStatus: document.getElementById("clear-status"),
+  debug: document.getElementById("debug"),
+};
+
+let settings = Object.assign({}, DEFAULTS);
+let recording = false;
+
+function fmtShortcut(sc) {
+  const parts = [];
+  if (sc.ctrl) parts.push("Ctrl");
+  if (sc.alt) parts.push("Alt");
+  if (sc.shift) parts.push("Shift");
+  if (sc.meta) parts.push("Cmd");
+  parts.push((sc.key || "").toUpperCase());
+  return parts.join(" + ");
+}
+
+async function load() {
+  const obj = await browser.storage.local.get(SETTINGS_KEY);
+  const stored = obj[SETTINGS_KEY] || {};
+  settings = Object.assign({}, DEFAULTS, stored, {
+    shortcut: Object.assign({}, DEFAULTS.shortcut, stored.shortcut || {}),
+  });
+  render();
+}
+
+function render() {
+  els.shortcutBtn.textContent = fmtShortcut(settings.shortcut);
+  document.querySelectorAll('input[name="scope"]').forEach((r) => {
+    r.checked = r.value === settings.scope;
+  });
+  els.debug.checked = !!settings.debug;
+}
+
+async function save() {
+  await browser.storage.local.set({ [SETTINGS_KEY]: settings });
+}
+
+// shortcut capture
+els.shortcutBtn.addEventListener("click", () => {
+  recording = true;
+  els.shortcutBtn.classList.add("recording");
+  els.shortcutBtn.textContent = "Press keys…";
+  els.shortcutStatus.textContent = "";
+});
+
+window.addEventListener("keydown", async (e) => {
+  if (!recording) return;
+  e.preventDefault();
+  const key = e.key.toLowerCase();
+  if (["control", "shift", "alt", "meta"].includes(key)) return; // wait for a real key
+  settings.shortcut = {
+    ctrl: e.ctrlKey,
+    shift: e.shiftKey,
+    alt: e.altKey,
+    meta: e.metaKey,
+    key,
+  };
+  recording = false;
+  els.shortcutBtn.classList.remove("recording");
+  render();
+  await save();
+  els.shortcutStatus.textContent = "Saved.";
+});
+
+els.shortcutReset.addEventListener("click", async () => {
+  settings.shortcut = Object.assign({}, DEFAULTS.shortcut);
+  render();
+  await save();
+  els.shortcutStatus.textContent = "Reset to default.";
+});
+
+document.querySelectorAll('input[name="scope"]').forEach((r) => {
+  r.addEventListener("change", async () => {
+    if (r.checked) {
+      settings.scope = r.value;
+      await save();
+    }
+  });
+});
+
+els.debug.addEventListener("change", async () => {
+  settings.debug = els.debug.checked;
+  await save();
+});
+
+els.clearBtn.addEventListener("click", async () => {
+  const all = await browser.storage.local.get();
+  const keys = Object.keys(all).filter((k) => k.indexOf("ga:threads:") === 0);
+  if (keys.length) await browser.storage.local.remove(keys);
+  els.clearStatus.textContent =
+    keys.length ? `Deleted threads from ${keys.length} conversation(s).` : "No saved threads.";
+});
+
+load();

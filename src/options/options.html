@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gemini Assist — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Gemini Assist</h1>
+      <p class="sub">Inline follow-up comment threads on gemini.google.com.</p>
+
+      <section class="card">
+        <h2>Keyboard shortcut</h2>
+        <p class="hint">
+          Opens a comment box on the current text selection. (Ctrl+H is reserved by Firefox.)
+        </p>
+        <div class="row">
+          <button id="shortcut-btn" class="shortcut">Ctrl + Shift + H</button>
+          <button id="shortcut-reset" class="ghost">Reset</button>
+        </div>
+        <p id="shortcut-status" class="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Context sent to Gemini</h2>
+        <p class="hint">How much surrounding text is sent with each follow-up.</p>
+        <label class="opt">
+          <input type="radio" name="scope" value="selection" />
+          <span><b>Highlighted text only</b> — smallest request.</span>
+        </label>
+        <label class="opt">
+          <input type="radio" name="scope" value="section" />
+          <span><b>Highlight + its answer section</b> — recommended.</span>
+        </label>
+        <label class="opt">
+          <input type="radio" name="scope" value="conversation" />
+          <span><b>Whole conversation</b> — best grounding, largest request.</span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Data</h2>
+        <p class="hint">Threads are stored locally, separately per conversation.</p>
+        <button id="clear-btn" class="danger">Delete all saved threads</button>
+        <p id="clear-status" class="status"></p>
+      </section>
+
+      <section class="card">
+        <label class="opt inline">
+          <input type="checkbox" id="debug" />
+          <span>Enable debug logging in the console</span>
+        </label>
+      </section>
+
+      <p class="foot">
+        Replies use your logged-in Gemini session via an undocumented endpoint — it may need
+        maintenance if Google changes it. For personal use.
+      </p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
