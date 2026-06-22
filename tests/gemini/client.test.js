@@ -1,0 +1,69 @@
+import { describe, it, expect } from "vitest";
+import { loadGA } from "../helpers/loadGA.js";
+
+// --- helpers to build a scripted StreamGenerate stream -----------------------
+const PREFIX = ")]}'" + "\n\n";
+function frame(text) {
+  const body = [null, ["c_x", "r_x"], null, null, [["rc_x", [text]]]];
+  const item = ["wrb.fr", "f.abc", JSON.stringify(body), null, null, null, "generic"];
+  const line = JSON.stringify([item]);
+  return line.length + "\n" + line + "\n";
+}
+function streamResponse(textChunks, { ok = true, status = 200 } = {}) {
+  let i = 0;
+  return {
+    ok,
+    status,
+    body: {
+      getReader() {
+        return {
+          read() {
+            if (i < textChunks.length)
+              return Promise.resolve({ value: new TextEncoder().encode(textChunks[i++]), done: false });
+            return Promise.resolve({ value: undefined, done: true });
+          },
+        };
+      },
+    },
+  };
+}
+
+function clientWith(fetchFake) {
+  return loadGA(
+    ["src/gemini/parser.js", "src/gemini/payload.js", "src/gemini/client.js"],
+    { fetch: fetchFake }
+  ).client;
+}
+
+const tokens = { at: "AT", bl: "boq", sid: "99" };
+
+describe("client.ask (WebRpcClient transport + streaming)", () => {
+  it("emits growing chunks and resolves with the final answer", async () => {
+    const stream = streamResponse([PREFIX + frame("Hel"), frame("Hello world")]);
+    const client = clientWith(async () => stream);
+    const chunks = [];
+    const out = await client.ask({ prompt: "p", tokens }, (t) => chunks.push(t));
+    expect(out).toBe("Hello world");
+    expect(chunks[chunks.length - 1]).toBe("Hello world");
+  });
+
+  it("throws before fetching when the session token is missing", async () => {
+    let fetched = false;
+    const client = clientWith(async () => {
+      fetched = true;
+      return streamResponse([]);
+    });
+    await expect(client.ask({ prompt: "p", tokens: {} })).rejects.toThrow(/session token/i);
+    expect(fetched).toBe(false);
+  });
+
+  it("throws on a non-OK HTTP response", async () => {
+    const client = clientWith(async () => streamResponse([], { ok: false, status: 429 }));
+    await expect(client.ask({ prompt: "p", tokens })).rejects.toThrow(/429/);
+  });
+
+  it("throws when the response can't be parsed", async () => {
+    const client = clientWith(async () => streamResponse(["totally not batchexecute"]));
+    await expect(client.ask({ prompt: "p", tokens })).rejects.toThrow(/internal API shape/i);
+  });
+});

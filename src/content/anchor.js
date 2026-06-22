@@ -20,38 +20,29 @@ GA.anchor = (function () {
   }
 
   // Returns a Range for the selector within rootEl, or null if not found.
+  // String matching (which occurrence) lives in core/anchor-match.js.
   function locate(selector, rootEl) {
     if (!selector || !selector.exact) return null;
     const full = textOf(rootEl);
-    const idx = bestMatch(full, selector);
+    const idx = GA.core.anchorMatch.bestMatch(full, selector);
     if (idx < 0) return null;
     return rangeFromOffsets(rootEl, idx, idx + selector.exact.length);
   }
 
-  function bestMatch(full, sel) {
-    const exact = sel.exact;
-    const prefix = sel.prefix || "";
-    const suffix = sel.suffix || "";
-    let from = 0,
-      best = -1,
-      bestScore = -1;
-    for (;;) {
-      const i = full.indexOf(exact, from);
-      if (i < 0) break;
-      const pre = full.slice(Math.max(0, i - prefix.length), i);
-      const suf = full.slice(i + exact.length, i + exact.length + suffix.length);
-      const score = commonSuffixLen(pre, prefix) + commonPrefixLen(suf, suffix);
-      if (score > bestScore) {
-        bestScore = score;
-        best = i;
-      }
-      from = i + 1;
-    }
-    return best;
-  }
+  // Skip text inside our own UI (comment boxes, modal, toast). Otherwise a
+  // whole-document re-anchor could match the highlighted phrase where it appears
+  // *inside a comment box* instead of in Gemini's answer.
+  const OWN_UI = ".ga-gutter, .ga-modal-overlay, .ga-toast";
 
   function walker(rootEl) {
-    return document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+    return document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        if (!n.nodeValue) return NodeFilter.FILTER_REJECT;
+        const p = n.parentElement;
+        if (p && p.closest && p.closest(OWN_UI)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
   }
 
   function textOf(rootEl) {
@@ -99,17 +90,6 @@ GA.anchor = (function () {
       pos += n.nodeValue.length;
     }
     return -1; // startContainer is an element node — skip context, keep exact only
-  }
-
-  function commonPrefixLen(a, b) {
-    let i = 0;
-    while (i < a.length && i < b.length && a[i] === b[i]) i++;
-    return i;
-  }
-  function commonSuffixLen(a, b) {
-    let i = 0;
-    while (i < a.length && i < b.length && a[a.length - 1 - i] === b[b.length - 1 - i]) i++;
-    return i;
   }
 
   return { fromRange, locate };

@@ -15,7 +15,7 @@ GA.ThreadBox = function (thread, handlers) {
   const snippet = GA.el("div", {
     class: "ga-box-snippet",
     title: thread.selector && thread.selector.exact,
-    text: GA.truncate(thread.selector && thread.selector.exact, 60),
+    text: GA.truncate(thread.selector && thread.selector.exact, GA.config.SNIPPET_CHARS),
   });
   const spinner = GA.el("div", { class: "ga-spinner", title: "Waiting for Gemini…" });
   const expandBtn = GA.el("button", {
@@ -106,7 +106,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   function autosize() {
     textarea.style.height = "auto";
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+    textarea.style.height = Math.min(textarea.scrollHeight, GA.config.TEXTAREA_MAX_PX) + "px";
     handlers.onResize && handlers.onResize();
   }
 
@@ -143,47 +143,28 @@ GA.ThreadBox = function (thread, handlers) {
     confirmEl.classList.remove("ga-confirm-show");
   }
 
-  async function submit() {
+  // The turn orchestration lives in thread-turn.js; this just wires the view's
+  // side effects to it.
+  function submit() {
     const q = textarea.value.trim();
     if (!q || state.loading) return;
     textarea.value = "";
     autosize();
-    appendMessage("user", q);
-    thread.messages.push({ role: "user", text: q, ts: Date.now() });
-    await safe(handlers.persist, thread);
-
-    setLoading(true);
-    const modelEl = appendMessage("model", "");
-    modelEl.classList.add("ga-msg-streaming");
-    let acc = "";
-    try {
-      const finalText = await handlers.ask(thread, {
-        onChunk(t) {
-          acc = t;
-          renderModelInto(modelEl, acc);
+    GA.threadTurn
+      .run(thread, q, {
+        appendUser: (text) => appendMessage("user", text),
+        beginModel: () => {
+          const el = appendMessage("model", "");
+          el.classList.add("ga-msg-streaming");
+          return el;
         },
-      });
-      acc = finalText || acc;
-      renderModelInto(modelEl, acc);
-      thread.messages.push({ role: "model", text: acc, ts: Date.now() });
-    } catch (err) {
-      const msg = "⚠️ " + (err && err.message ? err.message : "Request failed.");
-      renderModelInto(modelEl, msg);
-      thread.messages.push({ role: "model", text: msg, ts: Date.now(), error: true });
-    } finally {
-      modelEl.classList.remove("ga-msg-streaming");
-      setLoading(false);
-      await safe(handlers.persist, thread);
-      handlers.onResize && handlers.onResize();
-    }
-  }
-
-  function safe(fn, arg) {
-    try {
-      return Promise.resolve(fn && fn(arg));
-    } catch (e) {
-      return Promise.resolve();
-    }
+        renderModel: (el, text) => renderModelInto(el, text),
+        endModel: (el) => el.classList.remove("ga-msg-streaming"),
+        setLoading: setLoading,
+        ask: handlers.ask,
+        persist: handlers.persist,
+      })
+      .then(() => handlers.onResize && handlers.onResize());
   }
 
   // public API used by the gutter / controller

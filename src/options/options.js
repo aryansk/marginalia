@@ -1,10 +1,8 @@
 // options.js — settings page (runs as an extension page, not a content script).
-const SETTINGS_KEY = "ga:settings";
-const DEFAULTS = {
-  scope: "section",
-  shortcut: { ctrl: true, shift: true, alt: false, meta: false, key: "h" },
-  debug: false,
-};
+// Schema comes from shared/settings-schema.js (loaded just before this file).
+const SETTINGS_KEY = GA.schema.SETTINGS_KEY;
+const DEFAULTS = GA.schema.DEFAULT_SETTINGS;
+const THREADS_PREFIX = GA.schema.THREADS_PREFIX;
 
 const els = {
   shortcutBtn: document.getElementById("shortcut-btn"),
@@ -99,7 +97,7 @@ els.debug.addEventListener("change", async () => {
 
 els.clearBtn.addEventListener("click", async () => {
   const all = await browser.storage.local.get();
-  const keys = Object.keys(all).filter((k) => k.indexOf("ga:threads:") === 0);
+  const keys = Object.keys(all).filter((k) => k.indexOf(THREADS_PREFIX) === 0);
   if (keys.length) await browser.storage.local.remove(keys);
   els.clearStatus.textContent =
     keys.length ? `Deleted threads from ${keys.length} conversation(s).` : "No saved threads.";

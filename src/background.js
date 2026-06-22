@@ -2,12 +2,14 @@
 // Network calls live here (not in the content script) because Firefox MV3
 // subjects content-script fetch to the page's CSP; background scripts use the
 // extension's host permissions instead and get the session cookies for free.
-var GA = GA || {};
+// The message/port string contract comes from shared/protocol.js.
+var GA = (typeof GA !== "undefined" && GA) || {};
+const P = GA.protocol;
 
 function setupMenus() {
   browser.contextMenus.removeAll().then(function () {
     browser.contextMenus.create({
-      id: "ga-ask",
+      id: P.CONTEXT_MENU_ID,
       title: 'Ask Gemini about “%s”',
       contexts: ["selection"],
       documentUrlPatterns: ["https://gemini.google.com/*"],
@@ -20,8 +22,8 @@ browser.runtime.onStartup.addListener(setupMenus);
 setupMenus();
 
 browser.contextMenus.onClicked.addListener(function (info, tab) {
-  if (info.menuItemId === "ga-ask" && tab && tab.id != null) {
-    browser.tabs.sendMessage(tab.id, { type: "ga-open-from-context" }).catch(function () {});
+  if (info.menuItemId === P.CONTEXT_MENU_ID && tab && tab.id != null) {
+    browser.tabs.sendMessage(tab.id, { type: P.MSG_OPEN_FROM_CONTEXT }).catch(function () {});
   }
 });
 
@@ -29,7 +31,7 @@ browser.contextMenus.onClicked.addListener(function (info, tab) {
 // subject to the page's CSP, so it works where injecting a <script> would be
 // blocked. Used as a fallback when the content script can't scrape them.
 browser.runtime.onMessage.addListener(function (msg, sender) {
-  if (!msg || msg.type !== "ga-read-tokens" || !sender.tab) return;
+  if (!msg || msg.type !== P.MSG_READ_TOKENS || !sender.tab) return;
   return browser.scripting
     .executeScript({
       target: { tabId: sender.tab.id },
@@ -48,19 +50,19 @@ browser.runtime.onMessage.addListener(function (msg, sender) {
 });
 
 browser.runtime.onConnect.addListener(function (port) {
-  if (port.name !== "ga-ask") return;
+  if (port.name !== P.PORT_ASK) return;
   port.onMessage.addListener(async function (msg) {
-    if (!msg || msg.type !== "ask") return;
+    if (!msg || msg.type !== P.MSG_ASK) return;
     try {
       const text = await GA.client.ask({ prompt: msg.prompt, tokens: msg.tokens }, function (t) {
         try {
-          port.postMessage({ type: "chunk", text: t });
+          port.postMessage({ type: P.MSG_CHUNK, text: t });
         } catch (e) {}
       });
-      port.postMessage({ type: "done", text });
+      port.postMessage({ type: P.MSG_DONE, text });
     } catch (e) {
       try {
-        port.postMessage({ type: "error", message: e && e.message ? e.message : String(e) });
+        port.postMessage({ type: P.MSG_ERROR, message: e && e.message ? e.message : String(e) });
       } catch (e2) {}
     }
   });

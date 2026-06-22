@@ -5,10 +5,16 @@
   "description": "Firefox extension: inline follow-up comment threads on gemini.google.com",
   "scripts": {
     "start": "web-ext run --target=firefox-desktop --url=https://gemini.google.com/app",
-    "lint": "web-ext lint --ignore-files test \"test/**\"",
-    "build": "web-ext build --overwrite-dest --ignore-files test \"test/**\" package.json package-lock.json README.md mise.toml"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "lint": "web-ext lint --ignore-files tests \"tests/**\" vitest.config.js coverage \"coverage/**\"",
+    "build": "web-ext build --overwrite-dest --ignore-files tests \"tests/**\" vitest.config.js coverage \"coverage/**\" package.json package-lock.json README.md mise.toml"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.9",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.9",
     "web-ext": "^8.3.0"
   }
 }

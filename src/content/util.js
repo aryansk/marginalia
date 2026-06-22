@@ -3,15 +3,10 @@
 // so `GA` is shared across files. `var GA = GA || {}` is safe to repeat per file.
 var GA = GA || {};
 
-GA.SETTINGS_KEY = "ga:settings";
-GA.DEFAULT_SETTINGS = {
-  // Context sent to Gemini with each follow-up: 'section' | 'selection' | 'conversation'
-  scope: "section",
-  // Configurable shortcut to open a comment box on the current selection.
-  // Default Ctrl+Shift+H (Ctrl+H is reserved by Firefox for History).
-  shortcut: { ctrl: true, shift: true, alt: false, meta: false, key: "h" },
-  debug: false,
-};
+// Settings shape lives in shared/settings-schema.js (one source of truth across
+// the content script, background, and options page).
+GA.SETTINGS_KEY = GA.schema.SETTINGS_KEY;
+GA.DEFAULT_SETTINGS = GA.schema.DEFAULT_SETTINGS;
 
 GA.settings = Object.assign({}, GA.DEFAULT_SETTINGS);
 
@@ -41,9 +36,9 @@ GA.uid = function (prefix) {
 };
 
 // Session id = the <id> segment of /app/<id>. Strict per-conversation scoping.
+// (Parsing lives in core/session.js so it's unit-testable.)
 GA.getSessionId = function () {
-  const m = location.pathname.match(/\/app\/([^/?#]+)/);
-  return m ? decodeURIComponent(m[1]) : null;
+  return GA.core.session.getSessionId(location.pathname);
 };
 
 // Tiny DOM builder. Never injects raw HTML — text is set via textContent.
@@ -87,5 +82,5 @@ GA.toast = function (msg) {
   clearTimeout(GA._toastTimer);
   GA._toastTimer = setTimeout(function () {
     t.classList.remove("ga-toast-show");
-  }, 2600);
+  }, GA.config.TOAST_MS);
 };

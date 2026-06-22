@@ -3,8 +3,8 @@
 var GA = GA || {};
 
 GA.store = (function () {
-  const PREFIX = "ga:threads:";
-  const DRAFT = "__draft__"; // used before a brand-new chat has an /app/<id>
+  const PREFIX = GA.schema.THREADS_PREFIX;
+  const DRAFT = GA.schema.DRAFT_SESSION; // used before a brand-new chat has an /app/<id>
 
   function key(sessionId) {
     return PREFIX + (sessionId || DRAFT);

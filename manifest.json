@@ -20,20 +20,42 @@
   "permissions": ["contextMenus", "storage", "scripting"],
   "host_permissions": ["https://gemini.google.com/*"],
   "background": {
-    "scripts": ["src/gemini/client.js", "src/background.js"]
+    "scripts": [
+      "src/shared/protocol.js",
+      "src/gemini/parser.js",
+      "src/gemini/payload.js",
+      "src/gemini/client.js",
+      "src/background.js"
+    ]
   },
   "content_scripts": [
     {
       "matches": ["https://gemini.google.com/*"],
       "js": [
+        "src/shared/settings-schema.js",
+        "src/shared/protocol.js",
+        "src/shared/config.js",
+        "src/core/session.js",
+        "src/core/tokens.js",
+        "src/core/prompt.js",
+        "src/core/anchor-match.js",
+        "src/core/markdown-ast.js",
+        "src/core/layout-engine.js",
         "src/content/util.js",
         "src/content/store.js",
         "src/content/markdown.js",
         "src/content/anchor.js",
         "src/content/selection.js",
+        "src/content/thread-turn.js",
         "src/content/thread-ui.js",
         "src/content/modal.js",
         "src/content/gutter.js",
+        "src/content/token-provider.js",
+        "src/content/gemini-service.js",
+        "src/content/triggers.js",
+        "src/content/navigation.js",
+        "src/content/reanchorer.js",
+        "src/content/thread-controller.js",
         "src/content/content.js"
       ],
       "css": ["src/styles/content.css"],

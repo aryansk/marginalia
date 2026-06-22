@@ -91,8 +91,19 @@ GA.selection = (function () {
   }
 
   function highlightSelector(selector, threadId) {
-    for (const section of findAllSections()) {
+    const sections = findAllSections();
+    for (const section of sections) {
       const range = GA.anchor.locate(selector, section);
+      if (range) {
+        const spans = highlightRange(range, threadId);
+        if (spans.length) return spans;
+      }
+    }
+    // Fallback: search the whole document. The section selectors are heuristic,
+    // so the highlight may live in a container none of them matched. anchor.js
+    // already skips our own UI text, so this won't match inside a comment box.
+    if (!(sections.length === 1 && sections[0] === document.body)) {
+      const range = GA.anchor.locate(selector, document.body);
       if (range) {
         const spans = highlightRange(range, threadId);
         if (spans.length) return spans;
