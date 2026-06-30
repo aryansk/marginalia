@@ -3,22 +3,17 @@
 var GA = GA || {};
 
 GA.selection = (function () {
-  // Candidate selectors for a Gemini model-answer container. The exact DOM
-  // changes over time; we try several and fall back to the nearest big block.
-  // Confirm/extend against the live page (see plan).
-  GA.GEMINI_RESPONSE_SELECTORS = [
-    "message-content",
-    "model-response",
-    ".model-response-text",
-    '[data-message-author-role="model"]',
-    ".markdown",
-    ".response-container-content",
-  ];
+  // Candidate selectors for the current site's model-answer container. The exact
+  // DOM changes over time; we try several and fall back to the nearest big block.
+  // The per-site lists live in core/sites.js; confirm/extend against the live page.
+  function responseSelectors() {
+    return GA.core.sites.responseSelectors(GA.provider);
+  }
 
   function findSection(node) {
     let el = node.nodeType === 3 ? node.parentElement : node;
     if (!el) return document.body;
-    for (const sel of GA.GEMINI_RESPONSE_SELECTORS) {
+    for (const sel of responseSelectors()) {
       const match = el.closest(sel);
       if (match) return match;
     }
@@ -32,7 +27,7 @@ GA.selection = (function () {
 
   function findAllSections() {
     const set = new Set();
-    for (const sel of GA.GEMINI_RESPONSE_SELECTORS)
+    for (const sel of responseSelectors())
       document.querySelectorAll(sel).forEach((e) => set.add(e));
     return set.size ? Array.from(set) : [document.body];
   }

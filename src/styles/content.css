@@ -191,6 +191,15 @@
   color: var(--ga-fg);
 }
 
+/* minimized: collapse the box to just its header */
+.ga-box.ga-collapsed .ga-messages,
+.ga-box.ga-collapsed .ga-composer {
+  display: none;
+}
+.ga-box.ga-collapsed .ga-box-header {
+  border-bottom: none;
+}
+
 /* top-right loading spinner */
 .ga-spinner {
   width: 14px;

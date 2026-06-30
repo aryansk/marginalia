@@ -1,13 +1,20 @@
 // store.js — persistence in browser.storage.local, keyed strictly by session id.
-// Threads from one Gemini conversation (/app/<id>) never bleed into another.
+// Threads from one conversation never bleed into another; the session id is
+// already provider-qualified ("<provider>:<id>", see util.js), and the pre-id
+// draft bucket is namespaced per provider so two sites can't collide.
 var GA = GA || {};
 
 GA.store = (function () {
   const PREFIX = GA.schema.THREADS_PREFIX;
-  const DRAFT = GA.schema.DRAFT_SESSION; // used before a brand-new chat has an /app/<id>
+  const DRAFT = GA.schema.DRAFT_SESSION; // used before a brand-new chat has an id
+
+  // Draft bucket for the current site, e.g. "__draft__:chatgpt".
+  function draftKey() {
+    return DRAFT + ":" + (GA.provider || "x");
+  }
 
   function key(sessionId) {
-    return PREFIX + (sessionId || DRAFT);
+    return PREFIX + (sessionId || draftKey());
   }
 
   async function load(sessionId) {

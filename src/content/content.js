@@ -1,6 +1,6 @@
 // content.js — the entry point. It just wires the collaborators together; all
 // the real work lives in focused modules (thread-controller, triggers,
-// navigation, reanchorer, gutter, token-provider, gemini-service).
+// navigation, reanchorer, gutter, token-provider, ask-service).
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 (function () {

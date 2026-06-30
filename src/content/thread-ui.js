@@ -7,7 +7,7 @@ var GA = GA || {};
 // handlers: { ask(thread,{onChunk})->Promise<string>, persist(thread),
 //             onDelete(thread), onFocus(thread), onExpand(thread), onResize() }
 GA.ThreadBox = function (thread, handlers) {
-  const state = { loading: false };
+  const state = { loading: false, collapsed: false };
 
   const root = GA.el("div", { class: "ga-box", tabindex: "0", dataset: { gaThread: thread.id } });
 
@@ -17,7 +17,16 @@ GA.ThreadBox = function (thread, handlers) {
     title: thread.selector && thread.selector.exact,
     text: GA.truncate(thread.selector && thread.selector.exact, GA.config.SNIPPET_CHARS),
   });
-  const spinner = GA.el("div", { class: "ga-spinner", title: "Waiting for Gemini…" });
+  const spinner = GA.el("div", { class: "ga-spinner", title: "Waiting for a reply…" });
+  const minimizeBtn = GA.el("button", {
+    class: "ga-iconbtn ga-minbtn",
+    title: "Minimize",
+    text: "–",
+    onclick: function (e) {
+      e.stopPropagation();
+      setCollapsed(!state.collapsed);
+    },
+  });
   const expandBtn = GA.el("button", {
     class: "ga-iconbtn",
     title: "Expand to full view",
@@ -38,7 +47,7 @@ GA.ThreadBox = function (thread, handlers) {
   });
   const header = GA.el("div", { class: "ga-box-header" }, [
     snippet,
-    GA.el("div", { class: "ga-box-actions" }, [spinner, expandBtn, delBtn]),
+    GA.el("div", { class: "ga-box-actions" }, [spinner, minimizeBtn, expandBtn, delBtn]),
   ]);
 
   // ---- messages ----
@@ -104,6 +113,9 @@ GA.ThreadBox = function (thread, handlers) {
   // render any existing history (restored threads)
   (thread.messages || []).forEach((m) => appendMessage(m.role, m.text));
 
+  // restore a previously-minimized box (don't persist — nothing changed)
+  if (thread.collapsed) setCollapsed(true, false);
+
   function autosize() {
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, GA.config.TEXTAREA_MAX_PX) + "px";
@@ -136,6 +148,19 @@ GA.ThreadBox = function (thread, handlers) {
     sendBtn.disabled = v;
   }
 
+  // Minimized = a third window state: collapse the box to just its header.
+  // (normal ⇄ minimized; the expand button still opens the full modal.)
+  // `persist` is optional so the initial restore doesn't write back unchanged.
+  function setCollapsed(v, persist) {
+    state.collapsed = !!v;
+    root.classList.toggle("ga-collapsed", state.collapsed);
+    minimizeBtn.textContent = state.collapsed ? "▢" : "–";
+    minimizeBtn.title = state.collapsed ? "Restore" : "Minimize";
+    thread.collapsed = state.collapsed;
+    if (persist !== false) handlers.persist && handlers.persist(thread);
+    handlers.onResize && handlers.onResize();
+  }
+
   function askDelete() {
     confirmEl.classList.add("ga-confirm-show");
   }
@@ -150,6 +175,18 @@ GA.ThreadBox = function (thread, handlers) {
     if (!q || state.loading) return;
     textarea.value = "";
     autosize();
+
+    // Coalesce streamed re-renders to at most one per animation frame. Each
+    // render rebuilds the whole markdown subtree; a fast stream (e.g. Claude
+    // bursts many chunks per frame) otherwise flickers and stutters.
+    let pending = null;
+    let frame = 0;
+    function flush(el) {
+      frame = 0;
+      if (pending == null) return;
+      renderModelInto(el, pending);
+      pending = null;
+    }
     GA.threadTurn
       .run(thread, q, {
         appendUser: (text) => appendMessage("user", text),
@@ -158,8 +195,15 @@ GA.ThreadBox = function (thread, handlers) {
           el.classList.add("ga-msg-streaming");
           return el;
         },
-        renderModel: (el, text) => renderModelInto(el, text),
-        endModel: (el) => el.classList.remove("ga-msg-streaming"),
+        renderModel: (el, text) => {
+          pending = text;
+          if (!frame) frame = requestAnimationFrame(() => flush(el));
+        },
+        endModel: (el) => {
+          if (frame) cancelAnimationFrame(frame);
+          flush(el); // guarantee the final text is rendered
+          el.classList.remove("ga-msg-streaming");
+        },
         setLoading: setLoading,
         ask: handlers.ask,
         persist: handlers.persist,

@@ -35,10 +35,17 @@ GA.uid = function (prefix) {
   return (prefix || "t") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 };
 
-// Session id = the <id> segment of /app/<id>. Strict per-conversation scoping.
-// (Parsing lives in core/session.js so it's unit-testable.)
+// Which AI site we're on ("gemini" | "chatgpt" | "claude" | null), derived once
+// from the host. Drives the backend client, the answer selectors, and the
+// per-conversation storage key. (Registry lives in core/sites.js, unit-testable.)
+GA.provider = GA.core.sites.providerForHost(location.hostname);
+
+// Storage key for the current conversation: "<provider>:<id>", or null before a
+// chat has an id (the store then uses a per-provider draft bucket). Qualifying by
+// provider keeps two sites' conversation ids from colliding in one storage area.
 GA.getSessionId = function () {
-  return GA.core.session.getSessionId(location.pathname);
+  const id = GA.core.sites.sessionIdFromPath(GA.provider, location.pathname);
+  return id ? GA.provider + ":" + id : null;
 };
 
 // Tiny DOM builder. Never injects raw HTML — text is set via textContent.

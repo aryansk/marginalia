@@ -1,9 +1,10 @@
-// gemini-service.js — Facade over the background "ask" port. Callers get a
-// simple `ask({prompt, tokens}, onChunk) -> Promise<string>` and never see the
-// runtime port or the message protocol.
+// ask-service.js — Facade over the background "ask" port. Callers get a simple
+// `ask({provider, prompt, tokens}, onChunk) -> Promise<string>` and never see the
+// runtime port or the message protocol. The background routes to the right
+// backend client by `provider` (see background/clients.js).
 var GA = (typeof GA !== "undefined" && GA) || {};
 
-GA.geminiService = (function () {
+GA.askService = (function () {
   const P = GA.protocol;
 
   function ask(request, onChunk) {
@@ -29,7 +30,12 @@ GA.geminiService = (function () {
       port.onDisconnect.addListener(function () {
         if (!settled) reject(new Error("Connection to extension closed."));
       });
-      port.postMessage({ type: P.MSG_ASK, prompt: request.prompt, tokens: request.tokens });
+      port.postMessage({
+        type: P.MSG_ASK,
+        provider: request.provider,
+        prompt: request.prompt,
+        tokens: request.tokens,
+      });
     });
   }
 

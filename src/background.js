@@ -7,12 +7,19 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 const P = GA.protocol;
 
 function setupMenus() {
-  browser.contextMenus.removeAll().then(function () {
+  // Promise.resolve() so this works on Chrome too, where contextMenus.removeAll
+  // may invoke a callback rather than return a promise.
+  Promise.resolve(browser.contextMenus.removeAll()).then(function () {
     browser.contextMenus.create({
       id: P.CONTEXT_MENU_ID,
-      title: 'Ask Gemini about “%s”',
+      title: 'Ask about “%s”',
       contexts: ["selection"],
-      documentUrlPatterns: ["https://gemini.google.com/*"],
+      documentUrlPatterns: [
+        "https://gemini.google.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+      ],
     });
   });
 }
@@ -54,7 +61,8 @@ browser.runtime.onConnect.addListener(function (port) {
   port.onMessage.addListener(async function (msg) {
     if (!msg || msg.type !== P.MSG_ASK) return;
     try {
-      const text = await GA.client.ask({ prompt: msg.prompt, tokens: msg.tokens }, function (t) {
+      const client = GA.clientFor(msg.provider);
+      const text = await client.ask({ prompt: msg.prompt, tokens: msg.tokens }, function (t) {
         try {
           port.postMessage({ type: P.MSG_CHUNK, text: t });
         } catch (e) {}

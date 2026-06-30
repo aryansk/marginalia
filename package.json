@@ -2,14 +2,18 @@
   "name": "gemini-assist",
   "version": "0.1.0",
   "private": true,
-  "description": "Firefox extension: inline follow-up comment threads on gemini.google.com",
+  "description": "Browser extension (Firefox + Chrome): inline follow-up comment threads on Gemini, ChatGPT and Claude",
   "scripts": {
-    "start": "web-ext run --target=firefox-desktop --url=https://gemini.google.com/app",
+    "start": "npm run start:firefox",
+    "start:firefox": "web-ext run --target=firefox-desktop --url=https://gemini.google.com/app",
+    "start:chrome": "node build.js chrome && web-ext run --target=chromium --source-dir dist/chrome --url=https://gemini.google.com/app",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "lint": "web-ext lint --ignore-files tests \"tests/**\" vitest.config.js coverage \"coverage/**\"",
-    "build": "web-ext build --overwrite-dest --ignore-files tests \"tests/**\" vitest.config.js coverage \"coverage/**\" package.json package-lock.json README.md mise.toml"
+    "lint": "node build.js firefox && web-ext lint --source-dir dist/firefox",
+    "build": "npm run build:firefox && npm run build:chrome",
+    "build:firefox": "node build.js firefox && web-ext build --overwrite-dest --source-dir dist/firefox --artifacts-dir web-ext-artifacts/firefox",
+    "build:chrome": "node build.js chrome && web-ext build --overwrite-dest --source-dir dist/chrome --artifacts-dir web-ext-artifacts/chrome"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.9",

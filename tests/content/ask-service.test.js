@@ -26,12 +26,12 @@ function fakeBrowser(script) {
 }
 
 function service(script) {
-  return loadGA(["src/shared/protocol.js", "src/content/gemini-service.js"], {
+  return loadGA(["src/shared/protocol.js", "src/content/ask-service.js"], {
     browser: fakeBrowser(script),
-  }).geminiService;
+  }).askService;
 }
 
-describe("geminiService.ask (Facade over the ask port)", () => {
+describe("askService.ask (Facade over the ask port)", () => {
   it("streams chunks then resolves with the final answer", async () => {
     const svc = service((req, send) => {
       send({ type: "chunk", text: "Hel" });
@@ -57,13 +57,18 @@ describe("geminiService.ask (Facade over the ask port)", () => {
     await expect(svc.ask({ prompt: "p" })).rejects.toThrow("boom");
   });
 
-  it("forwards the prompt + tokens over the port", async () => {
+  it("forwards the provider + prompt + tokens over the port", async () => {
     let seen = null;
     const svc = service((req, send) => {
       seen = req;
       send({ type: "done", text: "ok" });
     });
-    await svc.ask({ prompt: "why 8kb?", tokens: { at: "AT" } });
-    expect(seen).toMatchObject({ type: "ask", prompt: "why 8kb?", tokens: { at: "AT" } });
+    await svc.ask({ provider: "claude", prompt: "why 8kb?", tokens: { at: "AT" } });
+    expect(seen).toMatchObject({
+      type: "ask",
+      provider: "claude",
+      prompt: "why 8kb?",
+      tokens: { at: "AT" },
+    });
   });
 });

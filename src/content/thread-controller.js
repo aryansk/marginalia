@@ -119,8 +119,13 @@ GA.threadController = (function () {
   }
 
   async function askThread(thread, opts) {
-    const tokens = await GA.tokenProvider.get();
-    return GA.geminiService.ask({ prompt: composePrompt(thread), tokens }, opts && opts.onChunk);
+    // Only Gemini needs page-scraped session tokens; ChatGPT/Claude acquire their
+    // own auth in the background client.
+    const tokens = GA.provider === "gemini" ? await GA.tokenProvider.get() : undefined;
+    return GA.askService.ask(
+      { provider: GA.provider, prompt: composePrompt(thread), tokens },
+      opts && opts.onChunk
+    );
   }
 
   return {

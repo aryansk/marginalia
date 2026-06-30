@@ -5,7 +5,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.protocol = {
   PORT_ASK: "ga-ask", // runtime.connect port name for streamed asks
-  MSG_ASK: "ask", // content -> bg over the port: {prompt, tokens}
+  MSG_ASK: "ask", // content -> bg over the port: {provider, prompt, tokens?}
   MSG_CHUNK: "chunk", // bg -> content: partial answer
   MSG_DONE: "done", // bg -> content: final answer
   MSG_ERROR: "error", // bg -> content: failure

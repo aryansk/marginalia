@@ -3,19 +3,11 @@
   "name": "Gemini Assist",
   "version": "0.1.0",
   "description": "Inline Google-Docs-style follow-up comment threads on Gemini, ChatGPT and Claude — highlight text, ask in the margin, keep your place.",
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "gemini-assist@local",
-      "strict_min_version": "142.0",
-      "data_collection_permissions": {
-        "required": ["websiteContent"]
-      }
-    }
-  },
   "icons": {
-    "48": "icons/icon.svg",
-    "96": "icons/icon.svg",
-    "128": "icons/icon.svg"
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "permissions": ["contextMenus", "storage", "scripting"],
   "host_permissions": [
@@ -25,22 +17,7 @@
     "https://claude.ai/*"
   ],
   "background": {
-    "scripts": [
-      "src/shared/browser-polyfill.js",
-      "src/shared/protocol.js",
-      "src/gemini/parser.js",
-      "src/gemini/payload.js",
-      "src/gemini/client.js",
-      "src/chatgpt/sha3.js",
-      "src/chatgpt/parser.js",
-      "src/chatgpt/payload.js",
-      "src/chatgpt/client.js",
-      "src/claude/parser.js",
-      "src/claude/payload.js",
-      "src/claude/client.js",
-      "src/background/clients.js",
-      "src/background.js"
-    ]
+    "service_worker": "src/sw.js"
   },
   "content_scripts": [
     {
@@ -87,7 +64,10 @@
     "open_in_tab": true
   },
   "action": {
-    "default_icon": "icons/icon.svg",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    },
     "default_title": "Gemini Assist — settings",
     "default_popup": "src/options/options.html"
   }

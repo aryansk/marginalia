@@ -1,35 +1,43 @@
 # Gemini Assist
 
-A Firefox extension that adds **Google-Docs-style margin comment threads** to
-[gemini.google.com](https://gemini.google.com).
+A browser extension (**Firefox + Chrome**) that adds **Google-Docs-style margin
+comment threads** to the major AI chat sites — [Gemini](https://gemini.google.com),
+[ChatGPT](https://chatgpt.com), and [Claude](https://claude.ai).
 
-When Gemini gives a long answer and you want to drill into one phrase, you no
+When the AI gives a long answer and you want to drill into one phrase, you no
 longer have to ask in the main chat (and bury the original answer). Instead:
 
 1. **Highlight** the phrase (e.g. _"8 KB page"_).
-2. **Right-click → "Ask Gemini about …"**, or press **Ctrl + Shift + H**.
+2. **Right-click → "Ask about …"**, or press **Ctrl + Shift + H**.
 3. A comment box opens **in the right margin, level with your highlight**.
 4. Ask your follow-up. The reply streams **into the box** — your main chat is untouched.
 5. Keep the conversation going; the box re-sends the full thread each turn.
 
-Threads are multi-turn, height-capped (scroll inside, or **expand to a modal**),
-**persist per conversation**, and re-anchor to their highlight on reload.
+The follow-up is answered by **the same AI you're on** (ask Claude on claude.ai,
+GPT on chatgpt.com, Gemini on gemini.google.com).
 
-## How it talks to Gemini
+Threads are multi-turn, height-capped, **persist per conversation (and per site)**,
+and re-anchor to their highlight on reload. Each box has three states:
+**minimize** to collapse it to just its header, normal docked, or **maximize** to
+a full-screen modal.
 
-It reuses your **already-logged-in session** — no API key. Because the code runs
-on gemini.google.com, your session cookies attach automatically; the extension
-only reads the page's anti-CSRF token and replays Gemini's internal
-`StreamGenerate` endpoint from the background script.
+## How it talks to each AI
 
-> ⚠️ **That endpoint is undocumented.** Google can change its request/response
-> shape without notice, which would break replies until updated. All the fragile
-> bits are isolated in two small, unit-tested modules:
-> [`src/gemini/payload.js`](src/gemini/payload.js) (the `f.req` request) and
-> [`src/gemini/parser.js`](src/gemini/parser.js) (the response). If replies stop:
-> open DevTools → Network on gemini.google.com, send a normal message, inspect the
-> `StreamGenerate` request's `f.req` field + the response, and adjust
-> `buildBody()` / `parseLatest()` to match. Built for personal use.
+It reuses your **already-logged-in session on each site** — no API keys. Your
+session cookies attach automatically; the extension reads the page's auth token
+and replays that site's own internal streaming endpoint from the background
+script. Which backend answers is chosen by the current host (see
+[`src/core/sites.js`](src/core/sites.js)); the per-site clients live in
+`src/gemini/`, `src/chatgpt/`, and `src/claude/`.
+
+> ⚠️ **Those endpoints are undocumented and reverse-engineered.** Each vendor can
+> change its request/response shape without notice, which would break replies
+> until updated. All the fragile bits per site are isolated in two small,
+> unit-tested modules — `payload.js` (request) and `parser.js` (response) — plus a
+> thin `client.js` (transport/auth). If replies stop on a site: open DevTools →
+> Network there, send a normal message, inspect the streaming request + response,
+> and adjust that provider's `payload.js` / `parser.js` to match. Built for
+> personal use.
 
 ## Build & install
 
@@ -39,29 +47,42 @@ only reads the page's anti-CSRF token and replays Gemini's internal
 npm install        # installs web-ext locally; Node 24 comes from mise
 ```
 
+One source tree builds both browsers. The only differences are the manifest
+(`manifest.json` for Firefox, `manifest.chrome.json` for Chrome) and the
+background entry (Firefox `background.scripts`, Chrome `src/sw.js` service
+worker); a tiny [`src/shared/browser-polyfill.js`](src/shared/browser-polyfill.js)
+aliases `browser` → `chrome`. [`build.js`](build.js) assembles `dist/firefox` and
+`dist/chrome` from `src/` + `icons/`.
+
 ### A. Run it for development (temporary, auto-reload)
 
-Easiest while hacking. The add-on disappears when Firefox closes.
+Easiest while hacking; the add-on disappears when the browser closes.
 
 ```bash
-npm start          # = web-ext run … : launches Firefox with the extension loaded
+npm start          # Firefox  (= web-ext run, loads this folder)
+npm run start:chrome  # Chrome/Chromium (assembles dist/chrome, then web-ext run)
 ```
 
-Or load it by hand into your normal Firefox:
+Or load it by hand:
 
-1. Open `about:debugging#/runtime/this-firefox`.
-2. **Load Temporary Add-on…** → pick this folder's `manifest.json`.
-3. Open gemini.google.com (logged in) and try it.
+- **Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary
+  Add-on…** → pick this folder's `manifest.json`.
+- **Chrome** — run `npm run build:chrome`, then `chrome://extensions` → enable
+  **Developer mode** → **Load unpacked** → pick `dist/chrome`.
 
-`npm run lint` validates the manifest/code before you ship.
+Then open a logged-in Gemini / ChatGPT / Claude tab and try it.
+`npm run lint` validates the (Firefox) manifest/code before you ship.
 
-### B. Build a distributable package
+### B. Build distributable packages
 
 ```bash
-npm run build      # = web-ext build … : writes web-ext-artifacts/gemini_assist-<version>.zip
+npm run build          # both -> web-ext-artifacts/{firefox,chrome}/gemini_assist-<version>.zip
+npm run build:firefox  # just Firefox
+npm run build:chrome   # just Chrome
 ```
 
-That `.zip` is the packaged extension (rename to `.xpi` to install it as a file).
+The Firefox `.zip` can be renamed to `.xpi` to install as a file; the Chrome
+`.zip` (or the `dist/chrome` folder) loads via **Load unpacked**.
 
 ### C. Install the package permanently
 
@@ -109,35 +130,40 @@ that delegate to the core. A tiny UMD footer on each core module lets Node/Vites
 import it while the browser still loads it as a `GA`-global content script.
 
 ```
-manifest.json              MV3 (Firefox)
+manifest.json              MV3, Firefox (background.scripts)
+manifest.chrome.json       MV3, Chrome  (background.service_worker)
+build.js                   assemble dist/{firefox,chrome} from src/ + icons/
 src/
+  sw.js                    Chrome service-worker entry (importScripts the bg modules)
   shared/                  one source of truth, shared across contexts
+    browser-polyfill.js      alias browser -> chrome (loaded first everywhere)
     protocol.js              message + port name constants (content <-> background)
     settings-schema.js       settings keys + defaults (content, background, options)
     config.js                named timing/size constants (no magic numbers)
   core/                    PURE, no DOM/IO — unit-tested directly
-    session.js               getSessionId(pathname)
-    tokens.js                scrape session tokens from inline-script text
+    sites.js                 site registry: host -> provider, session id, answer selectors
+    tokens.js                scrape session tokens from inline-script text (Gemini)
     prompt.js                compose the prompt (+ context-scope Strategy)
     anchor-match.js          TextQuoteSelector best-match scoring
     markdown-ast.js          markdown -> AST (Interpreter; the grammar)
     layout-engine.js         margin layout math: placement, height-share, orphan cluster
-  gemini/
-    parser.js                PURE: StreamGenerate (batchexecute) response -> answer
-    payload.js               PURE: build the f.req body + request URL
-    client.js                WebRpcClient strategy: transport + streaming only
+  gemini/ chatgpt/ claude/  one backend client per site, same `ask()` interface
+    parser.js                PURE: that site's streaming response -> answer
+    payload.js               PURE: build that site's request body + URLs
+    client.js                strategy: transport + auth + streaming only
+  background/clients.js    provider -> client registry (the ask router looks up here)
   content/                 imperative shell (DOM/IO; GA-global)
-    util.js                  namespace, settings load, DOM builder, toast
-    store.js                 storage.local, keyed strictly by /app/<id> session
+    util.js                  namespace, settings load, GA.provider, DOM builder, toast
+    store.js                 storage.local, keyed by "<provider>:<id>" conversation
     markdown.js              render the markdown AST -> DOM (XSS-safe)
     anchor.js                Range <-> offset mapping + TreeWalker (uses anchor-match)
     selection.js             capture selection, wrap/unwrap highlight spans
     thread-turn.js           presenter for one Q&A turn (testable with fakes)
-    thread-ui.js             one comment box (view)
+    thread-ui.js             one comment box (view): minimize / normal / maximize
     modal.js                 full-screen thread view
     gutter.js                margin VIEW: reads the page, applies layout-engine output
     token-provider.js        get session tokens (scrape + MAIN-world fallback + cache)
-    gemini-service.js        Facade over the background ask port
+    ask-service.js           Facade over the background ask port (tags each ask w/ provider)
     triggers.js              context-menu + keyboard shortcut
     navigation.js            SPA route-change detection
     reanchorer.js            re-anchor orphans on mutation/scroll
@@ -146,7 +172,7 @@ src/
   background.js            context menu + ask router; network call; MAIN-world token read
   options/                 settings page
   styles/content.css       all namespaced ga-* styles
-icons/icon.svg
+icons/icon.svg + icon-{16,32,48,128}.png   (PNGs for Chrome; SVG for Firefox)
 tests/                     Vitest specs (pure: node; DOM: jsdom via tests/helpers/loadGA.js)
 ```
 
@@ -155,13 +181,15 @@ tests/                     Vitest specs (pure: node; DOM: jsdom via tests/helper
 ```bash
 npm test            # vitest run (pure cores in node, DOM modules in jsdom)
 npm run test:watch  # watch mode
-npm run test:cov    # coverage (core/* and gemini/parser|payload are ~100%)
+npm run test:cov    # coverage (core/* and each provider's parser|payload are ~100%)
 ```
 
 ## Known limitations
 
-- Selectors for Gemini's answer container (`GEMINI_RESPONSE_SELECTORS` in
-  `selection.js`) are heuristic; extend them if anchoring misses.
+- Selectors for each site's answer container (`responseSelectors` in
+  `core/sites.js`) are heuristic; extend them if anchoring misses. The ChatGPT and
+  Claude backends are reverse-engineered and may need re-tuning when those sites
+  change their internals (see "How it talks to each AI").
 - On narrow windows with no empty right margin, boxes overlap the chat (a
   marker-collapse fallback is planned).
 - A thread whose highlight isn't in the DOM (page still loading, or the answer
