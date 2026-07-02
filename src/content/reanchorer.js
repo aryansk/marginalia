@@ -14,7 +14,10 @@ GA.reanchorer = (function () {
     function onFrame() {
       if (ctx.checkNav) ctx.checkNav();
       if (ctx.hasOrphans()) ctx.reanchor();
-      else GA.gutter.scheduleLayout(); // anchors may have moved even with no orphans
+      // Anchors may have moved even with no orphans. Mode-aware: JS mode does a
+      // full relayout; CSS-anchored mode (Chrome) lets the compositor follow
+      // and only refreshes cues + debounces a settle pass.
+      else GA.gutter.onAnchorsMoved();
     }
 
     const obs = new MutationObserver(function () {

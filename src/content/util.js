@@ -94,6 +94,24 @@ GA.truncate = function (s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
+// Whether the browser supports CSS Anchor Positioning (Chrome 125+). When it
+// does, the gutter lets the compositor glue boxes to their highlights during
+// scroll instead of repositioning them from JavaScript every frame.
+GA.supportsCssAnchor = (function () {
+  let cached = null;
+  return function () {
+    if (cached === null) {
+      cached = !!(
+        window.CSS &&
+        CSS.supports &&
+        CSS.supports("anchor-name: --ga-probe") &&
+        CSS.supports("top: anchor(top, 0px)")
+      );
+    }
+    return cached;
+  };
+})();
+
 // Copy text to the clipboard with a confirming toast. Clipboard access can be
 // denied on some pages — fall back to a quiet failure toast.
 GA.copyText = function (text) {

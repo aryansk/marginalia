@@ -112,6 +112,7 @@
 .ga-box {
   position: absolute;
   left: 0;
+  top: 0;
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -123,8 +124,17 @@
   border-radius: 12px;
   box-shadow: var(--ga-shadow);
   pointer-events: auto;
-  transition: top 0.18s ease, opacity 0.15s ease, transform 0.15s ease;
+  /* Positioned via --ga-y (gutter.js write phase): a transform is compositor-
+     cheap, unlike per-frame `top` writes which force layout. NO position
+     transition here — scroll-driven repositioning must be instant or the box
+     visibly trails its highlight (rubber-band drag). Deliberate layout shifts
+     (focus, add/remove, collapse) opt in via .ga-animate on the gutter. */
+  transform: translateY(var(--ga-y, 0px)) scale(var(--ga-scale, 1));
+  transition: opacity 0.15s ease;
   overflow: hidden;
+}
+.ga-gutter.ga-animate .ga-box {
+  transition: transform 0.18s ease, opacity 0.15s ease;
 }
 .ga-box.ga-active {
   border-color: var(--ga-accent);
@@ -136,7 +146,7 @@
 }
 .ga-box.ga-dimmed {
   opacity: 0.6;
-  transform: scale(0.985);
+  --ga-scale: 0.985; /* composed into the shared transform — never set `transform` directly */
 }
 .ga-box.ga-dimmed:hover,
 .ga-box.ga-dimmed.ga-hover {
@@ -151,6 +161,16 @@
   width: 100%;
   margin-bottom: 10px;
   max-height: none;
+  transform: none; /* a stale translate would offset it inside the drawer */
+}
+
+/* Chrome with CSS Anchor Positioning: the browser glues each box to its
+   highlight (position-anchor set per box in gutter.js) — scroll-following is
+   compositor-native, --ga-y carries only the engine's stacking offset. The
+   0px fallback covers orphans and boxes whose anchor is gone: their --ga-y is
+   written as an absolute position, same as the JS path. */
+.ga-gutter.ga-anchored .ga-box {
+  top: anchor(top, 0px);
 }
 /* highlight scrolled out of the viewport — box leaves with it, but stays measurable */
 .ga-box.ga-box-offscreen {
@@ -1018,6 +1038,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ga-box,
+  .ga-gutter.ga-animate .ga-box,
   .ga-toast,
   .ga-cluster,
   .ga-scrollcue,

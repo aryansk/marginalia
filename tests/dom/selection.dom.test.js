@@ -128,3 +128,36 @@ describe("selection.reanchorAll (batch re-anchor)", () => {
     expect(out.get("b2")[0].textContent).toBe("most engines");
   });
 });
+
+describe("selection anchor-name (CSS Anchor Positioning target)", () => {
+  function highlight(id) {
+    const root = document.createElement("div");
+    root.innerHTML = "<span>an 8 KB page</span><span> is the default</span>";
+    document.body.appendChild(root);
+    const range = document.createRange();
+    range.setStart(root.children[0].firstChild, 3);
+    range.setEnd(root.children[1].firstChild, 4); // spans two text nodes -> two spans
+    return { root, spans: GA.selection.highlightRange(range, id) };
+  }
+
+  it("highlightRange names the first span --ga-<threadId>", () => {
+    const { spans } = highlight("t_anchor1");
+    expect(spans.length).toBeGreaterThan(1);
+    expect(spans[0].style.getPropertyValue("anchor-name")).toBe("--ga-t_anchor1");
+    expect(spans[1].style.getPropertyValue("anchor-name")).toBe(""); // only the measured span
+  });
+
+  it("ensureAnchorName re-stamps the surviving span after the named one dies", () => {
+    const { spans } = highlight("t_anchor2");
+    spans[0].remove(); // site re-render killed the named span
+    const survivor = GA.selection.anchorEl("t_anchor2");
+    expect(survivor).toBe(spans[1]);
+    expect(survivor.style.getPropertyValue("anchor-name")).toBe("");
+    GA.selection.ensureAnchorName("t_anchor2");
+    expect(survivor.style.getPropertyValue("anchor-name")).toBe("--ga-t_anchor2");
+  });
+
+  it("ensureAnchorName is a no-op for orphaned or unknown threads", () => {
+    expect(() => GA.selection.ensureAnchorName("nope")).not.toThrow();
+  });
+});

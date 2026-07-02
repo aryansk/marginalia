@@ -26,7 +26,7 @@ GA.threadController = (function () {
       onFocus: (t) => GA.gutter.setActive(t.id),
       onExpand: (t) => expandThread(t),
       onStop: (t) => stopAsk(t.id),
-      onResize: () => GA.gutter.scheduleLayout(),
+      onResize: (opts) => GA.gutter.scheduleLayout(opts),
     };
   }
 

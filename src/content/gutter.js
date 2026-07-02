@@ -17,11 +17,23 @@ GA.gutter = (function () {
   let aboveCountEl = null;
   let belowCountEl = null;
   const registry = new Map(); // id -> { id, box, order }
-  const state = { activeId: null, order: 0, orphanExpanded: false, lastSig: null, mode: "full" };
+  const state = {
+    activeId: null,
+    order: 0,
+    orphanExpanded: false,
+    lastSig: null,
+    mode: "full",
+    anchored: false, // CSS Anchor Positioning available (Chrome) — see init()
+    animateNext: false, // next relayout is a deliberate shift -> ease it
+    settleTimer: null, // anchored mode: debounced engine pass after scrolling
+  };
+  const SETTLE_MS = 200;
 
   function init() {
     if (container) return;
+    state.anchored = !!(GA.supportsCssAnchor && GA.supportsCssAnchor());
     container = GA.el("div", { class: "ga-gutter", "aria-label": "Margin comments" });
+    container.classList.toggle("ga-anchored", state.anchored);
     drawer = GA.el("div", { class: "ga-orphan-drawer" });
     countEl = GA.el("span", { class: "ga-cluster-count" });
     badge = GA.el(
@@ -83,7 +95,22 @@ GA.gutter = (function () {
     container.appendChild(belowCue);
     container.appendChild(panelBtn);
     document.body.appendChild(container);
-    window.addEventListener("scroll", scheduleLayout, true);
+    window.addEventListener("scroll", onAnchorsMoved, true);
+    if (state.anchored) {
+      // The compositor followed the anchors all through the scroll; run one
+      // eased engine pass at the end to restore clamping/stacking/buckets.
+      window.addEventListener(
+        "scrollend",
+        function () {
+          if (state.settleTimer) {
+            clearTimeout(state.settleTimer);
+            state.settleTimer = null;
+          }
+          scheduleLayout({ animate: true });
+        },
+        true
+      );
+    }
     window.addEventListener("resize", function () {
       // A viewport resize changes box widths, so every cached height is stale.
       registry.forEach((it) => it.box.invalidateHeight && it.box.invalidateHeight());
@@ -97,7 +124,7 @@ GA.gutter = (function () {
     container.appendChild(box.el);
     box.el.style.zIndex = String(BASE_Z);
     registry.set(id, { id, box, order: state.order++ });
-    scheduleLayout();
+    scheduleLayout({ animate: true });
   }
 
   function remove(id) {
@@ -107,7 +134,7 @@ GA.gutter = (function () {
       registry.delete(id);
     }
     if (state.activeId === id) state.activeId = null;
-    scheduleLayout();
+    scheduleLayout({ animate: true });
   }
 
   function clear() {
@@ -135,7 +162,7 @@ GA.gutter = (function () {
       it.box.el.style.zIndex = String(active ? BASE_Z + 1 : BASE_Z);
       GA.selection.setActiveHighlight(tid, active);
     });
-    scheduleLayout();
+    scheduleLayout({ animate: true }); // Docs-style eased shift toward the anchor
   }
 
   // Thread ids ordered by their highlight's vertical position; orphans last
@@ -169,7 +196,7 @@ GA.gutter = (function () {
       if (!it.box.isCompact()) anyExpanded = true;
     });
     registry.forEach((it) => it.box.setCollapsed(anyExpanded));
-    scheduleLayout();
+    scheduleLayout({ animate: true });
   }
 
   // Hover linking (page highlight -> box): outline + raise the hovered
@@ -184,11 +211,51 @@ GA.gutter = (function () {
 
   function toggleCluster() {
     state.orphanExpanded = !state.orphanExpanded;
+    state.animateNext = true;
     relayout();
   }
 
-  function scheduleLayout() {
+  // opts.animate: this relayout is a deliberate shift (focus, add/remove,
+  // collapse) — ease the boxes into place. Scroll/stream/mutation callers pass
+  // nothing and get instant repositioning. (Also used directly as an event
+  // listener, so `opts` may be an Event — only an explicit flag counts.)
+  function scheduleLayout(opts) {
+    if (opts && opts.animate === true) state.animateNext = true;
     GA.frame.schedule("layout", relayout);
+  }
+
+  // Anchors moved under us (scroll; also called by the reanchorer). In JS mode
+  // that means a full relayout per frame. In anchored mode the compositor is
+  // already moving the boxes — just refresh the cue counts and debounce one
+  // settle pass for when the movement stops.
+  function onAnchorsMoved() {
+    if (!state.anchored) {
+      scheduleLayout();
+      return;
+    }
+    GA.frame.schedule("cues", updateCuesLight);
+    if (state.settleTimer) clearTimeout(state.settleTimer);
+    state.settleTimer = setTimeout(function () {
+      state.settleTimer = null;
+      scheduleLayout({ animate: true });
+    }, SETTLE_MS);
+  }
+
+  // Cue counts without touching geometry: cheap reads only, no engine run.
+  function updateCuesLight() {
+    if (!registry.size || state.mode === "hidden") return;
+    const H = window.innerHeight;
+    let above = 0;
+    let below = 0;
+    registry.forEach((it) => {
+      if (it.box.el.classList.contains("ga-box-static")) return; // drawered
+      const a = GA.selection.anchorEl(it.id);
+      if (!a) return;
+      const t = a.getBoundingClientRect().top;
+      if (t < 0) above++;
+      else if (t > H) below++;
+    });
+    updateScrollCues(above, below);
   }
 
   function relayout() {
@@ -216,18 +283,21 @@ GA.gutter = (function () {
 
     const viewportH = window.innerHeight;
     const items = [];
+    const itemById = {};
     const anchored = {};
     registry.forEach((it) => {
       const a = GA.selection.anchorEl(it.id);
       anchored[it.id] = !!a;
-      items.push({
+      const item = {
         id: it.id,
         order: it.order,
         anchorTop: a ? a.getBoundingClientRect().top : null,
         naturalHeight: it.box.naturalHeight(),
         // rail mode renders every box as a chip
         collapsed: gb.mode === "rail" || (it.box.isCompact ? it.box.isCompact() : false),
-      });
+      };
+      items.push(item);
+      itemById[it.id] = item;
     });
 
     // Nothing moved since the last pass? Skip compute + writes entirely —
@@ -251,6 +321,8 @@ GA.gutter = (function () {
     });
 
     // WRITE phase
+    container.classList.toggle("ga-animate", state.animateNext);
+    state.animateNext = false;
     if (container.style.left !== gb.left + "px") container.style.left = gb.left + "px";
     if (container.style.width !== gb.width + "px") container.style.width = gb.width + "px";
 
@@ -259,29 +331,48 @@ GA.gutter = (function () {
       const box = registry.get(id).box;
       box.setOrphan(true);
       box.el.classList.add("ga-box-static");
-      box.el.style.top = "";
+      box.el.style.removeProperty("--ga-y");
+      box.el.style.removeProperty("position-anchor");
       box.setMaxHeight(null);
       if (box.el.parentNode !== drawer) drawer.appendChild(box.el);
     });
 
-    // Anchored boxes whose highlight scrolled out of view leave with it: hide them
-    // (kept in the container, still measurable) — the scroll cues count them instead.
+    // Anchored boxes whose highlight scrolled out of view leave with it. In JS
+    // mode they're hidden (repositioning them per frame at the edge would look
+    // glued); in anchored mode they simply ride off with their anchor, so they
+    // stay visible. The scroll cues count them either way.
     const offscreen = result.offAbove.concat(result.offBelow);
     offscreen.forEach((id) => {
       const box = registry.get(id).box;
       box.el.classList.remove("ga-box-static");
-      box.el.classList.add("ga-box-offscreen");
+      box.el.classList.toggle("ga-box-offscreen", !state.anchored);
       if (box.el.parentNode !== container) container.appendChild(box.el);
     });
 
     // Everything else is positioned in the margin at the engine's coordinates.
+    // JS mode: --ga-y is the absolute viewport Y. Anchored mode (Chrome, CSS
+    // Anchor Positioning): `top: anchor(top)` follows the highlight natively
+    // and --ga-y carries only the engine's stacking offset — constant during
+    // scroll, so no JS runs per scroll frame.
     result.placements.forEach((p) => {
       const box = registry.get(p.id).box;
+      const item = itemById[p.id];
       box.setOrphan(!anchored[p.id]);
       box.el.classList.remove("ga-box-static", "ga-box-offscreen");
       if (box.el.parentNode !== container) container.appendChild(box.el);
-      const top = p.top + "px";
-      if (box.el.style.top !== top) box.el.style.top = top;
+      let y;
+      if (state.anchored && item.anchorTop != null) {
+        GA.selection.ensureAnchorName(p.id);
+        const name = "--ga-" + p.id;
+        if (box.el.style.getPropertyValue("position-anchor") !== name)
+          box.el.style.setProperty("position-anchor", name);
+        y = Math.round(p.top - item.anchorTop);
+      } else {
+        if (state.anchored) box.el.style.removeProperty("position-anchor");
+        y = Math.round(p.top);
+      }
+      const yv = y + "px";
+      if (box.el.style.getPropertyValue("--ga-y") !== yv) box.el.style.setProperty("--ga-y", yv);
       box.setMaxHeight(p.maxHeight);
     });
 
@@ -351,5 +442,6 @@ GA.gutter = (function () {
     hoverThread,
     relayout,
     scheduleLayout,
+    onAnchorsMoved,
   };
 })();

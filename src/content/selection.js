@@ -87,8 +87,22 @@ GA.selection = (function () {
       span.appendChild(target);
       spans.push(span);
     });
-    if (spans.length) spansByThread.set(threadId, spans);
+    if (spans.length) {
+      spansByThread.set(threadId, spans);
+      // CSS Anchor Positioning target (used by the gutter on Chrome; inert
+      // elsewhere). Thread ids are [A-Za-z0-9_], a valid dashed-ident tail.
+      spans[0].style.setProperty("anchor-name", "--ga-" + threadId);
+    }
     return spans;
+  }
+
+  // Keep the anchor-name on the span the layout actually measures: a site
+  // re-render can kill the originally named span while later spans survive.
+  // Called from the gutter's full relayout when anchored mode is on.
+  function ensureAnchorName(threadId) {
+    const el = anchorEl(threadId);
+    if (el && !el.style.getPropertyValue("anchor-name"))
+      el.style.setProperty("anchor-name", "--ga-" + threadId);
   }
 
   function highlightSelector(selector, threadId) {
@@ -210,6 +224,7 @@ GA.selection = (function () {
     reanchorAll,
     unhighlight,
     anchorEl,
+    ensureAnchorName,
     setActiveHighlight,
     setHighlightState,
     setHighlightHover,

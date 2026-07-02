@@ -398,7 +398,8 @@ GA.ThreadBox = function (thread, handlers) {
     if (!state.collapsed) setUnread(false, persist);
     invalidateHeight();
     if (persist !== false) handlers.persist && handlers.persist(thread);
-    handlers.onResize && handlers.onResize();
+    // A collapse/restore is a discrete jump — worth easing the reflow.
+    handlers.onResize && handlers.onResize({ animate: true });
   }
 
   // Resolved = archived-but-restorable: collapses to a muted chip, fades the
