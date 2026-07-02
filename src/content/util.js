@@ -94,19 +94,43 @@ GA.truncate = function (s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
-// Whether the browser supports CSS Anchor Positioning (Chrome 125+). When it
-// does, the gutter lets the compositor glue boxes to their highlights during
-// scroll instead of repositioning them from JavaScript every frame.
+// Whether the browser supports CSS Anchor Positioning WELL ENOUGH to glue the
+// comment boxes to their highlights during scroll (the gutter then skips all
+// per-frame JS repositioning). A parse check (CSS.supports) is NOT enough: a
+// browser can parse `anchor()` yet fail to resolve our anchors (Firefox began
+// parsing these properties before the resolution behavior matured), in which
+// case `top: anchor(top, 0px)` silently falls back to 0px and every box piles
+// up at the viewport top. So probe the actual BEHAVIOR: place a hidden anchor
+// at a known position and check that an anchored fixed element lands on it.
 GA.supportsCssAnchor = (function () {
   let cached = null;
   return function () {
-    if (cached === null) {
-      cached = !!(
-        window.CSS &&
-        CSS.supports &&
-        CSS.supports("anchor-name: --ga-probe") &&
-        CSS.supports("top: anchor(top, 0px)")
-      );
+    if (cached !== null) return cached;
+    cached = false;
+    try {
+      if (
+        !window.CSS ||
+        !CSS.supports ||
+        !CSS.supports("anchor-name: --ga-probe") ||
+        !CSS.supports("top: anchor(top, 0px)") ||
+        !document.body
+      )
+        return cached;
+      const anchor = document.createElement("div");
+      anchor.style.cssText =
+        "position:fixed;left:-9999px;top:137px;width:1px;height:1px;" +
+        "visibility:hidden;pointer-events:none;anchor-name:--ga-probe;";
+      const probe = document.createElement("div");
+      probe.style.cssText =
+        "position:fixed;left:-9999px;width:1px;height:1px;" +
+        "visibility:hidden;pointer-events:none;position-anchor:--ga-probe;top:anchor(top, 0px);";
+      document.body.appendChild(anchor);
+      document.body.appendChild(probe);
+      cached = Math.abs(probe.getBoundingClientRect().top - 137) < 1;
+      anchor.remove();
+      probe.remove();
+    } catch (e) {
+      cached = false;
     }
     return cached;
   };

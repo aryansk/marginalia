@@ -164,12 +164,20 @@
   transform: none; /* a stale translate would offset it inside the drawer */
 }
 
-/* Chrome with CSS Anchor Positioning: the browser glues each box to its
-   highlight (position-anchor set per box in gutter.js) — scroll-following is
-   compositor-native, --ga-y carries only the engine's stacking offset. The
-   0px fallback covers orphans and boxes whose anchor is gone: their --ga-y is
+/* Native CSS Anchor Positioning (behavior-probed in util.js): the browser
+   glues each box to its highlight (position-anchor set per box in gutter.js)
+   — scroll-following is compositor-native, --ga-y carries only the engine's
+   stacking offset. The boxes must be position:fixed here: an anchor is only
+   "acceptable" when the positioned element's containing block is the initial
+   containing block (the highlights live in the page, not in our gutter), so
+   absolute-in-gutter boxes would never resolve. left/width mirror the gutter
+   column via custom properties the gutter sets each relayout. The 0px
+   fallback covers orphans and boxes whose anchor is gone: their --ga-y is
    written as an absolute position, same as the JS path. */
-.ga-gutter.ga-anchored .ga-box {
+.ga-gutter.ga-anchored .ga-box:not(.ga-box-static) {
+  position: fixed;
+  left: var(--ga-gutter-left, 0px);
+  width: var(--ga-gutter-width, 100%);
   top: anchor(top, 0px);
 }
 /* highlight scrolled out of the viewport — box leaves with it, but stays measurable */

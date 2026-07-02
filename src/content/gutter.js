@@ -23,7 +23,7 @@ GA.gutter = (function () {
     orphanExpanded: false,
     lastSig: null,
     mode: "full",
-    anchored: false, // CSS Anchor Positioning available (Chrome) — see init()
+    anchored: false, // CSS Anchor Positioning verified working (behavior probe) — see init()
     animateNext: false, // next relayout is a deliberate shift -> ease it
     settleTimer: null, // anchored mode: debounced engine pass after scrolling
   };
@@ -325,6 +325,16 @@ GA.gutter = (function () {
     state.animateNext = false;
     if (container.style.left !== gb.left + "px") container.style.left = gb.left + "px";
     if (container.style.width !== gb.width + "px") container.style.width = gb.width + "px";
+    if (state.anchored) {
+      // Anchored boxes are position:fixed (see content.css) and take the
+      // gutter column's geometry from these inherited custom properties.
+      const gl = gb.left + "px";
+      const gw = gb.width + "px";
+      if (container.style.getPropertyValue("--ga-gutter-left") !== gl)
+        container.style.setProperty("--ga-gutter-left", gl);
+      if (container.style.getPropertyValue("--ga-gutter-width") !== gw)
+        container.style.setProperty("--ga-gutter-width", gw);
+    }
 
     // Orphans collapsed behind the badge live in the (hidden) drawer.
     result.drawered.forEach((id) => {
