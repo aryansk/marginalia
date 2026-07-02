@@ -8,18 +8,31 @@ When the AI gives a long answer and you want to drill into one phrase, you no
 longer have to ask in the main chat (and bury the original answer). Instead:
 
 1. **Highlight** the phrase (e.g. _"8 KB page"_).
-2. **Right-click → "Ask about …"**, or press **Ctrl + Shift + H**.
-3. A comment box opens **in the right margin, level with your highlight**.
-4. Ask your follow-up. The reply streams **into the box** — your main chat is untouched.
+2. Click the floating **Comment** pill that appears — or **right-click →
+   "Ask about …"**, or press **Ctrl + Shift + H**.
+3. A comment box opens **in the right margin, level with your highlight**
+   (Docs-style: focusing a box aligns it with its highlight and shifts the
+   others out of the way; hovering either one lights up the other).
+4. Ask your follow-up. The reply streams **into the box** — your main chat is
+   untouched. **Stop** cancels mid-stream and keeps the partial answer; a
+   failed request shows an error card with **Retry**.
 5. Keep the conversation going; the box re-sends the full thread each turn.
 
 The follow-up is answered by **the same AI you're on** (ask Claude on claude.ai,
-GPT on chatgpt.com, Gemini on gemini.google.com).
+GPT on chatgpt.com, Gemini on gemini.google.com), and the extension's UI follows
+**the site's light/dark theme**, not the OS's.
 
 Threads are multi-turn, height-capped, **persist per conversation (and per site)**,
-and re-anchor to their highlight on reload. Each box has three states:
-**minimize** to collapse it to just its header, normal docked, or **maximize** to
-a full-screen modal.
+and re-anchor to their highlight on reload. Each box can be **minimized** to a
+compact chip (with an unread dot when a reply lands while it's tucked away),
+docked normally, **maximized** to a full-screen modal (with its own composer),
+or **resolved** — archived but restorable, distinct from delete. An all-threads
+panel (**Alt + Shift + A**) lists everything with open/resolved filters and
+click-to-jump; **Alt + ↓/↑** cycles threads, **Alt + Shift + C** collapses or
+expands them all. Replies render markdown incl. tables and nested lists, with
+copy buttons on replies and code blocks. On narrow windows the margin collapses
+to a chip rail (chips open the modal); on very narrow ones highlights open the
+modal directly.
 
 ## How it talks to each AI
 
@@ -75,6 +88,22 @@ npm run lint           # validate the (Firefox) manifest + code
 npm start              # Firefox          (web-ext run, loads this folder)
 npm run start:chrome   # Chrome/Chromium  (assembles dist/chrome, then web-ext run)
 ```
+
+Both launch a throwaway browser profile — log in to the AI site(s) inside it before
+testing the no-API-key web-session paths.
+
+### Load a local bundle into your own browser
+
+`node build.js` writes the unpacked extension to `dist/firefox` and `dist/chrome`:
+
+- **Firefox**: `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** →
+  pick `dist/firefox/manifest.json` (temporary — gone after a restart).
+- **Chrome**: `chrome://extensions` → enable **Developer mode** → **Load unpacked** →
+  pick the `dist/chrome` folder (persists across restarts).
+
+After editing `src/`, rebuild and hit the extension's **Reload** button in that page
+(and refresh the chat-site tab). Full details — including signing, store submission,
+and permission justifications — live in [`ops/instructions.md`](ops/instructions.md).
 
 Or load it by hand:
 

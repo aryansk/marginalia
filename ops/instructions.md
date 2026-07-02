@@ -1,7 +1,8 @@
-# Ops — build, package & publish
+# Ops — build, test locally & publish
 
-How to build the extension and submit it to the **Chrome Web Store** and **Firefox
-Add-ons (AMO)**. For what the extension *is*, see the top-level [README](../README.md).
+How to build the extension, load it in a browser for testing, and submit it to the
+**Chrome Web Store** and **Firefox Add-ons (AMO)**. For what the extension *is*, see
+the top-level [README](../README.md).
 
 ---
 
@@ -10,20 +11,23 @@ Add-ons (AMO)**. For what the extension *is*, see the top-level [README](../READ
 One source tree (`src/` + `icons/`) builds both browsers. [`build.js`](../build.js)
 copies it into `dist/<target>/` with the right manifest, then `web-ext` zips each.
 
-| Target  | Manifest               | Background                 | Icons        | Package |
-|---------|------------------------|----------------------------|--------------|---------|
-| Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `web-ext-artifacts/firefox/gemini_assist-<version>.zip` |
-| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/gemini_assist-<version>.zip` |
+| Target  | Manifest               | Background                 | Icons        | Unpacked dir   | Package |
+|---------|------------------------|----------------------------|--------------|----------------|---------|
+| Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `dist/firefox` | `web-ext-artifacts/firefox/gemini_assist-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `dist/chrome`  | `web-ext-artifacts/chrome/gemini_assist-<version>.zip` |
 
 ```bash
 npm install            # once: web-ext + test tooling (Node 24 via mise)
 npm test               # must be green
-npm run lint           # web-ext lint of the assembled Firefox package — must be clean
+npm run lint           # must be clean (self-contained: assembles dist/firefox, then web-ext lints it)
 npm run build          # -> web-ext-artifacts/{firefox,chrome}/gemini_assist-<version>.zip
 ```
 
-`npm run build:firefox` / `npm run build:chrome` build a single target. The `dist/<target>/`
-folder is the unpacked extension (use it for **Load unpacked** in Chrome dev).
+Each step is independent — `lint` and `build` assemble `dist/` themselves, so there is
+no required order beyond "all three must pass before you ship".
+`npm run build:firefox` / `npm run build:chrome` build a single target.
+To only refresh the unpacked `dist/` folders (no zips): `node build.js` (or
+`node build.js firefox|chrome`).
 
 ### Regenerate the Chrome PNG icons (only if `icons/icon.svg` changes)
 Chrome doesn't render SVG toolbar icons, so PNGs are committed under `icons/`. Re-rasterize with:
@@ -34,7 +38,54 @@ for s in 16 32 48 128; do rsvg-convert -w $s -h $s icons/icon.svg -o icons/icon-
 
 ---
 
-## 2. Before every submission
+## 2. Test locally in a real browser
+
+Two ways: let `web-ext` launch a throwaway browser profile for you (fastest loop), or
+load the built extension into your normal browser by hand (closest to what users get).
+
+### Option A — managed dev session (`web-ext run`, auto-reloads on save)
+
+```bash
+npm start              # Firefox: loads the repo root as a temporary add-on
+npm run start:chrome   # Chrome/Chromium: assembles dist/chrome first, then loads it
+```
+
+Both open a fresh profile on https://gemini.google.com/app — **log in to the site(s)
+inside that profile** before testing the no-API-key web-session paths.
+Note for Chrome: `web-ext run` loads `dist/chrome`, which is a **copy** — after editing
+`src/`, re-run `node build.js chrome` and the session picks the change up on reload
+(Firefox's `npm start` runs from the repo root, so edits are picked up directly).
+
+### Option B — load the local bundle by hand
+
+Build the unpacked folders first: `node build.js` (creates `dist/firefox` and `dist/chrome`).
+
+**Firefox (temporary add-on — lasts until Firefox restarts):**
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…**.
+3. Pick `dist/firefox/manifest.json` (any file inside `dist/firefox` works).
+4. After code changes: rebuild (`node build.js firefox`), then click **Reload** on the
+   add-on's card. A *permanent* install of an unsigned build is not possible on release
+   Firefox — that's what §5's signing flow is for.
+
+**Chrome / Chromium / Edge (persists across restarts):**
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode** (top-right toggle).
+3. Click **Load unpacked** and pick the `dist/chrome` **folder**.
+4. After code changes: rebuild (`node build.js chrome`), then press the ↻ **reload**
+   icon on the extension's card (also reload the chat-site tab so the content scripts
+   re-inject).
+
+**Smoke test either way:** open a conversation on gemini.google.com / chatgpt.com
+(needs an OpenAI key in the extension settings) / claude.ai, select text in an answer,
+and use the **Comment** pill (or right-click → *Ask about…*, or Ctrl+Shift+H). The
+extension's console logs are visible via the browser's extension debugging tools
+(`about:debugging` → Inspect on Firefox; `chrome://extensions` → *service worker* /
+page DevTools on Chrome) — enable **debug logging** in the extension's settings first.
+
+---
+
+## 3. Before every store submission
 
 1. **Bump the version** in **all three**: `manifest.json`, `manifest.chrome.json`, and
    `package.json` (stores reject re-uploading an existing version). Keep them identical.
@@ -59,7 +110,7 @@ for s in 16 32 48 128; do rsvg-convert -w $s -h $s icons/icon.svg -o icons/icon-
 
 ---
 
-## 3. Publish to the Chrome Web Store
+## 4. Publish to the Chrome Web Store
 
 1. **Developer account**: sign in at the
    [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) and
@@ -70,25 +121,28 @@ for s in 16 32 48 128; do rsvg-convert -w $s -h $s icons/icon.svg -o icons/icon-
    category, language, and at least one **screenshot** (1280×800 or 640×400). The 128px icon
    ships in the package; promo tiles are optional.
 4. **Privacy practices**: declare a **single purpose**, justify each permission (paste from
-   §2), complete the **data-usage** disclosures, and provide a **privacy policy URL** (required
+   §3), complete the **data-usage** disclosures, and provide a **privacy policy URL** (required
    given the broad host access).
 5. **Distribution**: choose **Public** or **Unlisted**, then **Submit for review** (typically
    hours to a few days).
-6. **Updates**: bump the version (§2), rebuild, upload the new zip, resubmit.
+6. **Updates**: bump the version (§3), rebuild, upload the new zip via the item's
+   **Package → Upload new package**, resubmit.
 
 ---
 
-## 4. Publish to Firefox Add-ons (AMO)
+## 5. Publish to Firefox Add-ons (AMO)
 
-Two routes — a public AMO listing, or a self-hosted signed `.xpi`. Both require a Firefox
-account and AMO API credentials.
+Two routes — **Option A**, a public listing on addons.mozilla.org, or **Option B**, a
+Mozilla-signed `.xpi` you distribute yourself. Both need a (free) Firefox account; the
+`web-ext sign` commands additionally need AMO API credentials:
+[addons.mozilla.org/developers](https://addons.mozilla.org/developers/) →
+**Manage API Keys** → copy the **JWT issuer** and **JWT secret**.
 
-**API credentials**: [addons.mozilla.org](https://addons.mozilla.org/developers/) →
-**Manage API Keys** → copy the **JWT issuer** and **secret**. Export them:
+Common setup for either option:
 ```bash
-export AMO_JWT_ISSUER=user:xxxxx:xxx
+export AMO_JWT_ISSUER=user:xxxxx:xxx   # from Manage API Keys
 export AMO_JWT_SECRET=xxxxxxxx
-node build.js firefox          # assemble dist/firefox with manifest.json
+node build.js firefox                  # assemble the dist/firefox folder web-ext signs
 ```
 
 ### Option A — Listed on AMO (public, reviewed)
@@ -96,10 +150,12 @@ node build.js firefox          # assemble dist/firefox with manifest.json
 npx web-ext sign --source-dir dist/firefox --channel=listed \
   --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET"
 ```
-Or upload the zip manually via **Developer Hub → Submit a New Add-on → "On this site"**. AMO
-reviews listed add-ons before they go public; fill in the listing (summary, description,
-screenshots, categories) and note the declared data collection (the manifest already declares
-`data_collection_permissions: websiteContent`).
+Alternative without API keys: `npm run build:firefox`, then upload
+`web-ext-artifacts/firefox/gemini_assist-<version>.zip` manually via
+**Developer Hub → Submit a New Add-on → "On this site"**. Either way, AMO reviews
+listed add-ons before they go public; fill in the listing (summary, description,
+screenshots, categories) and note the declared data collection (the manifest already
+declares `data_collection_permissions: websiteContent`).
 
 ### Option B — Unlisted / self-distribution (you host the signed `.xpi`)
 ```bash
@@ -110,13 +166,15 @@ npx web-ext sign --source-dir dist/firefox --channel=unlisted \
 This returns a Mozilla-**signed** `.xpi` you can distribute yourself; users install it via
 `about:addons` → ⚙ → **Install Add-on From File…**. (An *unsigned* build only installs
 permanently on Developer Edition / Nightly / ESR with
-`about:config → xpinstall.signatures.required = false`.)
+`about:config → xpinstall.signatures.required = false`; for everyday local testing use
+the temporary-add-on flow in §2 instead.)
 
-**Updates**: bump the version (§2), rebuild `dist/firefox`, re-sign/-submit.
+**Updates**: bump the version (§3), rebuild `dist/firefox`, re-sign (Option B) or
+re-submit the new version on the existing listing (Option A).
 
 ---
 
-## 5. Caveats for review
+## 6. Caveats for review
 
 - **Web-session backends are reverse-engineered.** The default (no-key) Gemini/Claude paths
   replay each site's private endpoints, which may conflict with those sites' Terms of Service —
