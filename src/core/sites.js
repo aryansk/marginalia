@@ -13,7 +13,9 @@ GA.core.sites = (function () {
     gemini: {
       hosts: ["gemini.google.com"],
       // /app/<id> — matches anywhere so /u/0/app/<id> works; query/hash excluded.
-      sessionRe: /\/app\/([^/?#]+)/,
+      // /gem/<gemId>/<chatId> — a conversation inside a Gem; the bare Gem lobby
+      // (/gem/<gemId>) is deliberately NOT a session (it's a new-chat page).
+      sessionRes: [/\/app\/([^/?#]+)/, /\/gem\/([^/?#]+\/[^/?#]+)/],
       responseSelectors: [
         "message-content",
         "model-response",
@@ -25,8 +27,8 @@ GA.core.sites = (function () {
     },
     chatgpt: {
       hosts: ["chatgpt.com", "chat.openai.com"],
-      // /c/<conversation-uuid>
-      sessionRe: /\/c\/([^/?#]+)/,
+      // /c/<conversation-uuid> — also matches project chats /g/g-…/c/<id>.
+      sessionRes: [/\/c\/([^/?#]+)/],
       responseSelectors: [
         '[data-message-author-role="assistant"]',
         "div.markdown",
@@ -35,8 +37,9 @@ GA.core.sites = (function () {
     },
     claude: {
       hosts: ["claude.ai"],
-      // /chat/<conversation-uuid>
-      sessionRe: /\/chat\/([^/?#]+)/,
+      // /chat/<conversation-uuid> — unanchored, so project-scoped chats
+      // (/project/<projectId>/chat/<id>) resolve to the same chat id.
+      sessionRes: [/\/chat\/([^/?#]+)/],
       responseSelectors: [
         ".font-claude-message",
         '[data-testid="assistant-message"]',
@@ -56,11 +59,16 @@ GA.core.sites = (function () {
   }
 
   // The conversation id for `provider` from a URL path (null = no chat open yet).
+  // Each site lists its route patterns in order; the first match wins.
   function sessionIdFromPath(provider, pathname) {
     const def = PROVIDERS[provider];
     if (!def) return null;
-    const m = String(pathname || "").match(def.sessionRe);
-    return m ? decodeURIComponent(m[1]) : null;
+    const path = String(pathname || "");
+    for (const re of def.sessionRes) {
+      const m = path.match(re);
+      if (m) return decodeURIComponent(m[1]);
+    }
+    return null;
   }
 
   // The candidate selectors for that site's model-answer containers (a copy, so

@@ -35,6 +35,38 @@ describe("anchor.fromRange", () => {
   });
 });
 
+describe("anchor.fromRange at an element boundary", () => {
+  it("captures context when the selection starts on an element node (triple-click)", () => {
+    const root = document.createElement("div");
+    root.innerHTML = "<p>first paragraph.</p><p>the page here</p><p>the page there</p>";
+    document.body.appendChild(root);
+    // Triple-click-style range: starts AT the second <p> (element boundary).
+    const range = document.createRange();
+    range.setStart(root, 1); // element-node start container
+    range.setEnd(root.children[1].firstChild, "the page".length);
+    const sel = GA.anchor.fromRange(range, root);
+    expect(sel.exact).toBe("the page");
+    expect(sel.prefix).toBe("first paragraph."); // real context, not ""
+    expect(sel.suffix.startsWith(" here")).toBe(true);
+    // …which lets the duplicate ("the page there") be disambiguated: the match
+    // must end inside the SECOND paragraph, not the third.
+    const found = GA.anchor.locate(sel, root);
+    expect(found.toString()).toBe("the page");
+    expect(found.endContainer).toBe(root.children[1].firstChild);
+  });
+});
+
+describe("anchor.locateInText (batch form)", () => {
+  it("matches against a pre-extracted text exactly like locate()", () => {
+    const root = fixture("The 8 KB page size matters here");
+    const sel = GA.anchor.fromRange(selectRange(root, 4, 8), root);
+    const viaLocate = GA.anchor.locate(sel, root);
+    const viaText = GA.anchor.locateInText(GA.anchor.textOf(root), sel, root);
+    expect(viaText.toString()).toBe(viaLocate.toString());
+    expect(viaText.startContainer).toBe(viaLocate.startContainer);
+  });
+});
+
 describe("anchor.locate (round-trip)", () => {
   it("re-finds the exact range from a selector", () => {
     const root = fixture("The 8 KB page size matters here");

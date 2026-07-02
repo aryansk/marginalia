@@ -89,3 +89,88 @@ describe("markdown-ast — inline", () => {
     expect(inlineOf("one\ntwo").some((n) => n.type === "br")).toBe(true);
   });
 });
+
+describe("firstChangedBlock (streaming block diff)", () => {
+  const { firstChangedBlock } = md;
+  const diff = (a, b) => firstChangedBlock(parse(a), parse(b));
+
+  it("appending to the last paragraph changes only that block", () => {
+    expect(diff("Intro.\n\nSecond par", "Intro.\n\nSecond paragraph grows")).toBe(1);
+  });
+
+  it("a brand-new block leaves earlier blocks untouched", () => {
+    expect(diff("Intro.", "Intro.\n\n- item")).toBe(1);
+    expect(diff("Intro.\n\n- item", "Intro.\n\n- item\n\nOutro")).toBe(2);
+  });
+
+  it("a growing open fence keeps re-rendering only the code block", () => {
+    expect(diff("Text\n\n```js\nconst a", "Text\n\n```js\nconst a = 1;\nconst b")).toBe(1);
+  });
+
+  it("a growing list re-renders only the list block", () => {
+    expect(diff("Head\n\n- a", "Head\n\n- a\n- b")).toBe(1);
+  });
+
+  it("identical parses change nothing (index == length)", () => {
+    expect(diff("a\n\nb", "a\n\nb")).toBe(2);
+  });
+
+  it("a full rewrite restarts from block 0", () => {
+    expect(diff("Hello world", "Goodbye world")).toBe(0);
+  });
+
+  it("a shrink (fewer blocks) returns the shorter length", () => {
+    expect(diff("a\n\nb\n\nc", "a\n\nb")).toBe(2);
+  });
+});
+
+describe("markdown-ast — nested lists", () => {
+  it("indented items become the previous item's child list", () => {
+    const list = parse("- a\n  - a1\n  - a2\n- b")[0];
+    expect(list.type).toBe("list");
+    expect(list.items).toHaveLength(2);
+    const [a, b] = list.items;
+    expect(a.children).toMatchObject({ type: "list" });
+    expect(a.children.items).toHaveLength(2);
+    expect(b.children).toBeNull();
+  });
+
+  it("supports a nested ordered list inside an unordered one", () => {
+    const list = parse("- a\n  1. one\n  2. two")[0];
+    expect(list.ordered).toBe(false);
+    expect(list.items[0].children.ordered).toBe(true);
+  });
+
+  it("deeper nesting unwinds correctly", () => {
+    const list = parse("- a\n  - a1\n    - a1i\n- b")[0];
+    expect(list.items).toHaveLength(2);
+    expect(list.items[0].children.items[0].children.items).toHaveLength(1);
+  });
+});
+
+describe("markdown-ast — tables", () => {
+  it("parses a pipe table with header + rows", () => {
+    const t = parse("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")[0];
+    expect(t.type).toBe("table");
+    expect(t.header).toHaveLength(2);
+    expect(t.rows).toHaveLength(2);
+    expect(t.rows[0][0][0]).toMatchObject({ type: "text", value: "1" });
+  });
+
+  it("outer pipes are optional and cells parse inline markup", () => {
+    const t = parse("a | **b**\n--- | ---\nx | y")[0];
+    expect(t.type).toBe("table");
+    expect(t.header[1][0]).toMatchObject({ type: "strong" });
+  });
+
+  it("a separator row alone is not a table (and --- is still an hr)", () => {
+    expect(parse("---")[0]).toMatchObject({ type: "hr" });
+    expect(parse("just | pipes")[0].type).toBe("paragraph");
+  });
+
+  it("the table ends at a blank line", () => {
+    const blocks = parse("| a |\n|---|\n| 1 |\n\nafter");
+    expect(blocks[0].type).toBe("table");
+    expect(blocks[1].type).toBe("paragraph");
+  });
+});

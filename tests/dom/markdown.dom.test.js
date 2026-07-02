@@ -56,3 +56,60 @@ describe("markdown render (AST -> DOM)", () => {
     expect(host.querySelector("em")).toBeNull();
   });
 });
+
+describe("makeStreamRenderer (incremental streaming render)", () => {
+  // Simulate a stream: at every prefix flush, the incrementally-updated DOM
+  // must equal a one-shot render of the same text.
+  it("matches the one-shot render at every step of a streamed transcript", () => {
+    const full = [
+      "# Answer",
+      "",
+      "An 8 KB page is the *default* granularity.",
+      "",
+      "- point one",
+      "- point two grows here",
+      "",
+      "```js",
+      "const pageSize = 8 * 1024;",
+      "```",
+      "",
+      "> quoted conclusion",
+    ].join("\n");
+
+    const el = document.createElement("div");
+    const r = GA.markdown.makeStreamRenderer(el);
+    for (let cut = 1; cut <= full.length; cut += 7) {
+      const text = full.slice(0, cut);
+      r.update(text);
+      expect(el.innerHTML).toBe(render(text).innerHTML);
+    }
+    r.update(full);
+    expect(el.innerHTML).toBe(render(full).innerHTML);
+  });
+
+  it("handles a full rewrite (reset frame) cleanly", () => {
+    const el = document.createElement("div");
+    const r = GA.markdown.makeStreamRenderer(el);
+    r.update("first answer\n\nwith two blocks");
+    r.update("totally different");
+    expect(el.innerHTML).toBe(render("totally different").innerHTML);
+  });
+});
+
+describe("tables and nested lists (AST -> DOM)", () => {
+  it("renders a table with thead/tbody", () => {
+    const host = render("| a | b |\n|---|---|\n| 1 | 2 |");
+    const table = host.querySelector("table.ga-table");
+    expect(table).not.toBeNull();
+    expect(table.querySelectorAll("thead th")).toHaveLength(2);
+    expect(table.querySelectorAll("tbody td")).toHaveLength(2);
+    expect(table.querySelector("tbody td").textContent).toBe("1");
+  });
+
+  it("renders nested lists as nested ul/ol inside li", () => {
+    const host = render("- a\n  - a1\n- b");
+    const topItems = host.querySelectorAll(":scope > ul > li");
+    expect(topItems).toHaveLength(2);
+    expect(topItems[0].querySelector("ul li").textContent).toBe("a1");
+  });
+});

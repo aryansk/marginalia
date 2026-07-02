@@ -80,23 +80,67 @@ browser.runtime.onMessage.addListener(function (msg, sender) {
     });
 });
 
+// Heartbeat cadence while an ask is streaming. Any port message resets Chrome's
+// MV3 service-worker idle timer (30s), so 20s keeps the worker alive through
+// long silent "thinking" periods; the content side uses the same pings to feed
+// its dead-worker watchdog.
+const PING_INTERVAL_MS = 20000;
+
 browser.runtime.onConnect.addListener(function (port) {
   if (port.name !== P.PORT_ASK) return;
+
+  // One controller per ask port: the content side disconnecting (stop button,
+  // conversation switch, tab close) aborts the in-flight fetch/stream.
+  const aborter = new AbortController();
+  let heartbeat = null;
+  port.onDisconnect.addListener(function () {
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = null;
+    try {
+      aborter.abort();
+    } catch (e) {}
+  });
+
   port.onMessage.addListener(async function (msg) {
     if (!msg || msg.type !== P.MSG_ASK) return;
+    heartbeat = setInterval(function () {
+      try {
+        port.postMessage({ type: P.MSG_PING });
+      } catch (e) {}
+    }, PING_INTERVAL_MS);
     try {
       const settings = await getSettings();
       const client = GA.clientFor(msg.provider, settings);
-      const text = await client.ask({ prompt: msg.prompt, tokens: msg.tokens, settings }, function (t) {
-        try {
-          port.postMessage({ type: P.MSG_CHUNK, text: t });
-        } catch (e) {}
-      });
+      // Post only what changed per chunk (shared/stream-delta.js) — the full
+      // answer-so-far would cross the port O(n²) over a long reply.
+      let sent = "";
+      const text = await client.ask(
+        { prompt: msg.prompt, tokens: msg.tokens, settings, signal: aborter.signal },
+        function (t) {
+          const d = GA.streamDelta.next(sent, t);
+          if (!d) return;
+          sent = t;
+          try {
+            port.postMessage(
+              d.reset ? { type: P.MSG_CHUNK, reset: true, text: d.text } : { type: P.MSG_CHUNK, delta: d.delta }
+            );
+          } catch (e) {}
+        }
+      );
       port.postMessage({ type: P.MSG_DONE, text });
     } catch (e) {
-      try {
-        port.postMessage({ type: P.MSG_ERROR, message: e && e.message ? e.message : String(e) });
-      } catch (e2) {}
+      if (!aborter.signal.aborted) {
+        try {
+          port.postMessage({
+            type: P.MSG_ERROR,
+            message: e && e.message ? e.message : String(e),
+            code: (e && e.code) || undefined,
+          });
+        } catch (e2) {}
+      }
+    } finally {
+      if (heartbeat) clearInterval(heartbeat);
+      heartbeat = null;
     }
   });
 });

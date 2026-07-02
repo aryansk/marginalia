@@ -3,6 +3,11 @@
 var GA = GA || {};
 
 GA.selection = (function () {
+  // Live registry of highlight spans per thread. anchorEl()/orphan checks are
+  // pointer lookups instead of document.querySelector — they run every mutation
+  // and scroll frame, so this is what keeps the observer callback cheap.
+  const spansByThread = new Map(); // threadId -> [span, ...]
+
   // Candidate selectors for the current site's model-answer container. The exact
   // DOM changes over time; we try several and fall back to the nearest big block.
   // The per-site lists live in core/sites.js; confirm/extend against the live page.
@@ -82,6 +87,7 @@ GA.selection = (function () {
       span.appendChild(target);
       spans.push(span);
     });
+    if (spans.length) spansByThread.set(threadId, spans);
     return spans;
   }
 
@@ -107,7 +113,37 @@ GA.selection = (function () {
     return [];
   }
 
+  // Batch form of highlightSelector for the re-anchor pass: extract each
+  // section's text ONCE and match every orphan against the cached strings —
+  // instead of walking the whole document per thread, per frame. Wrapping a
+  // match in highlight spans doesn't change any extracted text, so the caches
+  // stay valid across threads. Returns Map(threadId -> spans).
+  function reanchorAll(threads) {
+    const result = new Map();
+    if (!threads.length) return result;
+    const sections = findAllSections();
+    const texts = sections.map((s) => GA.anchor.textOf(s));
+    const useBodyFallback = !(sections.length === 1 && sections[0] === document.body);
+    let bodyText = null; // extracted at most once per pass
+
+    threads.forEach(function (thread) {
+      let spans = [];
+      for (let i = 0; i < sections.length && !spans.length; i++) {
+        const range = GA.anchor.locateInText(texts[i], thread.selector, sections[i]);
+        if (range) spans = highlightRange(range, thread.id);
+      }
+      if (!spans.length && useBodyFallback) {
+        if (bodyText === null) bodyText = GA.anchor.textOf(document.body);
+        const range = GA.anchor.locateInText(bodyText, thread.selector, document.body);
+        if (range) spans = highlightRange(range, thread.id);
+      }
+      result.set(thread.id, spans);
+    });
+    return result;
+  }
+
   function unhighlight(threadId) {
+    spansByThread.delete(threadId);
     const q = 'span.ga-highlight[data-ga-thread="' + cssEscape(threadId) + '"]';
     document.querySelectorAll(q).forEach(function (span) {
       const parent = span.parentNode;
@@ -118,15 +154,47 @@ GA.selection = (function () {
     });
   }
 
+  // Whether this environment produces client rects at all (jsdom doesn't) —
+  // when it does, a span with none is inside a hidden/display:none subtree and
+  // must count as orphaned rather than anchoring a box to nowhere.
+  let rectsWork = null;
+  function hasRects(el) {
+    if (rectsWork === null)
+      rectsWork = document.documentElement.getClientRects().length > 0;
+    return !rectsWork || el.getClientRects().length > 0;
+  }
+
+  // The thread's live anchor span (first visible one), or null when the thread
+  // is orphaned. Registry lookup only — no DOM queries on the hot path.
   function anchorEl(threadId) {
-    return document.querySelector(
-      'span.ga-highlight[data-ga-thread="' + cssEscape(threadId) + '"]'
-    );
+    const spans = spansByThread.get(threadId);
+    if (!spans) return null;
+    for (const s of spans) {
+      if (s.isConnected && hasRects(s)) return s;
+    }
+    return null; // spans died with a re-render (or are hidden) — orphan
+  }
+
+  // Main visual state of a thread's highlight spans: "active" | "resolved" |
+  // null (idle) — exclusive. Hover is a separate additive layer (below) so
+  // mousing over a box can't clobber the active state.
+  const HL_STATES = { active: "ga-highlight-active", resolved: "ga-highlight-resolved" };
+  function setHighlightState(threadId, stateName) {
+    const spans = spansByThread.get(threadId);
+    if (!spans) return;
+    spans.forEach((s) => {
+      for (const k in HL_STATES) s.classList.toggle(HL_STATES[k], k === stateName);
+    });
+  }
+
+  function setHighlightHover(threadId, on) {
+    const spans = spansByThread.get(threadId);
+    if (!spans) return;
+    spans.forEach((s) => s.classList.toggle("ga-highlight-hover", !!on));
   }
 
   function setActiveHighlight(threadId, active) {
-    const q = 'span.ga-highlight[data-ga-thread="' + cssEscape(threadId) + '"]';
-    document.querySelectorAll(q).forEach((s) => s.classList.toggle("ga-highlight-active", !!active));
+    setHighlightState(threadId, active ? "active" : null);
   }
 
   function cssEscape(s) {
@@ -139,8 +207,11 @@ GA.selection = (function () {
     findAllSections,
     highlightRange,
     highlightSelector,
+    reanchorAll,
     unhighlight,
     anchorEl,
     setActiveHighlight,
+    setHighlightState,
+    setHighlightHover,
   };
 })();

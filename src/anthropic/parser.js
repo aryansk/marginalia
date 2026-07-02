@@ -16,7 +16,12 @@ GA.anthropic.parser = (function () {
     if (typeof obj.completion === "string") return obj.completion;
     return null;
   }
-  return { parseLatest: sse.makeParser(extract) };
+  return {
+    parseLatest: sse.makeParser(extract),
+    makeStream: function () {
+      return sse.makeStream(extract);
+    },
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.anthropic.parser;

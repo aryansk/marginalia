@@ -6,7 +6,10 @@ GA.core = GA.core || {};
 
 GA.core.anchorMatch = (function () {
   // Index of the occurrence of `exact` whose surrounding text best matches the
-  // recorded prefix/suffix (disambiguates repeated phrases). -1 if not found.
+  // recorded prefix/suffix (disambiguates repeated phrases). -1 if not found —
+  // or if the phrase repeats and no occurrence has ANY matching context: a
+  // guess would silently highlight the wrong text, and an orphaned thread
+  // (which keeps retrying) beats a wrong anchor.
   function bestMatch(full, selector) {
     const exact = selector.exact;
     if (!exact) return -1;
@@ -14,10 +17,12 @@ GA.core.anchorMatch = (function () {
     const suffix = selector.suffix || "";
     let from = 0,
       best = -1,
-      bestScore = -1;
+      bestScore = -1,
+      count = 0;
     for (;;) {
       const i = full.indexOf(exact, from);
       if (i < 0) break;
+      count++;
       const pre = full.slice(Math.max(0, i - prefix.length), i);
       const suf = full.slice(i + exact.length, i + exact.length + suffix.length);
       const score = commonSuffixLen(pre, prefix) + commonPrefixLen(suf, suffix);
@@ -27,6 +32,7 @@ GA.core.anchorMatch = (function () {
       }
       from = i + 1;
     }
+    if (count > 1 && bestScore <= 0) return -1; // ambiguous — refuse to guess
     return best;
   }
 

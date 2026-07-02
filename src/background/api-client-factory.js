@@ -13,7 +13,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 //                  comes from settings-schema.js so it lives in exactly one place
 //   missingKeyMsg— thrown when the key isn't set
 //   buildRequest(model, prompt, key) -> { url, headers, body }
-//   parser(buffer) -> full answer so far, or null (see shared/sse.js)
+//   makeStream() -> incremental parser cursor {push, end} (see shared/sse.js)
 GA.makeApiClient = function (config) {
   async function ask(req, onChunk) {
     const s = (req && req.settings) || {};
@@ -26,7 +26,7 @@ GA.makeApiClient = function (config) {
     const model = s[config.modelField] || schemaDefault;
     const built = config.buildRequest(model, (req && req.prompt) || "", key);
 
-    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS);
+    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS, req && req.signal);
     const timeoutMsg = config.label + " request timed out.";
     let res;
     try {
@@ -38,6 +38,7 @@ GA.makeApiClient = function (config) {
       });
     } catch (e) {
       budget.clear();
+      if (budget.cancelled()) throw GA.abortError();
       if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
       throw e;
     }
@@ -46,8 +47,10 @@ GA.makeApiClient = function (config) {
       throw new Error(await GA.apiError(config.label, res));
     }
     try {
-      return await GA.streamSSE(res, config.parser, onChunk, config.label, budget);
+      const failMsg = "Couldn't parse " + config.label + "'s response — the API shape may have changed.";
+      return await GA.streamText(res, config.makeStream(), onChunk, failMsg, budget);
     } catch (e) {
+      if (budget.cancelled()) throw GA.abortError();
       if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
       throw e;
     } finally {

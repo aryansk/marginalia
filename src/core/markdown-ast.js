@@ -3,7 +3,9 @@
 //
 // Block nodes:  {type:'heading',level,inline} | {type:'code',lang,text} |
 //               {type:'hr'} | {type:'blockquote',children:[block]} |
-//               {type:'list',ordered,items:[[inline]]} | {type:'paragraph',inline}
+//               {type:'list',ordered,items:[{inline,children:list|null}]} |
+//               {type:'table',header:[[inline]],rows:[[[inline]]]} |
+//               {type:'paragraph',inline}
 // Inline nodes: {type:'text',value} | {type:'code',value} | {type:'br'} |
 //               {type:'strong',children:[inline]} | {type:'em',children:[inline]} |
 //               {type:'link',text,href|null}   (href null => render as plain text)
@@ -15,8 +17,10 @@ GA.core.markdownAst = (function () {
   const HEADING = /^(#{1,6})\s+(.*)$/;
   const HR = /^\s*([-*_])(\s*\1){2,}\s*$/;
   const QUOTE = /^\s*>\s?/;
-  const LIST = /^\s*([-*+]|\d+\.)\s+/;
+  const LIST = /^(\s*)([-*+]|\d+\.)\s+/;
   const ORDERED = /^\s*\d+\.\s+/;
+  // GFM pipe-table separator row: |---|:--:|--- (at least one dash per cell)
+  const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
   // Bold uses [\s\S]+? (not [^*]) so it can contain nested *emphasis*; italic
   // stays single-char. Backtick code is first so emphasis inside code is inert.
   const INLINE =
@@ -69,12 +73,25 @@ GA.core.markdownAst = (function () {
         continue;
       }
       if (LIST.test(line)) {
-        const ordered = ORDERED.test(line);
-        const items = [];
-        while (i < lines.length && LIST.test(lines[i])) {
-          items.push(parseInlineLines(lines[i++].replace(LIST, "")));
+        const listLines = [];
+        while (i < lines.length && LIST.test(lines[i])) listLines.push(lines[i++]);
+        blocks.push(parseList(listLines));
+        continue;
+      }
+      // Pipe table: a header row followed by a |---|---| separator row.
+      if (
+        line.indexOf("|") !== -1 &&
+        i + 1 < lines.length &&
+        lines[i + 1].indexOf("|") !== -1 &&
+        TABLE_SEP.test(lines[i + 1])
+      ) {
+        const header = splitTableRow(line).map(inlineChildren);
+        i += 2; // header + separator
+        const rows = [];
+        while (i < lines.length && lines[i].indexOf("|") !== -1 && !/^\s*$/.test(lines[i])) {
+          rows.push(splitTableRow(lines[i++]).map(inlineChildren));
         }
-        blocks.push({ type: "list", ordered, items });
+        blocks.push({ type: "table", header, rows });
         continue;
       }
       const buf = [line];
@@ -83,6 +100,49 @@ GA.core.markdownAst = (function () {
       blocks.push({ type: "paragraph", inline: parseInlineLines(buf.join("\n")) });
     }
     return blocks;
+  }
+
+  // Indentation-aware list builder: deeper-indented items become the previous
+  // item's nested child list. Items are {inline, children: list|null}.
+  function parseList(listLines) {
+    const rows = listLines.map((l) => {
+      const m = l.match(LIST);
+      return {
+        indent: m[1].replace(/\t/g, "  ").length,
+        ordered: ORDERED.test(l),
+        text: l.slice(m[0].length),
+      };
+    });
+    let pos = 0;
+    function level(indent) {
+      const list = { type: "list", ordered: rows[pos].ordered, items: [] };
+      while (pos < rows.length) {
+        const r = rows[pos];
+        if (r.indent < indent) break; // parent level resumes
+        if (r.indent > indent && list.items.length) {
+          list.items[list.items.length - 1].children = level(r.indent);
+          continue;
+        }
+        list.items.push({ inline: parseInlineLines(r.text), children: null });
+        pos++;
+      }
+      return list;
+    }
+    const top = level(rows[0].indent);
+    while (pos < rows.length) {
+      // malformed shallower leftovers — keep them rather than dropping text
+      top.items.push({ inline: parseInlineLines(rows[pos].text), children: null });
+      pos++;
+    }
+    return top;
+  }
+
+  // "| a | b |" -> ["a", "b"] (outer pipes optional)
+  function splitTableRow(line) {
+    let s = line.trim();
+    if (s[0] === "|") s = s.slice(1);
+    if (s[s.length - 1] === "|") s = s.slice(0, -1);
+    return s.split("|").map((c) => c.trim());
   }
 
   // Split on hard newlines into <br>-separated runs of inline nodes.
@@ -128,7 +188,35 @@ GA.core.markdownAst = (function () {
     return /^https?:\/\//i.test(href) ? href : null;
   }
 
-  return { parse };
+  // Deep equality over AST nodes (plain arrays/objects/primitives only).
+  function eq(a, b) {
+    if (a === b) return true;
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+      return true;
+    }
+    if (a && b && typeof a === "object" && typeof b === "object") {
+      const ka = Object.keys(a);
+      if (ka.length !== Object.keys(b).length) return false;
+      for (const k of ka) if (!eq(a[k], b[k])) return false;
+      return true;
+    }
+    return false;
+  }
+
+  // Index of the first block that differs between two parses — the streaming
+  // renderer rebuilds DOM only from here. A stream appends, so this is almost
+  // always the last block; a full rewrite (Gemini revision) returns 0.
+  function firstChangedBlock(prevBlocks, nextBlocks) {
+    const n = Math.min(prevBlocks.length, nextBlocks.length);
+    for (let i = 0; i < n; i++) {
+      if (!eq(prevBlocks[i], nextBlocks[i])) return i;
+    }
+    return n; // one is a prefix of the other (or they're identical)
+  }
+
+  return { parse, firstChangedBlock };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.markdownAst;

@@ -9,10 +9,25 @@ function run(items, extra = {}) {
 }
 
 describe("computeGutterBox", () => {
-  it("uses the width fraction, clamped to [MIN, MAX], right-aligned", () => {
-    expect(computeGutterBox(1000)).toEqual({ width: 320, left: 1000 - 320 - DEFAULTS.MARGIN });
+  it("uses the width fraction, clamped to [MIN, MAX], right-aligned (full mode)", () => {
+    const w1100 = Math.floor(1100 * DEFAULTS.WIDTH_FRACTION);
+    expect(computeGutterBox(1100)).toEqual({
+      width: w1100,
+      left: 1100 - w1100 - DEFAULTS.MARGIN,
+      mode: "full",
+    });
     expect(computeGutterBox(3000).width).toBe(DEFAULTS.MAX_WIDTH); // clamped up-bound
-    expect(computeGutterBox(700).width).toBe(DEFAULTS.MIN_WIDTH); // clamped low-bound
+    expect(computeGutterBox(3000).mode).toBe("full");
+  });
+
+  it("switches to a chip rail on narrow viewports and hides on very narrow ones", () => {
+    const rail = computeGutterBox(900);
+    expect(rail.mode).toBe("rail");
+    expect(rail.width).toBe(DEFAULTS.RAIL_WIDTH);
+    expect(rail.left).toBe(900 - DEFAULTS.RAIL_WIDTH - DEFAULTS.MARGIN);
+    expect(computeGutterBox(1024).mode).toBe("full"); // breakpoint is exclusive
+    expect(computeGutterBox(599).mode).toBe("hidden");
+    expect(computeGutterBox(599).width).toBe(0);
   });
 });
 
@@ -165,5 +180,113 @@ describe("computeLayout — orphans", () => {
     // only one true orphan now -> no cluster, all three placed
     expect(res.clusterCount).toBe(0);
     expect(res.placements.map((p) => p.id).sort()).toEqual(["o1", "o2", "t"]);
+  });
+});
+
+describe("inputsEqual (relayout skip)", () => {
+  const layout = require("../../src/core/layout-engine.js");
+  const sig = (over) =>
+    Object.assign(
+      {
+        items: [
+          { id: "a", order: 0, anchorTop: 100, naturalHeight: 200 },
+          { id: "b", order: 1, anchorTop: 300, naturalHeight: 150 },
+        ],
+        height: 900,
+        left: 1000,
+        width: 320,
+        activeId: null,
+        expanded: false,
+      },
+      over || {}
+    );
+
+  it("equal inputs match; null never matches", () => {
+    expect(layout.inputsEqual(sig(), sig())).toBe(true);
+    expect(layout.inputsEqual(null, sig())).toBe(false);
+  });
+
+  it("any moved anchor, resize, focus or set change breaks equality", () => {
+    const a = sig();
+    expect(layout.inputsEqual(a, sig({ height: 800 }))).toBe(false);
+    expect(layout.inputsEqual(a, sig({ activeId: "a" }))).toBe(false);
+    expect(layout.inputsEqual(a, sig({ expanded: true }))).toBe(false);
+    const moved = sig();
+    moved.items = moved.items.map((it) => (it.id === "b" ? { ...it, anchorTop: 301 } : it));
+    expect(layout.inputsEqual(a, moved)).toBe(false);
+    const grown = sig();
+    grown.items = grown.items.map((it) => (it.id === "a" ? { ...it, naturalHeight: 220 } : it));
+    expect(layout.inputsEqual(a, grown)).toBe(false);
+    const fewer = sig();
+    fewer.items = fewer.items.slice(0, 1);
+    expect(layout.inputsEqual(a, fewer)).toBe(false);
+  });
+});
+
+describe("computeLayout — pinned active box (Docs-style alignment)", () => {
+  it("pins the focused box exactly at its anchor and pushes the crowd above upward", () => {
+    // three tall boxes anchored close together; focusing the middle one must
+    // put it AT its anchor, with the earlier box displaced above.
+    const items = [
+      { id: "a", order: 0, anchorTop: 190, naturalHeight: 200 },
+      { id: "b", order: 1, anchorTop: 200, naturalHeight: 200 },
+      { id: "c", order: 2, anchorTop: 210, naturalHeight: 200 },
+    ];
+    const { placements } = run(items, { activeId: "b" });
+    const by = Object.fromEntries(placements.map((p) => [p.id, p]));
+    expect(by.b.top).toBe(200); // pinned level with its highlight
+    expect(by.a.top + by.a.height + DEFAULTS.GAP).toBeLessThanOrEqual(by.b.top); // pushed up, no overlap
+    expect(by.c.top).toBeGreaterThanOrEqual(by.b.top + by.b.height + DEFAULTS.GAP); // flows below
+  });
+
+  it("a crowded-out earlier box may slide past the top edge rather than displace the pinned one", () => {
+    const items = [
+      { id: "a", order: 0, anchorTop: 40, naturalHeight: 300 },
+      { id: "b", order: 1, anchorTop: 60, naturalHeight: 300 },
+    ];
+    const { placements } = run(items, { activeId: "b" });
+    const by = Object.fromEntries(placements.map((p) => [p.id, p]));
+    expect(by.b.top).toBe(60);
+    expect(by.a.top).toBeLessThan(DEFAULTS.GAP); // slid off the top, Docs-style
+  });
+
+  it("without a focused box the flow is unchanged (top-down)", () => {
+    const { placements } = run([
+      { id: "a", order: 0, anchorTop: 100, naturalHeight: 200 },
+      { id: "b", order: 1, anchorTop: 100, naturalHeight: 200 },
+    ]);
+    const [a, b] = placements;
+    expect(b.top).toBe(a.top + a.height + DEFAULTS.GAP);
+  });
+});
+
+describe("computeLayout — collapsed chips", () => {
+  it("collapsed items keep natural height (no MIN_BOX_HEIGHT floor) when crowded", () => {
+    const CHIP = 32;
+    const { placements } = run(
+      [
+        { id: "chip", order: 0, anchorTop: 50, naturalHeight: CHIP, collapsed: true },
+        { id: "a", order: 1, anchorTop: 200, naturalHeight: 700 },
+        { id: "b", order: 2, anchorTop: 400, naturalHeight: 700 },
+      ],
+      { activeId: null }
+    );
+    const chip = placements.find((p) => p.id === "chip");
+    expect(chip.height).toBe(CHIP); // not inflated to MIN_BOX_HEIGHT
+    expect(chip.maxHeight).toBeNull(); // no message-area cap for a chip
+    const total = placements.reduce((s, p) => s + p.height, 0) + DEFAULTS.GAP * (placements.length + 1);
+    expect(total).toBeLessThanOrEqual(VP.height);
+  });
+
+  it("a collapsed active box gets no active budget", () => {
+    const { placements } = run(
+      [
+        { id: "chip", order: 0, anchorTop: 50, naturalHeight: 32, collapsed: true },
+        { id: "a", order: 1, anchorTop: 200, naturalHeight: 700 },
+        { id: "b", order: 2, anchorTop: 400, naturalHeight: 700 },
+      ],
+      { activeId: "chip" }
+    );
+    expect(placements.find((p) => p.id === "chip").height).toBe(32);
   });
 });

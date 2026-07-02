@@ -44,7 +44,13 @@ function routedFetch(routes) {
 
 function client(fetchFake) {
   return loadGA(
-    ["src/background/api-util.js", "src/claude/parser.js", "src/claude/payload.js", "src/claude/client.js"],
+    [
+      "src/shared/sse.js",
+      "src/background/api-util.js",
+      "src/claude/parser.js",
+      "src/claude/payload.js",
+      "src/claude/client.js",
+    ],
     { fetch: fetchFake }
   ).claudeClient;
 }
@@ -67,6 +73,36 @@ describe("claudeClient.ask (web session)", () => {
     expect(chunks[chunks.length - 1]).toBe("Hello");
     expect(fetchFake.calls.length).toBe(3);
     expect(fetchFake.calls[2].opts.signal).toBeDefined(); // completion is abortable
+  });
+
+  it("caches the org id across asks (one /api/organizations fetch)", async () => {
+    const fetchFake = routedFetch([
+      ["/completion", () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n'])],
+      ["/chat_conversations", () => jsonRes({ uuid: "conv-1" })],
+      ["/api/organizations", () => jsonRes(OK_ORGS)],
+    ]);
+    const c = client(fetchFake);
+    await c.ask({ prompt: "one" });
+    await c.ask({ prompt: "two" });
+    // Conversation/completion URLs nest under /api/organizations/<id>/… — count
+    // only the bare org-lookup endpoint.
+    const orgCalls = fetchFake.calls.filter((c2) => /\/api\/organizations$/.test(c2.url));
+    expect(orgCalls.length).toBe(1);
+  });
+
+  it("drops the cached org id after an auth error", async () => {
+    let convStatus = 403;
+    const fetchFake = routedFetch([
+      ["/completion", () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n'])],
+      ["/chat_conversations", () => (convStatus === 200 ? jsonRes({ uuid: "c" }) : jsonRes({}, { ok: false, status: convStatus }))],
+      ["/api/organizations", () => jsonRes(OK_ORGS)],
+    ]);
+    const c = client(fetchFake);
+    await expect(c.ask({ prompt: "p" })).rejects.toThrow(/403/);
+    convStatus = 200;
+    await c.ask({ prompt: "p" }); // must re-fetch orgs after the auth failure
+    const orgCalls = fetchFake.calls.filter((c2) => /\/api\/organizations$/.test(c2.url));
+    expect(orgCalls.length).toBe(2);
   });
 
   it("errors when the account can't be reached", async () => {
@@ -97,5 +133,43 @@ describe("claudeClient.ask (web session)", () => {
       }],
     ]);
     await expect(client(fetchFake).ask({ prompt: "p" })).rejects.toThrow(/timed out/i);
+  });
+
+  it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
+    const external = new AbortController();
+    const fetchFake = routedFetch([
+      ["/api/organizations", (url, opts) => {
+        // simulate the fetch being killed by the chained abort signal
+        external.abort();
+        const e = new Error("aborted");
+        e.name = "AbortError";
+        throw e;
+      }],
+    ]);
+    await expect(
+      client(fetchFake).ask({ prompt: "p", signal: external.signal })
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("the abort budget's signal aborts when the external signal fires", async () => {
+    let seenSignal = null;
+    const external = new AbortController();
+    const fetchFake = routedFetch([
+      ["/api/organizations", (url, opts) => {
+        seenSignal = opts.signal;
+        return new Promise((resolve, reject) => {
+          opts.signal.addEventListener("abort", () => {
+            const e = new Error("aborted");
+            e.name = "AbortError";
+            reject(e);
+          });
+          external.abort(); // cancel while the fetch is pending
+        });
+      }],
+    ]);
+    await expect(
+      client(fetchFake).ask({ prompt: "p", signal: external.signal })
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(seenSignal.aborted).toBe(true);
   });
 });

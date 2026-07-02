@@ -25,9 +25,11 @@ GA.core.prompt = (function () {
     lines.push('I highlighted this specific part: "' + thread.selector.exact + '"');
     lines.push("");
     lines.push("Our follow-up discussion so far:");
-    (thread.messages || []).forEach((m) => {
-      lines.push((m.role === "user" ? "Me: " : "You: ") + m.text);
-    });
+    (thread.messages || [])
+      .filter((m) => !m.error) // failed-request notices aren't part of the conversation
+      .forEach((m) => {
+        lines.push((m.role === "user" ? "Me: " : "You: ") + m.text);
+      });
     lines.push("");
     lines.push(
       "Answer my latest question concisely, focused only on the highlighted part. " +

@@ -11,7 +11,12 @@ var GA = (typeof GA !== "undefined" && GA) || {};
       if (t.closest && (t.closest(".ga-box") || t.closest(".ga-modal"))) return;
       const hl = t.closest && t.closest("span.ga-highlight");
       if (hl && hl.dataset.gaThread) {
-        GA.gutter.setActive(hl.dataset.gaThread);
+        if (GA.gutter.mode() === "hidden") {
+          // no gutter on very narrow windows — the highlight opens the modal
+          GA.threadController.expandThreadById(hl.dataset.gaThread);
+        } else {
+          GA.gutter.setActive(hl.dataset.gaThread);
+        }
         return;
       }
       GA.gutter.setActive(null);
@@ -21,18 +26,43 @@ var GA = (typeof GA !== "undefined" && GA) || {};
     });
   }
 
+  // Hover linking (page highlight -> box). The box -> highlight direction
+  // lives in thread-ui.js. Delegated, so it costs one listener pair.
+  function setupHoverListeners() {
+    let hoveredThread = null;
+    document.addEventListener("mouseover", function (e) {
+      const hl = e.target.closest && e.target.closest("span.ga-highlight");
+      const id = hl && hl.dataset.gaThread;
+      if (id === hoveredThread) return;
+      if (hoveredThread) GA.gutter.hoverThread(hoveredThread, false);
+      hoveredThread = id || null;
+      if (hoveredThread) GA.gutter.hoverThread(hoveredThread, true);
+    });
+  }
+
   (async function init() {
     await GA.loadSettings();
     browser.storage.onChanged.addListener(function (changes, area) {
       if (area === "local" && changes[GA.SETTINGS_KEY]) GA.loadSettings();
     });
 
+    await GA.store.sweepDrafts(); // adopt legacy drafts, drop abandoned ones
+
+    GA.themeDetector.start(); // boxes follow the SITE's theme, not the OS's
+
     GA.gutter.init();
     const ctrl = GA.threadController;
     GA.triggers.setup(() => ctrl.createFromSelection());
+    GA.adder.setup(() => ctrl.createFromSelection());
+    GA.keyboardNav.setup();
     setupFocusListeners();
-    GA.navigation.watch(() => ctrl.onRouteChange());
-    GA.reanchorer.observe({ reanchor: ctrl.reanchorOrphans, hasOrphans: ctrl.hasOrphans });
+    setupHoverListeners();
+    const nav = GA.navigation.watch(() => ctrl.onRouteChange());
+    GA.reanchorer.observe({
+      reanchor: ctrl.reanchorOrphans,
+      hasOrphans: ctrl.hasOrphans,
+      checkNav: nav.checkNow,
+    });
 
     await ctrl.restoreForSession(GA.getSessionId());
     GA.log("ready; session =", GA.getSessionId());

@@ -70,3 +70,22 @@ describe("composePrompt — structure", () => {
     expect(out).toContain('the "B+" index ☞');
   });
 });
+
+describe("composePrompt — error messages", () => {
+  const prompt = require("../../src/core/prompt.js");
+  it("skips stored error notices in the replayed discussion", () => {
+    const thread = {
+      selector: { exact: "8 KB page" },
+      section: "context",
+      messages: [
+        { role: "user", text: "why?" },
+        { role: "model", text: "Request timed out.", error: true },
+        { role: "user", text: "why though?" },
+      ],
+    };
+    const out = prompt.composePrompt(thread, "section");
+    expect(out).toContain("Me: why?");
+    expect(out).toContain("Me: why though?");
+    expect(out).not.toContain("Request timed out");
+  });
+});

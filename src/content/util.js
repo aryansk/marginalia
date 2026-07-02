@@ -40,6 +40,22 @@ GA.uid = function (prefix) {
 // per-conversation storage key. (Registry lives in core/sites.js, unit-testable.)
 GA.provider = GA.core.sites.providerForHost(location.hostname);
 
+// A stable per-tab token (survives SPA navigation and reloads, distinct across
+// tabs). Namespaces the pre-id draft bucket so two tabs of the same site can't
+// steal each other's draft threads when one of them gets a conversation id.
+GA.tabToken = (function () {
+  try {
+    let t = sessionStorage.getItem("ga:tab");
+    if (!t) {
+      t = GA.uid("tab");
+      sessionStorage.setItem("ga:tab", t);
+    }
+    return t;
+  } catch (e) {
+    return GA.uid("tab"); // sessionStorage blocked — unique per page load is still safe
+  }
+})();
+
 // Storage key for the current conversation: "<provider>:<id>", or null before a
 // chat has an id (the store then uses a per-provider draft bucket). Qualifying by
 // provider keeps two sites' conversation ids from colliding in one storage area.
@@ -78,10 +94,23 @@ GA.truncate = function (s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
+// Copy text to the clipboard with a confirming toast. Clipboard access can be
+// denied on some pages — fall back to a quiet failure toast.
+GA.copyText = function (text) {
+  const p =
+    navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(text)
+      : Promise.reject(new Error("clipboard unavailable"));
+  p.then(
+    () => GA.toast("Copied"),
+    () => GA.toast("Couldn't copy — clipboard blocked on this page.")
+  );
+};
+
 GA.toast = function (msg) {
   let t = document.querySelector(".ga-toast");
   if (!t) {
-    t = GA.el("div", { class: "ga-toast" });
+    t = GA.el("div", { class: "ga-toast", role: "status", "aria-live": "polite" });
     document.body.appendChild(t);
   }
   t.textContent = msg;

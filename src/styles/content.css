@@ -1,38 +1,101 @@
 /* content.css — all UI is namespaced under .ga-* and uses explicit properties
-   so Gemini's page styles don't leak in (or out). */
+   so the host page's styles don't leak in (or out).
+
+   Theming: every color routes through the --ga-* tokens below. The dark set is
+   applied when content/theme-detector.js stamps <html data-ga-theme="dark">
+   after sampling the HOST PAGE's background — the boxes follow the site's
+   theme, not the OS's. Until detection has run, the prefers-color-scheme
+   media query is the fallback. */
 
 :root {
-  --ga-bg: #ffffff;
+  --ga-bg: #ffffff; /* page-level surfaces (badge borders) */
+  --ga-surface: #ffffff; /* raised cards: boxes, modal, popovers */
   --ga-fg: #1f1f24;
   --ga-muted: #5f6368;
   --ga-border: #dadce0;
-  --ga-accent: #4f8cff;
+  --ga-accent: #4f8cff; /* rings, links, focus borders (non-text) */
   --ga-accent-2: #9b5cff;
+  /* gradient for text-bearing buttons — darker than the accents so white
+     text holds ≥ 4.5:1 on both stops (AA) */
+  --ga-btn-grad-a: #2563eb;
+  --ga-btn-grad-b: #6d28d9;
+  --ga-danger: #b3261e;
+  --ga-danger-fg: #ffffff;
+  --ga-ring: rgba(79, 140, 255, 0.35);
   --ga-user-bg: #eef3ff;
+  --ga-toast-bg: #323232;
+  --ga-toast-fg: #ffffff;
+  --ga-hl: 155, 92, 255; /* highlight tint, rgb triplet for alpha variants */
+  --ga-hl-resolved: 127, 127, 127;
   --ga-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+  --ga-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ga-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
+}
+
+/* Dark tokens — kept in sync between the detected-theme attribute (authoritative)
+   and the pre-detection OS fallback below. */
+:root[data-ga-theme="dark"] {
+  --ga-bg: #1e1f22;
+  --ga-surface: #26282c; /* a step lighter than the page so elevation reads */
+  --ga-fg: #e8eaed;
+  --ga-muted: #9aa0a6;
+  --ga-border: #3c4043;
+  --ga-accent-2: #b18cff;
+  --ga-danger: #e46962;
+  --ga-danger-fg: #1f1f24;
+  --ga-ring: rgba(138, 180, 248, 0.4);
+  --ga-user-bg: #2a3650;
+  --ga-toast-bg: #e8eaed;
+  --ga-toast-fg: #1f1f24;
+  --ga-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-ga-theme]) {
     --ga-bg: #1e1f22;
+    --ga-surface: #26282c;
     --ga-fg: #e8eaed;
     --ga-muted: #9aa0a6;
     --ga-border: #3c4043;
+    --ga-accent-2: #b18cff;
+    --ga-danger: #e46962;
+    --ga-danger-fg: #1f1f24;
+    --ga-ring: rgba(138, 180, 248, 0.4);
     --ga-user-bg: #2a3650;
+    --ga-toast-bg: #e8eaed;
+    --ga-toast-fg: #1f1f24;
     --ga-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   }
 }
 
+/* Defensive reset: some hosts globally restyle buttons/svg. */
+.ga-gutter button,
+.ga-modal-overlay button {
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  margin: 0;
+}
+.ga-gutter svg,
+.ga-modal-overlay svg {
+  display: block;
+}
+
 /* ---------- highlight ---------- */
 .ga-highlight {
-  background: rgba(155, 92, 255, 0.22);
-  border-bottom: 2px solid rgba(155, 92, 255, 0.55);
+  background: rgba(var(--ga-hl), 0.18);
+  border-bottom: 2px solid rgba(var(--ga-hl), 0.55);
   border-radius: 2px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 .ga-highlight:hover,
+.ga-highlight-hover,
 .ga-highlight-active {
-  background: rgba(155, 92, 255, 0.4);
+  background: rgba(var(--ga-hl), 0.38);
+}
+.ga-highlight-resolved {
+  background: rgba(var(--ga-hl-resolved), 0.12);
+  border-bottom: 1px dotted rgba(var(--ga-hl-resolved), 0.6);
 }
 
 /* ---------- gutter ---------- */
@@ -42,7 +105,7 @@
   height: 100vh;
   z-index: 2147483000;
   pointer-events: none;
-  font-family: "Google Sans", Roboto, system-ui, -apple-system, sans-serif;
+  font-family: var(--ga-font);
 }
 
 /* ---------- comment box ---------- */
@@ -54,7 +117,7 @@
   display: flex;
   flex-direction: column;
   max-height: 92vh;
-  background: var(--ga-bg);
+  background: var(--ga-surface);
   color: var(--ga-fg);
   border: 1px solid var(--ga-border);
   border-radius: 12px;
@@ -65,14 +128,19 @@
 }
 .ga-box.ga-active {
   border-color: var(--ga-accent);
-  box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.35), var(--ga-shadow);
+  box-shadow: 0 0 0 2px var(--ga-ring), var(--ga-shadow);
+}
+/* hovering the box's highlight in the page raises the box (hover linking) */
+.ga-box.ga-hover {
+  border-color: var(--ga-accent);
 }
 .ga-box.ga-dimmed {
-  opacity: 0.45;
+  opacity: 0.6;
   transform: scale(0.985);
 }
-.ga-box.ga-dimmed:hover {
-  opacity: 0.85;
+.ga-box.ga-dimmed:hover,
+.ga-box.ga-dimmed.ga-hover {
+  opacity: 0.9;
 }
 .ga-box.ga-orphan {
   border-style: dashed;
@@ -116,7 +184,8 @@
   display: none; /* toggled to flex when there are >= 2 orphans */
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--ga-accent), var(--ga-accent-2));
+  color: #fff;
+  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
   box-shadow: var(--ga-shadow);
   pointer-events: auto;
   z-index: 2147483006;
@@ -127,15 +196,16 @@
   transform: translateY(-1px);
 }
 .ga-cluster.ga-cluster-open {
-  outline: 3px solid rgba(155, 92, 255, 0.45);
+  outline: 3px solid var(--ga-ring);
 }
 .ga-cluster-glyph {
-  width: 26px;
-  height: 26px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='white' d='M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/><path fill='%237a3cff' d='M13.6 6.6l1.1 2.7 2.7 1.1-2.7 1.1-1.1 2.7-1.1-2.7L9.8 10.4l2.7-1.1z'/></svg>");
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ga-cluster-glyph svg {
+  width: 24px;
+  height: 24px;
 }
 .ga-cluster-count {
   position: absolute;
@@ -146,8 +216,8 @@
   padding: 0 5px;
   box-sizing: border-box;
   border-radius: 10px;
-  background: #b3261e;
-  color: #fff;
+  background: var(--ga-danger);
+  color: var(--ga-danger-fg);
   font-size: 12px;
   font-weight: 700;
   line-height: 16px;
@@ -172,7 +242,7 @@
   color: #fff;
   font-size: 12px;
   font-weight: 600;
-  background: linear-gradient(135deg, var(--ga-accent), var(--ga-accent-2));
+  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
   box-shadow: var(--ga-shadow);
   pointer-events: auto;
   z-index: 2147483006;
@@ -193,9 +263,9 @@
 .ga-scrollcue-below:hover {
   transform: translateX(-50%) translateY(1px);
 }
-.ga-scrollcue-glyph {
-  font-size: 10px;
-  line-height: 1;
+.ga-scrollcue-glyph svg {
+  width: 12px;
+  height: 12px;
 }
 .ga-scrollcue-count {
   font-variant-numeric: tabular-nums;
@@ -229,24 +299,100 @@
   border: none;
   background: transparent;
   color: var(--ga-muted);
-  font-size: 14px;
   line-height: 1;
-  padding: 4px 6px;
+  padding: 6px;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ga-iconbtn svg {
+  width: 16px;
+  height: 16px;
 }
 .ga-iconbtn:hover {
   background: rgba(127, 127, 127, 0.16);
   color: var(--ga-fg);
 }
 
-/* minimized: collapse the box to just its header */
+/* minimized: the box becomes a compact right-aligned chip (Docs-style) —
+   snippet + message count; click restores it */
 .ga-box.ga-collapsed .ga-messages,
-.ga-box.ga-collapsed .ga-composer {
+.ga-box.ga-collapsed .ga-composer,
+.ga-box.ga-collapsed .ga-reopen-bar {
   display: none;
+}
+.ga-box.ga-collapsed {
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  right: 0;
+  left: auto;
+  border-radius: 999px;
 }
 .ga-box.ga-collapsed .ga-box-header {
   border-bottom: none;
+  padding: 5px 8px 5px 12px;
+  cursor: pointer;
+}
+.ga-box.ga-collapsed .ga-box-snippet {
+  max-width: 180px;
+}
+.ga-box.ga-collapsed .ga-iconbtn {
+  display: none; /* the chip itself is the restore affordance… */
+}
+.ga-box.ga-collapsed:hover .ga-minbtn,
+.ga-box.ga-collapsed:focus-within .ga-minbtn {
+  display: inline-flex; /* …hover reveals an explicit restore button */
+}
+.ga-chip-count {
+  display: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ga-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ga-box.ga-collapsed .ga-chip-count {
+  display: inline;
+}
+
+/* unread: a new reply finished while the thread wasn't focused */
+.ga-unread-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ga-accent);
+  flex: none;
+}
+.ga-box.ga-unread .ga-unread-dot {
+  display: inline-block;
+}
+
+/* resolved: archived-but-restorable — muted chip, no composer, Reopen bar */
+.ga-box.ga-resolved .ga-box-snippet {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.ga-box.ga-resolved .ga-composer {
+  display: none;
+}
+.ga-reopen-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--ga-border);
+  color: var(--ga-muted);
+  font-size: 12px;
+}
+.ga-box.ga-resolved:not(.ga-collapsed) .ga-reopen-bar {
+  display: flex;
+}
+.ga-box.ga-resolved .ga-resolvebtn {
+  display: none;
 }
 
 /* top-right loading spinner */
@@ -273,8 +419,8 @@
   top: -8px;
   left: 10px;
   font-size: 10px;
-  background: #b3261e;
-  color: #fff;
+  background: var(--ga-danger);
+  color: var(--ga-danger-fg);
   padding: 1px 6px;
   border-radius: 8px;
 }
@@ -318,7 +464,8 @@
   }
 }
 
-/* markdown inside model messages */
+/* markdown inside model messages — headings keep a visible hierarchy within
+   the 13px message base */
 .ga-msg-model p {
   margin: 0 0 8px;
 }
@@ -331,9 +478,26 @@
 .ga-msg-model h4,
 .ga-msg-model h5,
 .ga-msg-model h6 {
-  margin: 10px 0 6px;
-  font-size: 14px;
+  margin: 12px 0 6px;
   font-weight: 700;
+}
+.ga-msg-model h1 {
+  font-size: 16px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--ga-border);
+}
+.ga-msg-model h2 {
+  font-size: 14px;
+}
+.ga-msg-model h3 {
+  font-size: 13px;
+}
+.ga-msg-model h4,
+.ga-msg-model h5,
+.ga-msg-model h6 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ga-muted);
 }
 .ga-msg-model ul,
 .ga-msg-model ol {
@@ -344,7 +508,7 @@
   margin: 2px 0;
 }
 .ga-msg-model code {
-  font-family: "Roboto Mono", ui-monospace, Menlo, monospace;
+  font-family: var(--ga-mono);
   font-size: 12px;
   background: rgba(127, 127, 127, 0.16);
   padding: 1px 4px;
@@ -361,6 +525,24 @@
   background: none;
   padding: 0;
 }
+.ga-msg-model table.ga-table {
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 12px;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.ga-msg-model .ga-table th,
+.ga-msg-model .ga-table td {
+  border: 1px solid var(--ga-border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.ga-msg-model .ga-table th {
+  font-weight: 700;
+  background: rgba(127, 127, 127, 0.08);
+}
 .ga-msg-model blockquote {
   border-left: 3px solid var(--ga-border);
   margin: 6px 0;
@@ -369,6 +551,98 @@
 }
 .ga-msg-model a {
   color: var(--ga-accent);
+}
+
+/* code block chrome: language label + copy button */
+.ga-codeblock {
+  margin: 6px 0;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.14);
+  overflow: hidden;
+}
+.ga-codeblock pre {
+  margin: 0;
+  background: none;
+  border-radius: 0;
+}
+.ga-codeblock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 0 10px;
+}
+.ga-codeblock-lang {
+  font-family: var(--ga-mono);
+  font-size: 10px;
+  text-transform: lowercase;
+  color: var(--ga-muted);
+}
+.ga-codeblock-copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* hover-revealed actions on a finished reply (copy) */
+.ga-msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.ga-msg-model:hover .ga-msg-actions,
+.ga-msg-model:focus-within .ga-msg-actions {
+  opacity: 1;
+}
+.ga-msg-copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* failed request: error card with retry */
+.ga-error-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--ga-danger);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.ga-error-icon {
+  color: var(--ga-danger);
+  flex: none;
+  display: inline-flex;
+}
+.ga-error-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.ga-error-text {
+  flex: 1;
+  min-width: 0;
+}
+.ga-retry-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--ga-border);
+  background: transparent;
+  color: var(--ga-fg);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  flex: none;
+}
+.ga-retry-btn svg {
+  width: 12px;
+  height: 12px;
+}
+.ga-retry-btn:hover {
+  background: rgba(127, 127, 127, 0.12);
 }
 
 /* composer */
@@ -402,17 +676,30 @@
 .ga-send {
   appearance: none;
   border: none;
-  background: linear-gradient(135deg, var(--ga-accent), var(--ga-accent-2));
+  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
   color: #fff;
   font-weight: 600;
   font-size: 13px;
   padding: 8px 14px;
   border-radius: 10px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ga-send svg {
+  width: 14px;
+  height: 14px;
 }
 .ga-send:disabled {
   opacity: 0.55;
   cursor: default;
+}
+/* while streaming, the same button is Stop */
+.ga-send.ga-stop {
+  background: transparent;
+  border: 1px solid var(--ga-danger);
+  color: var(--ga-danger);
 }
 
 /* delete confirm */
@@ -422,7 +709,7 @@
   top: 6px;
   right: 8px;
   z-index: 5;
-  background: var(--ga-bg);
+  background: var(--ga-surface);
   color: var(--ga-fg);
   border: 1px solid var(--ga-border);
   border-radius: 10px;
@@ -450,9 +737,9 @@
   cursor: pointer;
 }
 .ga-confirm-yes {
-  background: #b3261e !important;
-  color: #fff !important;
-  border-color: #b3261e !important;
+  background: var(--ga-danger) !important;
+  color: var(--ga-danger-fg) !important;
+  border-color: var(--ga-danger) !important;
 }
 
 /* ---------- modal ---------- */
@@ -465,14 +752,14 @@
   align-items: center;
   justify-content: center;
   padding: 4vh 4vw;
-  font-family: "Google Sans", Roboto, system-ui, sans-serif;
+  font-family: var(--ga-font);
 }
 .ga-modal {
   width: min(820px, 100%);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--ga-bg);
+  background: var(--ga-surface);
   color: var(--ga-fg);
   border-radius: 14px;
   box-shadow: var(--ga-shadow);
@@ -516,9 +803,9 @@
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   z-index: 2147483600;
-  background: #323232;
-  color: #fff;
-  font-family: Roboto, system-ui, sans-serif;
+  background: var(--ga-toast-bg);
+  color: var(--ga-toast-fg);
+  font-family: var(--ga-font);
   font-size: 13px;
   padding: 10px 16px;
   border-radius: 8px;
@@ -530,4 +817,222 @@
 .ga-toast.ga-toast-show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- narrow-viewport rail: every box renders as a chip ---------- */
+.ga-gutter.ga-rail .ga-box .ga-messages,
+.ga-gutter.ga-rail .ga-box .ga-composer,
+.ga-gutter.ga-rail .ga-box .ga-reopen-bar {
+  display: none;
+}
+.ga-gutter.ga-rail .ga-box {
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  right: 0;
+  left: auto;
+  border-radius: 999px;
+}
+.ga-gutter.ga-rail .ga-box .ga-box-header {
+  border-bottom: none;
+  padding: 5px 8px 5px 12px;
+  cursor: pointer;
+}
+.ga-gutter.ga-rail .ga-box .ga-box-snippet {
+  max-width: 130px;
+}
+.ga-gutter.ga-rail .ga-box .ga-iconbtn {
+  display: none;
+}
+.ga-gutter.ga-rail .ga-box .ga-chip-count {
+  display: inline;
+}
+
+/* ---------- all-threads panel button + panel ---------- */
+.ga-panel-btn {
+  position: absolute;
+  top: 12px;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--ga-border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: none; /* shown while any thread exists */
+  align-items: center;
+  justify-content: center;
+  color: var(--ga-muted);
+  background: var(--ga-surface);
+  box-shadow: var(--ga-shadow);
+  pointer-events: auto;
+  z-index: 2147483006;
+}
+.ga-panel-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.ga-panel-btn:hover {
+  color: var(--ga-fg);
+}
+.ga-panel {
+  width: min(560px, 100%);
+}
+.ga-panel-tabs {
+  display: flex;
+  gap: 4px;
+}
+.ga-panel-tab {
+  appearance: none;
+  border: 1px solid var(--ga-border);
+  background: transparent;
+  color: var(--ga-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ga-panel-tab-on {
+  color: var(--ga-fg);
+  border-color: var(--ga-accent);
+}
+.ga-panel-body {
+  gap: 6px;
+}
+.ga-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--ga-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.ga-panel-row:hover {
+  border-color: var(--ga-accent);
+}
+.ga-panel-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.ga-panel-snippet {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ga-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-panel-row-resolved .ga-panel-snippet {
+  text-decoration: line-through;
+  color: var(--ga-muted);
+}
+.ga-panel-question {
+  font-size: 12px;
+  color: var(--ga-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-panel-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.ga-panel-badge {
+  font-size: 10px;
+  background: var(--ga-danger);
+  color: var(--ga-danger-fg);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.ga-panel-jump {
+  color: var(--ga-muted);
+  display: inline-flex;
+}
+.ga-panel-jump svg {
+  width: 14px;
+  height: 14px;
+}
+.ga-panel-row:focus-visible {
+  outline: 2px solid var(--ga-accent);
+  outline-offset: 1px;
+}
+
+/* ---------- selection adder (the floating "Comment" pill) ---------- */
+.ga-adder {
+  position: fixed;
+  z-index: 2147483600;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  font-family: var(--ga-font);
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
+  box-shadow: var(--ga-shadow);
+}
+.ga-adder.ga-adder-show {
+  display: inline-flex;
+}
+.ga-adder svg {
+  width: 14px;
+  height: 14px;
+}
+.ga-adder:hover {
+  filter: brightness(1.07);
+}
+
+/* ---------- accessibility ---------- */
+/* visually hidden but announced (live regions) */
+.ga-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* visible keyboard focus on every interactive element */
+.ga-iconbtn:focus-visible,
+.ga-send:focus-visible,
+.ga-input:focus-visible,
+.ga-cluster:focus-visible,
+.ga-scrollcue:focus-visible,
+.ga-confirm button:focus-visible,
+.ga-adder:focus-visible,
+.ga-retry-btn:focus-visible,
+.ga-box:focus-visible {
+  outline: 2px solid var(--ga-accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ga-box,
+  .ga-toast,
+  .ga-cluster,
+  .ga-scrollcue,
+  .ga-highlight {
+    transition: none;
+  }
+  .ga-cluster:hover,
+  .ga-scrollcue-above:hover,
+  .ga-scrollcue-below:hover {
+    transform: translateX(-50%);
+  }
+  .ga-cluster:hover {
+    transform: none;
+  }
+  .ga-msg-model.ga-msg-streaming::after {
+    animation: none;
+  }
 }

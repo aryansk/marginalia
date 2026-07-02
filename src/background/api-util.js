@@ -13,10 +13,16 @@ GA.REQUEST_TIMEOUT_MS = 60000;
 // stalled connection is cancelled while a live (slow) stream keeps going. Call
 // `clear()` when done so the timer can't fire late. `aborted()` distinguishes a
 // timeout from other fetch failures.
-GA.makeAbortBudget = function (ms) {
+//
+// `externalSignal` (optional) chains a caller-owned AbortSignal in — used by the
+// background to cancel the whole ask when the content side disconnects.
+// `cancelled()` tells an external abort apart from an idle timeout, so clients
+// can throw AbortError ("user stopped this") instead of "timed out".
+GA.makeAbortBudget = function (ms, externalSignal) {
   const controller = new AbortController();
   const limit = ms || GA.REQUEST_TIMEOUT_MS;
   let timer = null;
+  let external = false;
   function fire() {
     try {
       controller.abort();
@@ -29,9 +35,20 @@ GA.makeAbortBudget = function (ms) {
     if (timer) clearTimeout(timer);
     arm();
   }
+  function onExternalAbort() {
+    external = true;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    fire();
+  }
   function clear() {
     if (timer) clearTimeout(timer);
     timer = null;
+    if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
+  }
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
   }
   arm();
   return {
@@ -41,37 +58,50 @@ GA.makeAbortBudget = function (ms) {
     aborted: function () {
       return controller.signal.aborted;
     },
+    cancelled: function () {
+      return external;
+    },
   };
 };
 
-// Read an SSE response, re-parsing the growing buffer and emitting each newly
-// longer answer (same shape as gemini/client.js). `parseLatest(buffer)` returns
-// the full answer so far, or null. Pass an optional abort `budget` to reset its
-// idle timer as chunks arrive.
-GA.streamSSE = async function (res, parseLatest, onChunk, name, budget) {
-  const failMsg = "Couldn't parse " + name + "'s response — the API shape may have changed.";
+// The error a client throws when its budget was cancelled from outside (port
+// disconnect / user stop) — callers check err.name === "AbortError".
+GA.abortError = function () {
+  const e = new Error("Cancelled.");
+  e.name = "AbortError";
+  return e;
+};
+
+// Read a streamed response through an incremental parser cursor
+// (`{ push(text) -> answerSoFar|null, end() -> answer|null }`, see
+// sse.makeStream / gemini.parser.makeStream) and emit each newly different
+// answer. One read-loop for every provider — official-API and web-session
+// clients alike. Pass an optional abort `budget` to reset its idle timer as
+// chunks arrive. `failMsg` is thrown when the response yields no answer at all.
+GA.streamText = async function (res, stream, onChunk, failMsg, budget) {
   if (!res.body || !res.body.getReader) {
-    const text = parseLatest(await res.text());
-    if (text == null) throw new Error(failMsg);
+    stream.push(await res.text());
+    const text = stream.end();
+    if (text == null || text === "") throw new Error(failMsg);
     if (onChunk) onChunk(text);
     return text;
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-  let buf = "";
   let last = "";
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
     if (budget) budget.bump();
-    buf += decoder.decode(value, { stream: true });
-    const text = parseLatest(buf);
+    const text = stream.push(decoder.decode(value, { stream: true }));
     if (text != null && text !== last) {
       last = text;
       if (onChunk) onChunk(text);
     }
   }
-  const finalText = parseLatest(buf) || last;
+  const pending = decoder.decode(); // flush a trailing partial code point
+  if (pending) stream.push(pending);
+  const finalText = stream.end() || last;
   if (!finalText) throw new Error(failMsg);
   return finalText;
 };

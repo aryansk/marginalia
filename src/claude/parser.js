@@ -9,6 +9,9 @@
 // payload.js for the request side.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.claude = GA.claude || {};
+// Browser: shared/sse.js loaded earlier set GA.sse. Node/tests: require it so
+// this module stays importable on its own.
+var sse = GA.sse || (typeof require !== "undefined" ? require("../shared/sse.js") : null);
 
 GA.claude.parser = (function () {
   function fragmentText(obj) {
@@ -18,31 +21,12 @@ GA.claude.parser = (function () {
     return null;
   }
 
-  function parseLatest(raw) {
-    let text = "";
-    let sawAny = false;
-    const lines = String(raw == null ? "" : raw).split("\n");
-    for (const line of lines) {
-      const t = line.trim();
-      if (t.indexOf("data:") !== 0) continue; // ignore `event:` / blank lines
-      const payload = t.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      let obj;
-      try {
-        obj = JSON.parse(payload);
-      } catch (e) {
-        continue;
-      }
-      const frag = fragmentText(obj);
-      if (frag != null) {
-        text += frag;
-        sawAny = true;
-      }
-    }
-    return sawAny ? text : null;
-  }
-
-  return { parseLatest };
+  return {
+    parseLatest: sse.makeParser(fragmentText),
+    makeStream: function () {
+      return sse.makeStream(fragmentText);
+    },
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.claude.parser;

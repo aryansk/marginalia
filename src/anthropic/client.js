@@ -11,7 +11,7 @@ GA.anthropicClient = GA.makeApiClient({
   modelField: "anthropicModel",
   missingKeyMsg: "Add your Anthropic (Claude) API key in the extension's settings.",
   buildRequest: GA.anthropic.payload.buildRequest,
-  parser: GA.anthropic.parser.parseLatest,
+  makeStream: GA.anthropic.parser.makeStream,
 });
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.anthropicClient;

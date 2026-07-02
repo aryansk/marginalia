@@ -11,7 +11,7 @@ GA.openaiClient = GA.makeApiClient({
   modelField: "openaiModel",
   missingKeyMsg: "Add your OpenAI API key in the extension's settings to use ChatGPT.",
   buildRequest: GA.openai.payload.buildRequest,
-  parser: GA.openai.parser.parseLatest,
+  makeStream: GA.openai.parser.makeStream,
 });
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.openaiClient;

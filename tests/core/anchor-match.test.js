@@ -16,9 +16,19 @@ describe("bestMatch", () => {
     expect(full.slice(idx - 5, idx)).toBe("8 KB ");
   });
 
-  it("falls back to the first occurrence with no prefix/suffix", () => {
-    const full = "page and page";
-    expect(bestMatch(full, { exact: "page" })).toBe(0);
+  it("a unique occurrence still matches with no prefix/suffix", () => {
+    expect(bestMatch("only one page here", { exact: "page" })).toBe(9);
+  });
+
+  it("refuses to guess between repeats when no context matches (-1)", () => {
+    // was: fell back to the first occurrence — silently wrong half the time
+    expect(bestMatch("page and page", { exact: "page" })).toBe(-1);
+    expect(bestMatch("page and page", { exact: "page", prefix: "zz", suffix: "qq" })).toBe(-1);
+  });
+
+  it("repeats WITH matching context still resolve", () => {
+    const full = "page and page here";
+    expect(bestMatch(full, { exact: "page", suffix: " here" })).toBe(9);
   });
 
   it("returns -1 when not found or exact is empty", () => {

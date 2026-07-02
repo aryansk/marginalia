@@ -22,8 +22,14 @@ GA.anchor = (function () {
   // Returns a Range for the selector within rootEl, or null if not found.
   // String matching (which occurrence) lives in core/anchor-match.js.
   function locate(selector, rootEl) {
+    return locateInText(textOf(rootEl), selector, rootEl);
+  }
+
+  // Same as locate() but against a pre-extracted text of rootEl — lets a batch
+  // re-anchor (selection.reanchorAll) extract each section's text ONCE and
+  // match many selectors against it.
+  function locateInText(full, selector, rootEl) {
     if (!selector || !selector.exact) return null;
-    const full = textOf(rootEl);
     const idx = GA.core.anchorMatch.bestMatch(full, selector);
     if (idx < 0) return null;
     return rangeFromOffsets(rootEl, idx, idx + selector.exact.length);
@@ -85,12 +91,25 @@ GA.anchor = (function () {
     const w = walker(rootEl);
     let n,
       pos = 0;
-    while ((n = w.nextNode())) {
-      if (n === range.startContainer) return pos + range.startOffset;
-      pos += n.nodeValue.length;
+    if (range.startContainer.nodeType === 3) {
+      while ((n = w.nextNode())) {
+        if (n === range.startContainer) return pos + range.startOffset;
+        pos += n.nodeValue.length;
+      }
+      return -1;
     }
-    return -1; // startContainer is an element node — skip context, keep exact only
+    // Element-boundary start (triple-click, cross-block selections): the offset
+    // is the first text position at/after the boundary. Without this the
+    // selector would carry no prefix/suffix and repeated phrases couldn't be
+    // disambiguated on re-anchor.
+    try {
+      while ((n = w.nextNode())) {
+        if (range.comparePoint(n, 0) >= 0) return pos;
+        pos += n.nodeValue.length;
+      }
+    } catch (e) {}
+    return -1;
   }
 
-  return { fromRange, locate };
+  return { fromRange, locate, locateInText, textOf };
 })();

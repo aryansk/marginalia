@@ -64,8 +64,32 @@ describe("client.ask (WebRpcClient transport + streaming)", () => {
     await expect(client.ask({ prompt: "p", tokens })).rejects.toThrow(/429/);
   });
 
+  it("tags auth failures with code=AUTH so the caller can refresh tokens", async () => {
+    const client = clientWith(async () => streamResponse([], { ok: false, status: 401 }));
+    await expect(client.ask({ prompt: "p", tokens })).rejects.toMatchObject({ code: "AUTH" });
+    const client2 = clientWith(async () => streamResponse([], { ok: false, status: 429 }));
+    await expect(client2.ask({ prompt: "p", tokens })).rejects.not.toMatchObject({ code: "AUTH" });
+  });
+
   it("throws when the response can't be parsed", async () => {
     const client = clientWith(async () => streamResponse(["totally not batchexecute"]));
     await expect(client.ask({ prompt: "p", tokens })).rejects.toThrow(/internal API shape/i);
+  });
+
+  it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
+    const external = new AbortController();
+    const client = clientWith((url, opts) => {
+      return new Promise((resolve, reject) => {
+        opts.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+        external.abort(); // cancel while the request is pending
+      });
+    });
+    await expect(client.ask({ prompt: "p", tokens, signal: external.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    });
   });
 });

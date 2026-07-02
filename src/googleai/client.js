@@ -11,7 +11,7 @@ GA.googleaiClient = GA.makeApiClient({
   modelField: "geminiModel",
   missingKeyMsg: "Add your Gemini (Google AI) API key in the extension's settings.",
   buildRequest: GA.googleai.payload.buildRequest,
-  parser: GA.googleai.parser.parseLatest,
+  makeStream: GA.googleai.parser.makeStream,
 });
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.googleaiClient;

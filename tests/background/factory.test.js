@@ -117,6 +117,23 @@ describe("makeApiClient — OpenAI", () => {
       /timed out/i
     );
   });
+
+  it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
+    const external = new AbortController();
+    const GA = load("openai", (url, opts) => {
+      return new Promise((resolve, reject) => {
+        opts.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+        external.abort();
+      });
+    });
+    await expect(
+      GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" }, signal: external.signal })
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
 
 describe("makeApiClient — Google AI (key hygiene)", () => {

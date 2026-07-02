@@ -36,4 +36,52 @@ GA.sse.makeParser = function (extract) {
   };
 };
 
+// Incremental cursor over the same grammar: feed decoded chunks as they arrive
+// and only NEW complete lines are parsed (the whole-buffer parseLatest above
+// re-scans everything per chunk — O(n²) over a long answer). `push(chunk)`
+// returns the answer so far (or null); `end()` flushes a trailing line without
+// a final newline and returns the final answer (or null). Output is identical
+// to parseLatest over the concatenated input — tests/shared/sse-stream.test.js
+// holds the two equivalent.
+GA.sse.makeStream = function (extract) {
+  let tail = ""; // undelivered partial line
+  let acc = "";
+  let sawAny = false;
+
+  function takeLine(line) {
+    const t = line.trim();
+    if (t.indexOf("data:") !== 0) return;
+    const payload = t.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+    let obj;
+    try {
+      obj = JSON.parse(payload);
+    } catch (e) {
+      return;
+    }
+    const frag = extract(obj);
+    if (typeof frag === "string") {
+      acc += frag;
+      sawAny = true;
+    }
+  }
+
+  return {
+    push(chunk) {
+      tail += String(chunk == null ? "" : chunk);
+      const lines = tail.split("\n");
+      tail = lines.pop(); // keep the incomplete remainder for the next push
+      for (const line of lines) takeLine(line);
+      return sawAny ? acc : null;
+    },
+    end() {
+      if (tail) {
+        takeLine(tail);
+        tail = "";
+      }
+      return sawAny ? acc : null;
+    },
+  };
+};
+
 if (typeof module !== "undefined" && module.exports) module.exports = GA.sse;

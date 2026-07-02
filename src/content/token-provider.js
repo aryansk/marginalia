@@ -26,5 +26,11 @@ GA.tokenProvider = (function () {
     return cached;
   }
 
-  return { get };
+  // Drop the cache after an auth failure so the next get() re-scrapes instead
+  // of re-serving the expired token until the TTL runs out.
+  function invalidate() {
+    cached = null;
+  }
+
+  return { get, invalidate };
 })();

@@ -23,7 +23,12 @@ GA.googleai.parser = (function () {
     }
     return found ? s : null;
   }
-  return { parseLatest: sse.makeParser(extract) };
+  return {
+    parseLatest: sse.makeParser(extract),
+    makeStream: function () {
+      return sse.makeStream(extract);
+    },
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.googleai.parser;

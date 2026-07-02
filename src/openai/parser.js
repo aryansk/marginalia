@@ -13,7 +13,12 @@ GA.openai.parser = (function () {
     const delta = obj && obj.choices && obj.choices[0] && obj.choices[0].delta;
     return delta && typeof delta.content === "string" ? delta.content : null;
   }
-  return { parseLatest: sse.makeParser(extract) };
+  return {
+    parseLatest: sse.makeParser(extract),
+    makeStream: function () {
+      return sse.makeStream(extract);
+    },
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.openai.parser;

@@ -13,6 +13,8 @@ GA.schema = {
     scope: "section",
     // Configurable shortcut to open a comment box (Ctrl+H is reserved by Firefox).
     shortcut: { ctrl: true, shift: true, alt: false, meta: false, key: "h" },
+    // Show the floating "Comment" pill when text is selected in an answer.
+    adder: true,
     debug: false,
     // Optional per-provider API keys. When a key is set, that site's follow-ups go
     // through the official API instead of the logged-in web session. Empty = web

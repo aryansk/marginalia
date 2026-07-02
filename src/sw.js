@@ -11,6 +11,7 @@ importScripts(
   "/src/shared/protocol.js",
   "/src/shared/settings-schema.js",
   "/src/shared/sse.js",
+  "/src/shared/stream-delta.js",
   "/src/background/api-util.js",
   "/src/background/api-client-factory.js",
   "/src/gemini/parser.js",

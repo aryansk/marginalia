@@ -28,36 +28,67 @@ GA.gemini.parser = (function () {
   const ID_HEX_MIN = 12; // a 12+ hex run is an opaque id, not prose
   const ID_NOSPACE_MIN = 20; // a 20+ char token with no spaces is an id/token
 
-  function parseLatest(raw) {
-    let best = null; // longest precise-path answer
-    let fallback = null; // used only if no precise match exists anywhere
-    const lines = String(raw == null ? "" : raw).split("\n");
-    for (const line of lines) {
-      const t = line.trim();
-      if (t.indexOf('[["wrb.fr"') !== 0) continue;
-      let outer;
+  // Reduce one response line into the running {best, fallback} state. Shared by
+  // the whole-buffer parseLatest and the incremental makeStream so the two can't
+  // drift.
+  function takeLine(line, state) {
+    const t = line.trim();
+    if (t.indexOf('[["wrb.fr"') !== 0) return;
+    let outer;
+    try {
+      outer = JSON.parse(t);
+    } catch (e) {
+      return;
+    }
+    for (const item of outer) {
+      if (!Array.isArray(item) || item[0] !== "wrb.fr" || !item[2]) continue;
+      let body;
       try {
-        outer = JSON.parse(t);
+        body = JSON.parse(item[2]);
       } catch (e) {
         continue;
       }
-      for (const item of outer) {
-        if (!Array.isArray(item) || item[0] !== "wrb.fr" || !item[2]) continue;
-        let body;
-        try {
-          body = JSON.parse(item[2]);
-        } catch (e) {
-          continue;
-        }
-        const precise = preciseText(body);
-        if (precise != null) {
-          if (best === null || precise.length > best.length) best = precise;
-        } else if (fallback === null) {
-          fallback = deepFindAnswer(body, 0);
-        }
+      const precise = preciseText(body);
+      if (precise != null) {
+        if (state.best === null || precise.length > state.best.length) state.best = precise;
+      } else if (state.fallback === null) {
+        state.fallback = deepFindAnswer(body, 0);
       }
     }
-    return best !== null ? best : fallback;
+  }
+
+  function parseLatest(raw) {
+    const state = { best: null, fallback: null }; // longest precise answer + last-resort match
+    const lines = String(raw == null ? "" : raw).split("\n");
+    for (const line of lines) takeLine(line, state);
+    return state.best !== null ? state.best : state.fallback;
+  }
+
+  // Incremental cursor: feed decoded chunks as they arrive; only NEW complete
+  // lines are parsed (parseLatest re-scans the whole buffer per chunk — O(n²)
+  // over a long answer). Same output as parseLatest over the concatenated input.
+  function makeStream() {
+    const state = { best: null, fallback: null };
+    let tail = "";
+    function current() {
+      return state.best !== null ? state.best : state.fallback;
+    }
+    return {
+      push(chunk) {
+        tail += String(chunk == null ? "" : chunk);
+        const lines = tail.split("\n");
+        tail = lines.pop();
+        for (const line of lines) takeLine(line, state);
+        return current();
+      },
+      end() {
+        if (tail) {
+          takeLine(tail, state);
+          tail = "";
+        }
+        return current();
+      },
+    };
   }
 
   // Pull the answer text from its known location in the response body.
@@ -92,7 +123,7 @@ GA.gemini.parser = (function () {
     return false;
   }
 
-  return { parseLatest, preciseText, deepFindAnswer, looksLikeId };
+  return { parseLatest, makeStream, preciseText, deepFindAnswer, looksLikeId };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.gemini.parser;

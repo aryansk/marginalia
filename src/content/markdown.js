@@ -8,6 +8,24 @@ GA.markdown = (function () {
     return renderAst(GA.core.markdownAst.parse(md));
   }
 
+  // Incremental renderer for a streaming message: each update re-parses the
+  // accumulated text (cheap) but rebuilds DOM only from the first changed block
+  // — O(1) DOM work per frame on an append-only stream instead of a full
+  // subtree rebuild. `el` must be owned exclusively by this renderer (one node
+  // per block, matching renderAst's output shape).
+  function makeStreamRenderer(el) {
+    let blocks = [];
+    return {
+      update(text) {
+        const ast = GA.core.markdownAst.parse(text);
+        const from = GA.core.markdownAst.firstChangedBlock(blocks, ast);
+        while (el.childNodes.length > from) el.removeChild(el.lastChild);
+        for (let i = from; i < ast.length; i++) el.appendChild(renderBlock(ast[i]));
+        blocks = ast;
+      },
+    };
+  }
+
   function renderAst(blocks) {
     const frag = document.createDocumentFragment();
     blocks.forEach((b) => frag.appendChild(renderBlock(b)));
@@ -22,7 +40,30 @@ GA.markdown = (function () {
         if (b.lang) code.className = "language-" + b.lang.replace(/[^\w-]/g, "");
         code.textContent = b.text;
         pre.appendChild(code);
-        return pre;
+        // Chrome around the block: language label + copy button. GA.icons /
+        // GA.copyText live in other content modules; render a bare <pre> when
+        // they're absent (pure-markdown test contexts).
+        if (!GA.icons || !GA.copyText) return pre;
+        const label = document.createElement("span");
+        label.className = "ga-codeblock-lang";
+        label.textContent = b.lang || "";
+        const copyBtn = GA.el(
+          "button",
+          {
+            class: "ga-iconbtn ga-codeblock-copy",
+            title: "Copy code",
+            "aria-label": "Copy code",
+            onclick: function (e) {
+              e.stopPropagation();
+              GA.copyText(b.text);
+              GA.icons.swap(copyBtn, "check");
+              setTimeout(() => copyBtn.isConnected && GA.icons.swap(copyBtn, "copy"), 1500);
+            },
+          },
+          GA.icons.make("copy")
+        );
+        const head = GA.el("div", { class: "ga-codeblock-head" }, [label, copyBtn]);
+        return GA.el("div", { class: "ga-codeblock" }, [head, pre]);
       }
       case "heading": {
         const h = document.createElement("h" + b.level);
@@ -40,10 +81,36 @@ GA.markdown = (function () {
         const list = document.createElement(b.ordered ? "ol" : "ul");
         b.items.forEach((item) => {
           const li = document.createElement("li");
-          renderInline(item, li);
+          renderInline(item.inline || [], li);
+          if (item.children) li.appendChild(renderBlock(item.children));
           list.appendChild(li);
         });
         return list;
+      }
+      case "table": {
+        const table = document.createElement("table");
+        table.className = "ga-table";
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        (b.header || []).forEach((cell) => {
+          const th = document.createElement("th");
+          renderInline(cell, th);
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        const tbody = document.createElement("tbody");
+        (b.rows || []).forEach((row) => {
+          const tr = document.createElement("tr");
+          row.forEach((cell) => {
+            const td = document.createElement("td");
+            renderInline(cell, td);
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
       }
       default: {
         const p = document.createElement("p");
@@ -84,5 +151,5 @@ GA.markdown = (function () {
     });
   }
 
-  return { render, renderAst };
+  return { render, renderAst, makeStreamRenderer };
 })();

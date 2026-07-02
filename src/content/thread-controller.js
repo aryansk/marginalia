@@ -7,17 +7,25 @@ GA.threadController = (function () {
   const threadsById = new Map();
   let currentSession = null;
 
-  function sessionKey() {
-    return currentSession; // null -> store uses the draft bucket
+  // Every thread is PINNED to the session it was created/restored under (see
+  // core/session-bindings.js). Persist/delete always go through the pin, so an
+  // answer that arrives after a conversation switch can't bleed into the new
+  // conversation's bucket. Unbound (deleted) threads drop their writes.
+  const bindings = GA.core.sessionBindings.create();
+
+  function persistThread(thread) {
+    if (!bindings.has(thread.id)) return Promise.resolve(); // deleted mid-flight
+    return GA.store.upsert(bindings.sessionFor(thread.id), thread);
   }
 
   function makeHandlers(thread) {
     return {
       ask: (t, opts) => askThread(t, opts),
-      persist: (t) => GA.store.upsert(sessionKey(), t),
+      persist: (t) => persistThread(t),
       onDelete: (t) => deleteThread(t),
       onFocus: (t) => GA.gutter.setActive(t.id),
-      onExpand: (t) => GA.Modal.open(t),
+      onExpand: (t) => expandThread(t),
+      onStop: (t) => stopAsk(t.id),
       onResize: () => GA.gutter.scheduleLayout(),
     };
   }
@@ -25,6 +33,7 @@ GA.threadController = (function () {
   function addThread(thread) {
     const box = GA.ThreadBox(thread, makeHandlers(thread));
     threadsById.set(thread.id, thread);
+    bindings.bind(thread.id, currentSession);
     GA.gutter.add(thread.id, box);
     return box;
   }
@@ -46,7 +55,7 @@ GA.threadController = (function () {
     const sel = window.getSelection();
     if (sel) sel.removeAllRanges();
     const box = addThread(thread);
-    await GA.store.upsert(sessionKey(), thread);
+    await persistThread(thread);
     GA.gutter.relayout();
     GA.gutter.setActive(thread.id);
     box.focusInput();
@@ -58,10 +67,19 @@ GA.threadController = (function () {
   }
 
   function deleteThread(thread) {
+    // Abort any in-flight ask first: its finally-persist would otherwise
+    // resurrect the thread in storage.
+    bindings.handlesFor(thread.id).forEach((h) => {
+      try {
+        h.abort();
+      } catch (e) {}
+    });
     GA.selection.unhighlight(thread.id);
     GA.gutter.remove(thread.id);
     threadsById.delete(thread.id);
-    GA.store.remove(sessionKey(), thread.id);
+    const session = bindings.sessionFor(thread.id);
+    bindings.unbind(thread.id);
+    GA.store.remove(session, thread.id);
   }
 
   function teardownAll() {
@@ -69,6 +87,8 @@ GA.threadController = (function () {
     threadsById.forEach((t) => GA.selection.unhighlight(t.id));
     GA.gutter.clear();
     threadsById.clear();
+    // Bindings are deliberately KEPT: an aborted turn's final persist still
+    // needs its pin to land in the old conversation's bucket.
   }
 
   async function restoreForSession(session) {
@@ -83,14 +103,42 @@ GA.threadController = (function () {
   async function onRouteChange() {
     const next = GA.getSessionId();
     if (next === currentSession) return;
+
+    // Draft birth: the first message just gave this chat a real id. Nothing
+    // about the page's threads changed — keep boxes, highlights, and in-flight
+    // asks alive; only repoint the draft pins and move the stored bucket.
+    if (currentSession == null && next != null && threadsById.size > 0) {
+      currentSession = next;
+      bindings.rebindDrafts(next); // future persists land in the real bucket…
+      await GA.store.migrateDraft(next); // …and stored draft copies move over (de-duped)
+      return;
+    }
+
+    // Real conversation switch: cancel in-flight asks before tearing down
+    // their boxes; their turns finalize via the AbortError path and persist
+    // (partial text included) through their pinned session.
+    bindings.drainHandles().forEach((h) => {
+      try {
+        h.abort();
+      } catch (e) {}
+    });
     teardownAll();
     await restoreForSession(next);
   }
 
   function reanchorOrphans() {
+    // Collect every orphan first, then re-anchor them in ONE batch pass —
+    // section text is extracted once per pass instead of once per thread.
+    const orphans = [];
     threadsById.forEach((thread) => {
-      if (!GA.selection.anchorEl(thread.id)) GA.selection.highlightSelector(thread.selector, thread.id);
+      if (!GA.selection.anchorEl(thread.id)) orphans.push(thread);
     });
+    if (orphans.length) {
+      // Drop stale spans (dead or hidden subtrees) before re-wrapping, so a
+      // re-render can't leave duplicates behind.
+      orphans.forEach((t) => GA.selection.unhighlight(t.id));
+      GA.selection.reanchorAll(orphans);
+    }
     GA.gutter.scheduleLayout();
   }
 
@@ -110,12 +158,17 @@ GA.threadController = (function () {
   }
 
   function conversationText() {
+    const limit = GA.config.CONVERSATION_CHARS;
     const parts = [];
-    GA.selection.findAllSections().forEach((s) => {
+    let total = 0;
+    for (const s of GA.selection.findAllSections()) {
       const t = (s.innerText || s.textContent || "").trim();
-      if (t) parts.push(t);
-    });
-    return GA.truncate(parts.join("\n\n"), GA.config.CONVERSATION_CHARS);
+      if (!t) continue;
+      parts.push(t);
+      total += t.length + 2;
+      if (total >= limit) break; // truncate() drops the rest anyway — stop reading
+    }
+    return GA.truncate(parts.join("\n\n"), limit);
   }
 
   async function askThread(thread, opts) {
@@ -123,11 +176,56 @@ GA.threadController = (function () {
     // skip them when a Gemini API key is set (the background uses the official API)
     // or on ChatGPT/Claude (their clients acquire their own auth).
     const needsGeminiWebTokens = GA.provider === "gemini" && !GA.settings.geminiApiKey;
-    const tokens = needsGeminiWebTokens ? await GA.tokenProvider.get() : undefined;
-    return GA.askService.ask(
-      { provider: GA.provider, prompt: composePrompt(thread), tokens },
-      opts && opts.onChunk
-    );
+    const prompt = composePrompt(thread);
+
+    async function once() {
+      const tokens = needsGeminiWebTokens ? await GA.tokenProvider.get() : undefined;
+      const handle = GA.askService.ask(
+        { provider: GA.provider, prompt, tokens },
+        opts && opts.onChunk
+      );
+      bindings.trackAsk(thread.id, handle);
+      try {
+        return await handle.result;
+      } finally {
+        bindings.untrackAsk(thread.id, handle);
+      }
+    }
+
+    try {
+      return await once();
+    } catch (e) {
+      // Expired Gemini page token: drop the cached one, re-scrape, retry once.
+      if (needsGeminiWebTokens && e && e.code === "AUTH") {
+        GA.tokenProvider.invalidate();
+        return once();
+      }
+      throw e;
+    }
+  }
+
+  // Stop button hook: end the thread's in-flight ask, keeping the partial text.
+  function stopAsk(threadId) {
+    bindings.handlesFor(threadId).forEach((h) => {
+      try {
+        h.stop();
+      } catch (e) {}
+    });
+  }
+
+  // Maximize a thread into the modal (with a live composer). When it closes,
+  // the docked box re-renders whatever the modal conversation added.
+  function expandThread(thread) {
+    GA.Modal.open(thread, makeHandlers(thread), function () {
+      const it = GA.gutter.get(thread.id);
+      if (it && it.box.refreshMessages) it.box.refreshMessages();
+      GA.gutter.scheduleLayout();
+    });
+  }
+
+  function expandThreadById(threadId) {
+    const t = threadsById.get(threadId);
+    if (t) expandThread(t);
   }
 
   return {
@@ -136,5 +234,8 @@ GA.threadController = (function () {
     onRouteChange,
     reanchorOrphans,
     hasOrphans,
+    stopAsk,
+    expandThreadById,
+    threads: () => Array.from(threadsById.values()),
   };
 })();

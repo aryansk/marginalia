@@ -10,17 +10,18 @@ GA.gutter = (function () {
   let container = null;
   let drawer = null;
   let badge = null;
+  let panelBtn = null;
   let countEl = null;
   let aboveCue = null;
   let belowCue = null;
   let aboveCountEl = null;
   let belowCountEl = null;
   const registry = new Map(); // id -> { id, box, order }
-  const state = { activeId: null, order: 0, rafPending: false, orphanExpanded: false };
+  const state = { activeId: null, order: 0, orphanExpanded: false, lastSig: null, mode: "full" };
 
   function init() {
     if (container) return;
-    container = GA.el("div", { class: "ga-gutter" });
+    container = GA.el("div", { class: "ga-gutter", "aria-label": "Margin comments" });
     drawer = GA.el("div", { class: "ga-orphan-drawer" });
     countEl = GA.el("span", { class: "ga-cluster-count" });
     badge = GA.el(
@@ -28,12 +29,14 @@ GA.gutter = (function () {
       {
         class: "ga-cluster",
         title: "Comments that lost their highlight — click to open",
+        "aria-label": "Comments that lost their highlight",
+        "aria-expanded": "false",
         onclick: function (e) {
           e.stopPropagation();
           toggleCluster();
         },
       },
-      [GA.el("span", { class: "ga-cluster-glyph" }), countEl]
+      [GA.el("span", { class: "ga-cluster-glyph" }, GA.icons.make("comment-plus")), countEl]
     );
     aboveCountEl = GA.el("span", { class: "ga-scrollcue-count" });
     aboveCue = GA.el(
@@ -46,7 +49,7 @@ GA.gutter = (function () {
           jumpTo("above");
         },
       },
-      [GA.el("span", { class: "ga-scrollcue-glyph", text: "▲" }), aboveCountEl]
+      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-up")), aboveCountEl]
     );
     belowCountEl = GA.el("span", { class: "ga-scrollcue-count" });
     belowCue = GA.el(
@@ -59,15 +62,34 @@ GA.gutter = (function () {
           jumpTo("below");
         },
       },
-      [GA.el("span", { class: "ga-scrollcue-glyph", text: "▼" }), belowCountEl]
+      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-down")), belowCountEl]
+    );
+    panelBtn = GA.el(
+      "button",
+      {
+        class: "ga-panel-btn",
+        title: "All comment threads (Alt+Shift+A)",
+        "aria-label": "All comment threads",
+        onclick: function (e) {
+          e.stopPropagation();
+          GA.panel.toggle();
+        },
+      },
+      GA.icons.make("list")
     );
     container.appendChild(drawer);
     container.appendChild(badge);
     container.appendChild(aboveCue);
     container.appendChild(belowCue);
+    container.appendChild(panelBtn);
     document.body.appendChild(container);
     window.addEventListener("scroll", scheduleLayout, true);
-    window.addEventListener("resize", scheduleLayout);
+    window.addEventListener("resize", function () {
+      // A viewport resize changes box widths, so every cached height is stale.
+      registry.forEach((it) => it.box.invalidateHeight && it.box.invalidateHeight());
+      state.lastSig = null;
+      scheduleLayout();
+    });
   }
 
   function add(id, box) {
@@ -104,6 +126,7 @@ GA.gutter = (function () {
   }
 
   function setActive(id) {
+    if (state.activeId === id) return; // page clicks with nothing focused are free
     state.activeId = id;
     registry.forEach((it, tid) => {
       const active = tid === id;
@@ -115,34 +138,83 @@ GA.gutter = (function () {
     scheduleLayout();
   }
 
+  // Thread ids ordered by their highlight's vertical position; orphans last
+  // (in creation order). Drives keyboard next/prev cycling.
+  function orderedIds() {
+    const anchored = [];
+    const orphans = [];
+    registry.forEach((it) => {
+      const a = GA.selection.anchorEl(it.id);
+      if (a) anchored.push({ id: it.id, top: a.getBoundingClientRect().top });
+      else orphans.push({ id: it.id, order: it.order });
+    });
+    anchored.sort((x, y) => x.top - y.top);
+    orphans.sort((x, y) => x.order - y.order);
+    return anchored.concat(orphans).map((x) => x.id);
+  }
+
+  function activeId() {
+    return state.activeId;
+  }
+
+  function mode() {
+    return state.mode;
+  }
+
+  // Figma-style show/hide for the whole annotation layer: if anything is
+  // expanded, collapse everything; otherwise expand everything.
+  function toggleAllCollapsed() {
+    let anyExpanded = false;
+    registry.forEach((it) => {
+      if (!it.box.isCompact()) anyExpanded = true;
+    });
+    registry.forEach((it) => it.box.setCollapsed(anyExpanded));
+    scheduleLayout();
+  }
+
+  // Hover linking (page highlight -> box): outline + raise the hovered
+  // thread's box without changing focus.
+  function hoverThread(id, on) {
+    const it = registry.get(id);
+    if (!it) return;
+    it.box.el.classList.toggle("ga-hover", !!on);
+    if (!it.box.el.style.zIndex || state.activeId !== id)
+      it.box.el.style.zIndex = String(on ? BASE_Z + 1 : BASE_Z);
+  }
+
   function toggleCluster() {
     state.orphanExpanded = !state.orphanExpanded;
     relayout();
   }
 
   function scheduleLayout() {
-    if (state.rafPending) return;
-    state.rafPending = true;
-    requestAnimationFrame(function () {
-      state.rafPending = false;
-      relayout();
-    });
+    GA.frame.schedule("layout", relayout);
   }
 
   function relayout() {
     if (!container) return;
+    panelBtn.style.display = registry.size ? "flex" : "none";
     if (!registry.size) {
+      state.lastSig = null;
       updateCluster(0);
       updateScrollCues(0, 0);
       return;
     }
 
+    // READ phase: gather every input first (anchor rects + cached box heights)
+    // so the write phase below can't interleave reads and force reflows.
     const gb = GA.core.layout.computeGutterBox(window.innerWidth);
-    container.style.left = gb.left + "px";
-    container.style.width = gb.width + "px";
+    state.mode = gb.mode;
+    if (gb.mode === "hidden") {
+      // Very narrow window: no gutter; highlights open the modal instead.
+      container.style.display = "none";
+      state.lastSig = null;
+      return;
+    }
+    if (container.style.display === "none") container.style.display = "";
+    container.classList.toggle("ga-rail", gb.mode === "rail");
 
-    // Read the page: each box's anchor level (null if its highlight is gone) and
-    // natural height. Then ask the engine to place them.
+    const viewportH = window.innerHeight;
     const items = [];
     const anchored = {};
     registry.forEach((it) => {
@@ -153,14 +225,34 @@ GA.gutter = (function () {
         order: it.order,
         anchorTop: a ? a.getBoundingClientRect().top : null,
         naturalHeight: it.box.naturalHeight(),
+        // rail mode renders every box as a chip
+        collapsed: gb.mode === "rail" || (it.box.isCompact ? it.box.isCompact() : false),
       });
     });
 
+    // Nothing moved since the last pass? Skip compute + writes entirely —
+    // this is what makes the per-mutation/per-scroll callback cheap.
+    const sig = {
+      items,
+      height: viewportH,
+      left: gb.left,
+      width: gb.width,
+      activeId: state.activeId,
+      expanded: state.orphanExpanded,
+    };
+    if (GA.core.layout.inputsEqual(state.lastSig, sig)) return;
+    state.lastSig = sig;
+
+    // COMPUTE (pure)
     const result = GA.core.layout.computeLayout({
       items,
-      viewport: { height: window.innerHeight },
+      viewport: { height: viewportH },
       activeId: state.activeId,
     });
+
+    // WRITE phase
+    if (container.style.left !== gb.left + "px") container.style.left = gb.left + "px";
+    if (container.style.width !== gb.width + "px") container.style.width = gb.width + "px";
 
     // Orphans collapsed behind the badge live in the (hidden) drawer.
     result.drawered.forEach((id) => {
@@ -188,7 +280,8 @@ GA.gutter = (function () {
       box.setOrphan(!anchored[p.id]);
       box.el.classList.remove("ga-box-static", "ga-box-offscreen");
       if (box.el.parentNode !== container) container.appendChild(box.el);
-      box.el.style.top = p.top + "px";
+      const top = p.top + "px";
+      if (box.el.style.top !== top) box.el.style.top = top;
       box.setMaxHeight(p.maxHeight);
     });
 
@@ -199,18 +292,23 @@ GA.gutter = (function () {
   function updateCluster(count) {
     if (!badge) return;
     if (count <= 0) state.orphanExpanded = false;
+    const open = count > 0 && state.orphanExpanded;
     badge.style.display = count > 0 ? "flex" : "none";
     countEl.textContent = String(count);
-    drawer.style.display = count > 0 && state.orphanExpanded ? "flex" : "none";
-    badge.classList.toggle("ga-cluster-open", count > 0 && state.orphanExpanded);
+    badge.setAttribute("aria-label", count + " comments lost their highlight");
+    badge.setAttribute("aria-expanded", open ? "true" : "false");
+    drawer.style.display = open ? "flex" : "none";
+    badge.classList.toggle("ga-cluster-open", open);
   }
 
   function updateScrollCues(above, below) {
     if (!aboveCue) return;
     aboveCue.style.display = above > 0 ? "flex" : "none";
     aboveCountEl.textContent = String(above);
+    aboveCue.setAttribute("aria-label", above + " comments above — jump to the nearest");
     belowCue.style.display = below > 0 ? "flex" : "none";
     belowCountEl.textContent = String(below);
+    belowCue.setAttribute("aria-label", below + " comments below — jump to the nearest");
   }
 
   // Scroll to the nearest comment whose highlight is off-screen in `dir` ("above" or
@@ -238,5 +336,20 @@ GA.gutter = (function () {
     if (best) best.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
-  return { init, add, remove, clear, has, get, setActive, relayout, scheduleLayout };
+  return {
+    init,
+    add,
+    remove,
+    clear,
+    has,
+    get,
+    setActive,
+    activeId,
+    mode,
+    orderedIds,
+    toggleAllCollapsed,
+    hoverThread,
+    relayout,
+    scheduleLayout,
+  };
 })();

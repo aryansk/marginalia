@@ -19,16 +19,29 @@ GA.claudeClient = (function () {
     });
   }
 
+  // The org id is stable for a login session — cache it so follow-ups skip the
+  // extra round-trip. Cleared when any step gets an auth error (relogin etc.).
+  let cachedOrgId = null;
+
+  function httpError(message, status) {
+    const e = new Error(message);
+    e.status = status;
+    return e;
+  }
+
   async function getOrgId(signal) {
+    if (cachedOrgId) return cachedOrgId;
     const res = await fetch(GA.claude.payload.ORGS_URL, {
       credentials: "include",
       headers: { Accept: "application/json" },
       signal: signal,
     });
-    if (!res.ok) throw new Error("Couldn't reach Claude (HTTP " + res.status + "). Are you logged in?");
+    if (!res.ok)
+      throw httpError("Couldn't reach Claude (HTTP " + res.status + "). Are you logged in?", res.status);
     const orgs = await res.json().catch(() => null);
     const org = GA.claude.payload.pickOrgId(orgs);
     if (!org) throw new Error("Couldn't read your Claude account. Are you logged in to claude.ai?");
+    cachedOrgId = org;
     return org;
   }
 
@@ -41,7 +54,7 @@ GA.claudeClient = (function () {
       body: GA.claude.payload.buildConversationBody(convUuid),
       signal: signal,
     });
-    if (!res.ok) throw new Error("Couldn't start a Claude conversation (HTTP " + res.status + ").");
+    if (!res.ok) throw httpError("Couldn't start a Claude conversation (HTTP " + res.status + ").", res.status);
     const json = await res.json().catch(() => null);
     return (json && json.uuid) || convUuid;
   }
@@ -52,9 +65,10 @@ GA.claudeClient = (function () {
     const prompt = (req && req.prompt) || "";
 
     // One abort budget covers the whole flow (org lookup -> conversation ->
-    // completion). It aborts if any step goes silent (see api-util.js); bumped
-    // after each step and as stream bytes arrive so a live reply isn't cut off.
-    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS);
+    // completion). It aborts if any step goes silent (see api-util.js) or when
+    // the caller cancels via req.signal; bumped after each step and as stream
+    // bytes arrive so a live reply isn't cut off.
+    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS, req && req.signal);
     const timeoutMsg = "Claude request timed out.";
     const failMsg = "Couldn't parse Claude's response — the internal API shape may have changed.";
     try {
@@ -70,34 +84,14 @@ GA.claudeClient = (function () {
         body: P.buildCompletionBody({ prompt: prompt, parentUuid: P.ROOT_PARENT_UUID }),
         signal: budget.signal,
       });
-      if (!res.ok) throw new Error("Claude request failed (HTTP " + res.status + ").");
+      if (!res.ok) throw httpError("Claude request failed (HTTP " + res.status + ").", res.status);
 
-      if (!res.body || !res.body.getReader) {
-        const text = parser.parseLatest(await res.text());
-        if (text == null) throw new Error(failMsg);
-        if (onChunk) onChunk(text);
-        return text;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let last = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        budget.bump();
-        buf += decoder.decode(value, { stream: true });
-        const text = parser.parseLatest(buf);
-        if (text != null && text !== last) {
-          last = text;
-          if (onChunk) onChunk(text);
-        }
-      }
-      const finalText = parser.parseLatest(buf) || last;
-      if (!finalText) throw new Error(failMsg);
-      return finalText;
+      // Shared incremental read-loop (background/api-util.js): only new
+      // complete SSE lines are parsed per chunk.
+      return await GA.streamText(res, parser.makeStream(), onChunk, failMsg, budget);
     } catch (e) {
+      if (e && (e.status === 401 || e.status === 403)) cachedOrgId = null;
+      if (budget.cancelled()) throw GA.abortError();
       if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
       throw e;
     } finally {

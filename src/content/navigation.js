@@ -1,10 +1,19 @@
-// navigation.js — detect SPA route changes on gemini.google.com (it never does a
-// full page load when you switch conversations). Calls `onChange` whenever the
-// URL changes, via patched history methods, popstate, and a polling fallback.
+// navigation.js — detect SPA route changes (these sites never do a full page
+// load when you switch conversations). Calls `onChange` whenever the URL
+// changes, via patched history methods, popstate, and `checkNow()` — which the
+// reanchorer invokes from its mutation frame (an SPA navigation always mutates
+// the DOM, so this replaces the old 1s polling fallback).
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.navigation = (function () {
   function watch(onChange) {
+    let last = location.href;
+    function checkNow() {
+      if (location.href === last) return;
+      last = location.href;
+      onChange();
+    }
+
     ["pushState", "replaceState"].forEach(function (m) {
       const orig = history[m];
       history[m] = function () {
@@ -13,16 +22,10 @@ GA.navigation = (function () {
         return r;
       };
     });
-    window.addEventListener("popstate", onChange);
-    window.addEventListener("ga:locationchange", onChange);
+    window.addEventListener("popstate", checkNow);
+    window.addEventListener("ga:locationchange", checkNow);
 
-    let last = location.href;
-    setInterval(function () {
-      if (location.href !== last) {
-        last = location.href;
-        onChange();
-      }
-    }, GA.config.NAV_POLL_MS);
+    return { checkNow };
   }
 
   return { watch };

@@ -10,6 +10,7 @@ const els = {
   shortcutStatus: document.getElementById("shortcut-status"),
   clearBtn: document.getElementById("clear-btn"),
   clearStatus: document.getElementById("clear-status"),
+  adder: document.getElementById("adder"),
   debug: document.getElementById("debug"),
   apikeysStatus: document.getElementById("apikeys-status"),
 };
@@ -51,6 +52,7 @@ function render() {
   document.querySelectorAll('input[name="scope"]').forEach((r) => {
     r.checked = r.value === settings.scope;
   });
+  els.adder.checked = settings.adder !== false;
   els.debug.checked = !!settings.debug;
   Object.keys(API_FIELDS).forEach((field) => {
     const input = document.getElementById(API_FIELDS[field]);
@@ -103,6 +105,11 @@ document.querySelectorAll('input[name="scope"]').forEach((r) => {
       await save();
     }
   });
+});
+
+els.adder.addEventListener("change", async () => {
+  settings.adder = els.adder.checked;
+  await save();
 });
 
 els.debug.addEventListener("change", async () => {
