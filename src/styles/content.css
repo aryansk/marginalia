@@ -84,6 +84,11 @@
   margin-bottom: 10px;
   max-height: none;
 }
+/* highlight scrolled out of the viewport — box leaves with it, but stays measurable */
+.ga-box.ga-box-offscreen {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* ---------- orphan cluster (counted badge + drawer) ---------- */
 .ga-orphan-drawer {
@@ -150,6 +155,50 @@
   align-items: center;
   justify-content: center;
   border: 2px solid var(--ga-bg);
+}
+
+/* ---------- off-screen scroll cues (comments above / below the fold) ---------- */
+.ga-scrollcue {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none; /* toggled to flex when there are off-screen comments */
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--ga-accent), var(--ga-accent-2));
+  box-shadow: var(--ga-shadow);
+  pointer-events: auto;
+  z-index: 2147483006;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.ga-scrollcue:hover {
+  filter: brightness(1.07);
+}
+.ga-scrollcue-above {
+  top: 12px;
+}
+.ga-scrollcue-above:hover {
+  transform: translateX(-50%) translateY(-1px);
+}
+.ga-scrollcue-below {
+  bottom: 16px;
+}
+.ga-scrollcue-below:hover {
+  transform: translateX(-50%) translateY(1px);
+}
+.ga-scrollcue-glyph {
+  font-size: 10px;
+  line-height: 1;
+}
+.ga-scrollcue-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .ga-box-header {

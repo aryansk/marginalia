@@ -6,6 +6,19 @@
 var GA = (typeof GA !== "undefined" && GA) || {};
 const P = GA.protocol;
 
+// Read the user's settings (incl. optional API keys) so the ask router can pick
+// the right backend. Background can't see the content script's GA.settings, so it
+// reads storage directly; schema/defaults come from shared/settings-schema.js.
+async function getSettings() {
+  const defaults = GA.schema.DEFAULT_SETTINGS;
+  try {
+    const obj = await browser.storage.local.get(GA.schema.SETTINGS_KEY);
+    return Object.assign({}, defaults, obj[GA.schema.SETTINGS_KEY] || {});
+  } catch (e) {
+    return Object.assign({}, defaults);
+  }
+}
+
 function setupMenus() {
   // Promise.resolve() so this works on Chrome too, where contextMenus.removeAll
   // may invoke a callback rather than return a promise.
@@ -37,8 +50,19 @@ browser.contextMenus.onClicked.addListener(function (info, tab) {
 // Read Gemini's page tokens from the MAIN world. This is privileged and not
 // subject to the page's CSP, so it works where injecting a <script> would be
 // blocked. Used as a fallback when the content script can't scrape them.
+// Defense-in-depth: only our own content scripts, running on gemini.google.com
+// (the only page that has these tokens), may trigger the MAIN-world read.
+function isGeminiTokenSender(sender) {
+  return (
+    sender &&
+    sender.id === browser.runtime.id &&
+    sender.tab &&
+    typeof sender.tab.url === "string" &&
+    sender.tab.url.indexOf("https://gemini.google.com/") === 0
+  );
+}
 browser.runtime.onMessage.addListener(function (msg, sender) {
-  if (!msg || msg.type !== P.MSG_READ_TOKENS || !sender.tab) return;
+  if (!msg || msg.type !== P.MSG_READ_TOKENS || !isGeminiTokenSender(sender)) return;
   return browser.scripting
     .executeScript({
       target: { tabId: sender.tab.id },
@@ -61,8 +85,9 @@ browser.runtime.onConnect.addListener(function (port) {
   port.onMessage.addListener(async function (msg) {
     if (!msg || msg.type !== P.MSG_ASK) return;
     try {
-      const client = GA.clientFor(msg.provider);
-      const text = await client.ask({ prompt: msg.prompt, tokens: msg.tokens }, function (t) {
+      const settings = await getSettings();
+      const client = GA.clientFor(msg.provider, settings);
+      const text = await client.ask({ prompt: msg.prompt, tokens: msg.tokens, settings }, function (t) {
         try {
           port.postMessage({ type: P.MSG_CHUNK, text: t });
         } catch (e) {}

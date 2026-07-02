@@ -42,7 +42,7 @@ GA.claude.parser = (function () {
     return sawAny ? text : null;
   }
 
-  return { parseLatest, fragmentText };
+  return { parseLatest };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.claude.parser;

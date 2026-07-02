@@ -9,11 +9,21 @@ GA.schema = {
   DRAFT_SESSION: "__draft__", // bucket for threads created before /app/<id> exists
 
   DEFAULT_SETTINGS: {
-    // Context sent to Gemini with each follow-up: 'section' | 'selection' | 'conversation'
+    // Context sent with each follow-up: 'section' | 'selection' | 'conversation'
     scope: "section",
     // Configurable shortcut to open a comment box (Ctrl+H is reserved by Firefox).
     shortcut: { ctrl: true, shift: true, alt: false, meta: false, key: "h" },
     debug: false,
+    // Optional per-provider API keys. When a key is set, that site's follow-ups go
+    // through the official API instead of the logged-in web session. Empty = web
+    // session (ChatGPT has no web fallback, so it needs a key). Models are free-text
+    // because vendors rename/retire ids over time.
+    openaiApiKey: "",
+    openaiModel: "gpt-4o-mini",
+    geminiApiKey: "",
+    geminiModel: "gemini-2.5-flash",
+    anthropicApiKey: "",
+    anthropicModel: "claude-sonnet-4-6",
   },
 };
 

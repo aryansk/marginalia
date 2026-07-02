@@ -23,101 +23,85 @@ a full-screen modal.
 
 ## How it talks to each AI
 
-It reuses your **already-logged-in session on each site** — no API keys. Your
-session cookies attach automatically; the extension reads the page's auth token
-and replays that site's own internal streaming endpoint from the background
-script. Which backend answers is chosen by the current host (see
-[`src/core/sites.js`](src/core/sites.js)); the per-site clients live in
-`src/gemini/`, `src/chatgpt/`, and `src/claude/`.
+Two ways, chosen per site by whether you've set an API key (in Settings):
 
-> ⚠️ **Those endpoints are undocumented and reverse-engineered.** Each vendor can
-> change its request/response shape without notice, which would break replies
-> until updated. All the fragile bits per site are isolated in two small,
-> unit-tested modules — `payload.js` (request) and `parser.js` (response) — plus a
-> thin `client.js` (transport/auth). If replies stop on a site: open DevTools →
-> Network there, send a normal message, inspect the streaming request + response,
-> and adjust that provider's `payload.js` / `parser.js` to match. Built for
-> personal use.
+- **Official API (recommended, robust).** Set an API key for a provider and its
+  follow-ups go through the documented API from the background script:
+  **OpenAI** (`src/openai/`), **Google AI / Gemini** (`src/googleai/`), or
+  **Anthropic** (`src/anthropic/`). Won't break on website changes; billed to your
+  account. **ChatGPT requires this** — see below.
+- **Logged-in web session (no key).** With no key set, Gemini and Claude reuse your
+  **already-logged-in session** on the page: cookies attach automatically and the
+  extension replays that site's own internal streaming endpoint
+  (`src/gemini/`, `src/claude/`). Which backend answers is chosen by the current
+  host (see [`src/core/sites.js`](src/core/sites.js)).
 
-## Build & install
+> ⚠️ **The web-session endpoints are undocumented and reverse-engineered** — a
+> vendor can change them without notice. The fragile bits per site are isolated in
+> small unit-tested `payload.js`/`parser.js` modules; if replies stop, inspect a
+> real request in DevTools → Network and adjust them.
+>
+> **ChatGPT is API-key-only:** chatgpt.com gates its web endpoint behind Cloudflare
+> Turnstile, which can't be solved from an extension, so the web client was removed.
+> Add an OpenAI key in Settings to use ChatGPT. Built for personal use.
 
-### 0. Prerequisites (once)
+## Build
+
+One source tree builds **both** browsers; everything in `src/` is shared. The only
+per-browser differences are the manifest and the background entry:
+
+| Target  | Manifest               | Background                | Icons       | Package output |
+|---------|------------------------|---------------------------|-------------|----------------|
+| Firefox | `manifest.json`        | `background.scripts`      | `icon.svg`  | `web-ext-artifacts/firefox/gemini_assist-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/gemini_assist-<version>.zip` |
+
+A tiny [`src/shared/browser-polyfill.js`](src/shared/browser-polyfill.js) aliases
+`browser` → `chrome`, so the shared code runs unchanged on both.
+[`build.js`](build.js) assembles `dist/firefox` and `dist/chrome` from `src/` +
+`icons/` (dropping in the right manifest), then `web-ext` zips each.
 
 ```bash
-npm install        # installs web-ext locally; Node 24 comes from mise
+npm install            # once: web-ext + test tooling (Node 24 via mise)
+
+npm run build          # both targets
+npm run build:firefox  # just Firefox
+npm run build:chrome   # just Chrome
+npm run lint           # validate the (Firefox) manifest + code
 ```
 
-One source tree builds both browsers. The only differences are the manifest
-(`manifest.json` for Firefox, `manifest.chrome.json` for Chrome) and the
-background entry (Firefox `background.scripts`, Chrome `src/sw.js` service
-worker); a tiny [`src/shared/browser-polyfill.js`](src/shared/browser-polyfill.js)
-aliases `browser` → `chrome`. [`build.js`](build.js) assembles `dist/firefox` and
-`dist/chrome` from `src/` + `icons/`.
-
-### A. Run it for development (temporary, auto-reload)
-
-Easiest while hacking; the add-on disappears when the browser closes.
+### Run during development (temporary, auto-reload)
 
 ```bash
-npm start          # Firefox  (= web-ext run, loads this folder)
-npm run start:chrome  # Chrome/Chromium (assembles dist/chrome, then web-ext run)
+npm start              # Firefox          (web-ext run, loads this folder)
+npm run start:chrome   # Chrome/Chromium  (assembles dist/chrome, then web-ext run)
 ```
 
 Or load it by hand:
 
-- **Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary
-  Add-on…** → pick this folder's `manifest.json`.
-- **Chrome** — run `npm run build:chrome`, then `chrome://extensions` → enable
+- **Firefox** — `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…**
+  → pick this folder's `manifest.json`.
+- **Chrome** — `npm run build:chrome`, then `chrome://extensions` → enable
   **Developer mode** → **Load unpacked** → pick `dist/chrome`.
 
 Then open a logged-in Gemini / ChatGPT / Claude tab and try it.
-`npm run lint` validates the (Firefox) manifest/code before you ship.
 
-### B. Build distributable packages
+### Install permanently / publish
 
-```bash
-npm run build          # both -> web-ext-artifacts/{firefox,chrome}/gemini_assist-<version>.zip
-npm run build:firefox  # just Firefox
-npm run build:chrome   # just Chrome
-```
-
-The Firefox `.zip` can be renamed to `.xpi` to install as a file; the Chrome
-`.zip` (or the `dist/chrome` folder) loads via **Load unpacked**.
-
-### C. Install the package permanently
-
-> ⚠️ **Firefox Release and Beta only install extensions signed by Mozilla.** An
-> unsigned local build can't be permanently installed there — use option 1 or 2.
-
-**Option 1 — Developer Edition / Nightly / ESR (no signing).** These builds let
-you turn off the signature requirement:
-
-1. Open `about:config` and set `xpinstall.signatures.required` to **false**.
-2. Rename the built file from `.zip` to `.xpi`.
-3. Open `about:addons` → gear icon ⚙ → **Install Add-on From File…** → pick the `.xpi`.
-
-(This pref is ignored on Release/Beta — it only works on Dev Edition, Nightly, and ESR.)
-
-**Option 2 — Sign it via Mozilla (works on any Firefox, including Release).**
-Get an API key + secret from [addons.mozilla.org](https://addons.mozilla.org/developers/addon/api/key/),
-then self-distribute (unlisted) — this returns a signed `.xpi`:
-
-```bash
-npx web-ext sign --channel=unlisted \
-  --api-key=YOUR_JWT_ISSUER --api-secret=YOUR_JWT_SECRET
-```
-
-Install the resulting signed `.xpi` via `about:addons` → ⚙ → **Install Add-on From File…**.
-
-**Option 3 — Just use temporary mode (section A).** Simplest for personal use;
-re-load it after each Firefox restart.
+Packaging, signing for permanent local installs, and submitting to the **Chrome Web
+Store** and **Firefox Add-ons (AMO)** are documented in
+[`ops/instructions.md`](ops/instructions.md).
 
 ## Settings
 
-Toolbar icon (or `about:addons` → Gemini Assist → Preferences):
+Click the toolbar icon (or open the extension's options page — Firefox: `about:addons`
+→ Preferences; Chrome: `chrome://extensions` → Details → Extension options):
 
 - **Keyboard shortcut** — rebind the trigger (default Ctrl+Shift+H).
 - **Context scope** — highlight only / highlight + section (default) / whole conversation.
+- **AI backends — optional API keys** — per-provider OpenAI / Google AI / Anthropic key
+  + model. Empty = use that site's logged-in web session; set = use the official API.
+  ChatGPT needs a key (its web session is Turnstile-blocked). Keys are stored in
+  `browser.storage.local` (this profile only, not synced) and sent only to the provider.
 - **Delete all saved threads.**
 - **Debug logging.**
 
@@ -140,6 +124,7 @@ src/
     protocol.js              message + port name constants (content <-> background)
     settings-schema.js       settings keys + defaults (content, background, options)
     config.js                named timing/size constants (no magic numbers)
+    sse.js                   SSE parser factory (the data:/[DONE] loop) for the API parsers
   core/                    PURE, no DOM/IO — unit-tested directly
     sites.js                 site registry: host -> provider, session id, answer selectors
     tokens.js                scrape session tokens from inline-script text (Gemini)
@@ -147,11 +132,20 @@ src/
     anchor-match.js          TextQuoteSelector best-match scoring
     markdown-ast.js          markdown -> AST (Interpreter; the grammar)
     layout-engine.js         margin layout math: placement, height-share, orphan cluster
-  gemini/ chatgpt/ claude/  one backend client per site, same `ask()` interface
+  gemini/ claude/           web-session backend per site (parser/payload/client)
     parser.js                PURE: that site's streaming response -> answer
     payload.js               PURE: build that site's request body + URLs
     client.js                strategy: transport + auth + streaming only
-  background/clients.js    provider -> client registry (the ask router looks up here)
+  openai/ googleai/ anthropic/  official-API backends (used when a key is set)
+    parser.js                PURE: SSE text extractor (built on shared/sse.js)
+    payload.js               PURE: buildRequest -> { url, headers, body }
+    client.js                thin per-provider config passed to the api-client factory
+  background/
+    api-util.js              shared SSE streaming loop + request abort/timeout budget + API errors
+    api-client-factory.js    builds the official-API clients from each provider's config
+    registry.js              provider -> client mapping (single source of truth for dispatch)
+    clients.js               ask router: key set ? API client : web client (reads the registry)
+  background.js            context menu + ask router; reads settings; Gemini web fetch + token read
   content/                 imperative shell (DOM/IO; GA-global)
     util.js                  namespace, settings load, GA.provider, DOM builder, toast
     store.js                 storage.local, keyed by "<provider>:<id>" conversation
@@ -169,8 +163,7 @@ src/
     reanchorer.js            re-anchor orphans on mutation/scroll
     thread-controller.js     thread lifecycle + ask round-trip
     content.js               entry point — wires the collaborators together
-  background.js            context menu + ask router; network call; MAIN-world token read
-  options/                 settings page
+  options/                 settings page (shortcut, scope, API keys, data, debug)
   styles/content.css       all namespaced ga-* styles
 icons/icon.svg + icon-{16,32,48,128}.png   (PNGs for Chrome; SVG for Firefox)
 tests/                     Vitest specs (pure: node; DOM: jsdom via tests/helpers/loadGA.js)
@@ -181,15 +174,16 @@ tests/                     Vitest specs (pure: node; DOM: jsdom via tests/helper
 ```bash
 npm test            # vitest run (pure cores in node, DOM modules in jsdom)
 npm run test:watch  # watch mode
-npm run test:cov    # coverage (core/* and each provider's parser|payload are ~100%)
+npm run test:cov    # coverage (core/*, each provider's parser|payload|client, and the background factory/registry)
 ```
 
 ## Known limitations
 
 - Selectors for each site's answer container (`responseSelectors` in
-  `core/sites.js`) are heuristic; extend them if anchoring misses. The ChatGPT and
-  Claude backends are reverse-engineered and may need re-tuning when those sites
-  change their internals (see "How it talks to each AI").
+  `core/sites.js`) are heuristic; extend them if anchoring misses. The Gemini and
+  Claude **web-session** backends are reverse-engineered and may need re-tuning when
+  those sites change their internals — set an API key to avoid that (see "How it
+  talks to each AI"). ChatGPT is API-key-only.
 - On narrow windows with no empty right margin, boxes overlap the chat (a
   marker-collapse fallback is planned).
 - A thread whose highlight isn't in the DOM (page still loading, or the answer

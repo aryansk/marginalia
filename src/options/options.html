@@ -9,7 +9,7 @@
   <body>
     <main class="wrap">
       <h1>Gemini Assist</h1>
-      <p class="sub">Inline follow-up comment threads on gemini.google.com.</p>
+      <p class="sub">Inline follow-up comment threads on Gemini, ChatGPT, and Claude.</p>
 
       <section class="card">
         <h2>Keyboard shortcut</h2>
@@ -41,6 +41,33 @@
       </section>
 
       <section class="card">
+        <h2>AI backends — optional API keys</h2>
+        <p class="hint">
+          Leave a key empty to use your logged-in web session on that site. Set a key to answer
+          follow-ups through the official API instead. <b>ChatGPT needs a key</b> — its web session
+          is blocked by Cloudflare Turnstile. Keys are stored locally in this browser profile and
+          sent only to the provider.
+        </p>
+
+        <div class="provider">
+          <h3>ChatGPT — OpenAI</h3>
+          <input type="password" id="openai-key" class="key" placeholder="sk-… (OpenAI API key)" autocomplete="off" spellcheck="false" />
+          <input type="text" id="openai-model" class="model" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="provider">
+          <h3>Gemini — Google AI</h3>
+          <input type="password" id="gemini-key" class="key" placeholder="AIza… (Google AI key)" autocomplete="off" spellcheck="false" />
+          <input type="text" id="gemini-model" class="model" placeholder="gemini-2.5-flash" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="provider">
+          <h3>Claude — Anthropic</h3>
+          <input type="password" id="anthropic-key" class="key" placeholder="sk-ant-… (Anthropic key)" autocomplete="off" spellcheck="false" />
+          <input type="text" id="anthropic-model" class="model" placeholder="claude-sonnet-4-6" autocomplete="off" spellcheck="false" />
+        </div>
+        <p id="apikeys-status" class="status"></p>
+      </section>
+
+      <section class="card">
         <h2>Data</h2>
         <p class="hint">Threads are stored locally, separately per conversation.</p>
         <button id="clear-btn" class="danger">Delete all saved threads</button>
@@ -55,8 +82,9 @@
       </section>
 
       <p class="foot">
-        Replies use your logged-in Gemini session via an undocumented endpoint — it may need
-        maintenance if Google changes it. For personal use.
+        Without an API key, replies reuse your logged-in web session via each site's undocumented
+        endpoint — which may need maintenance if the site changes it. Set an API key above to use
+        the official API instead. For personal use.
       </p>
     </main>
     <script src="../shared/settings-schema.js"></script>

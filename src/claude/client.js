@@ -19,10 +19,11 @@ GA.claudeClient = (function () {
     });
   }
 
-  async function getOrgId() {
+  async function getOrgId(signal) {
     const res = await fetch(GA.claude.payload.ORGS_URL, {
       credentials: "include",
       headers: { Accept: "application/json" },
+      signal: signal,
     });
     if (!res.ok) throw new Error("Couldn't reach Claude (HTTP " + res.status + "). Are you logged in?");
     const orgs = await res.json().catch(() => null);
@@ -31,13 +32,14 @@ GA.claudeClient = (function () {
     return org;
   }
 
-  async function createConversation(orgId) {
+  async function createConversation(orgId, signal) {
     const convUuid = uuid();
     const res = await fetch(GA.claude.payload.conversationsUrl(orgId), {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: GA.claude.payload.buildConversationBody(convUuid),
+      signal: signal,
     });
     if (!res.ok) throw new Error("Couldn't start a Claude conversation (HTTP " + res.status + ").");
     const json = await res.json().catch(() => null);
@@ -49,43 +51,58 @@ GA.claudeClient = (function () {
     const parser = GA.claude.parser;
     const prompt = (req && req.prompt) || "";
 
-    const orgId = await getOrgId();
-    const convId = await createConversation(orgId);
-
-    const res = await fetch(P.completionUrl(orgId, convId), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: P.buildCompletionBody({ prompt: prompt, parentUuid: P.ROOT_PARENT_UUID }),
-    });
-    if (!res.ok) throw new Error("Claude request failed (HTTP " + res.status + ").");
-
+    // One abort budget covers the whole flow (org lookup -> conversation ->
+    // completion). It aborts if any step goes silent (see api-util.js); bumped
+    // after each step and as stream bytes arrive so a live reply isn't cut off.
+    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS);
+    const timeoutMsg = "Claude request timed out.";
     const failMsg = "Couldn't parse Claude's response — the internal API shape may have changed.";
+    try {
+      const orgId = await getOrgId(budget.signal);
+      budget.bump();
+      const convId = await createConversation(orgId, budget.signal);
+      budget.bump();
 
-    if (!res.body || !res.body.getReader) {
-      const text = parser.parseLatest(await res.text());
-      if (text == null) throw new Error(failMsg);
-      if (onChunk) onChunk(text);
-      return text;
-    }
+      const res = await fetch(P.completionUrl(orgId, convId), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: P.buildCompletionBody({ prompt: prompt, parentUuid: P.ROOT_PARENT_UUID }),
+        signal: budget.signal,
+      });
+      if (!res.ok) throw new Error("Claude request failed (HTTP " + res.status + ").");
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let last = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const text = parser.parseLatest(buf);
-      if (text != null && text !== last) {
-        last = text;
+      if (!res.body || !res.body.getReader) {
+        const text = parser.parseLatest(await res.text());
+        if (text == null) throw new Error(failMsg);
         if (onChunk) onChunk(text);
+        return text;
       }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let last = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        budget.bump();
+        buf += decoder.decode(value, { stream: true });
+        const text = parser.parseLatest(buf);
+        if (text != null && text !== last) {
+          last = text;
+          if (onChunk) onChunk(text);
+        }
+      }
+      const finalText = parser.parseLatest(buf) || last;
+      if (!finalText) throw new Error(failMsg);
+      return finalText;
+    } catch (e) {
+      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
+      throw e;
+    } finally {
+      budget.clear();
     }
-    const finalText = parser.parseLatest(buf) || last;
-    if (!finalText) throw new Error(failMsg);
-    return finalText;
   }
 
   return { ask };

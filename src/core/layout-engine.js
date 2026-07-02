@@ -5,10 +5,16 @@
 //
 // Input:  { items: [{ id, order, anchorTop|null, naturalHeight }],
 //           viewport: { height }, activeId, config? }
-//   anchorTop === null  => the box's highlight isn't on screen (an "orphan").
+//   anchorTop === null  => the box's highlight isn't in the DOM (an "orphan").
+//   anchorTop <  0       => the highlight has scrolled above the viewport.
+//   anchorTop >  height  => the highlight has scrolled below the viewport.
 // Output: { placements: [{ id, top, height, maxHeight }],  // boxes in the margin
 //           drawered: [id],                                  // orphans behind the badge
-//           clusterCount }                                   // badge number (0 = no badge)
+//           clusterCount,                                    // badge number (0 = no badge)
+//           offAbove: [id],                                  // anchored, scrolled above the fold
+//           offBelow: [id] }                                 // anchored, scrolled below the fold
+//   Off-screen boxes are NOT placed — they scroll away with their highlight and are
+//   surfaced to the user through the top/bottom "N comments" cues instead.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
@@ -62,7 +68,20 @@ GA.core.layout = (function () {
       layoutItems = all;
     }
 
-    return { placements: place(layoutItems, H, activeId, c), drawered, clusterCount };
+    // A highlight that's still in the DOM but scrolled out of the viewport shouldn't
+    // stick to the top/bottom edge — its box leaves with it. Split those out (they're
+    // counted by the scroll cues) and only place the in-view ones.
+    const visible = [];
+    const offAbove = [];
+    const offBelow = [];
+    for (const it of layoutItems) {
+      if (it.anchorTop == null) visible.push(it); // lone orphan: parks low, stays put
+      else if (it.anchorTop < 0) offAbove.push(it.id);
+      else if (it.anchorTop > H) offBelow.push(it.id);
+      else visible.push(it);
+    }
+
+    return { placements: place(visible, H, activeId, c), drawered, clusterCount, offAbove, offBelow };
   }
 
   function place(items, H, activeId, c) {

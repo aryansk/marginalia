@@ -11,6 +11,10 @@ GA.gutter = (function () {
   let drawer = null;
   let badge = null;
   let countEl = null;
+  let aboveCue = null;
+  let belowCue = null;
+  let aboveCountEl = null;
+  let belowCountEl = null;
   const registry = new Map(); // id -> { id, box, order }
   const state = { activeId: null, order: 0, rafPending: false, orphanExpanded: false };
 
@@ -31,8 +35,36 @@ GA.gutter = (function () {
       },
       [GA.el("span", { class: "ga-cluster-glyph" }), countEl]
     );
+    aboveCountEl = GA.el("span", { class: "ga-scrollcue-count" });
+    aboveCue = GA.el(
+      "button",
+      {
+        class: "ga-scrollcue ga-scrollcue-above",
+        title: "Comments above — click to jump to the nearest",
+        onclick: function (e) {
+          e.stopPropagation();
+          jumpTo("above");
+        },
+      },
+      [GA.el("span", { class: "ga-scrollcue-glyph", text: "▲" }), aboveCountEl]
+    );
+    belowCountEl = GA.el("span", { class: "ga-scrollcue-count" });
+    belowCue = GA.el(
+      "button",
+      {
+        class: "ga-scrollcue ga-scrollcue-below",
+        title: "Comments below — click to jump to the nearest",
+        onclick: function (e) {
+          e.stopPropagation();
+          jumpTo("below");
+        },
+      },
+      [GA.el("span", { class: "ga-scrollcue-glyph", text: "▼" }), belowCountEl]
+    );
     container.appendChild(drawer);
     container.appendChild(badge);
+    container.appendChild(aboveCue);
+    container.appendChild(belowCue);
     document.body.appendChild(container);
     window.addEventListener("scroll", scheduleLayout, true);
     window.addEventListener("resize", scheduleLayout);
@@ -101,6 +133,7 @@ GA.gutter = (function () {
     if (!container) return;
     if (!registry.size) {
       updateCluster(0);
+      updateScrollCues(0, 0);
       return;
     }
 
@@ -139,17 +172,28 @@ GA.gutter = (function () {
       if (box.el.parentNode !== drawer) drawer.appendChild(box.el);
     });
 
+    // Anchored boxes whose highlight scrolled out of view leave with it: hide them
+    // (kept in the container, still measurable) — the scroll cues count them instead.
+    const offscreen = result.offAbove.concat(result.offBelow);
+    offscreen.forEach((id) => {
+      const box = registry.get(id).box;
+      box.el.classList.remove("ga-box-static");
+      box.el.classList.add("ga-box-offscreen");
+      if (box.el.parentNode !== container) container.appendChild(box.el);
+    });
+
     // Everything else is positioned in the margin at the engine's coordinates.
     result.placements.forEach((p) => {
       const box = registry.get(p.id).box;
       box.setOrphan(!anchored[p.id]);
-      box.el.classList.remove("ga-box-static");
+      box.el.classList.remove("ga-box-static", "ga-box-offscreen");
       if (box.el.parentNode !== container) container.appendChild(box.el);
       box.el.style.top = p.top + "px";
       box.setMaxHeight(p.maxHeight);
     });
 
     updateCluster(result.clusterCount);
+    updateScrollCues(result.offAbove.length, result.offBelow.length);
   }
 
   function updateCluster(count) {
@@ -159,6 +203,39 @@ GA.gutter = (function () {
     countEl.textContent = String(count);
     drawer.style.display = count > 0 && state.orphanExpanded ? "flex" : "none";
     badge.classList.toggle("ga-cluster-open", count > 0 && state.orphanExpanded);
+  }
+
+  function updateScrollCues(above, below) {
+    if (!aboveCue) return;
+    aboveCue.style.display = above > 0 ? "flex" : "none";
+    aboveCountEl.textContent = String(above);
+    belowCue.style.display = below > 0 ? "flex" : "none";
+    belowCountEl.textContent = String(below);
+  }
+
+  // Scroll to the nearest comment whose highlight is off-screen in `dir` ("above" or
+  // "below"). Reads live rects (scroll may have moved since the last relayout). The
+  // resulting scroll fires the scroll listener, which re-runs relayout and brings the
+  // box back into the margin.
+  function jumpTo(dir) {
+    const H = window.innerHeight;
+    let best = null;
+    let bestTop = null;
+    registry.forEach((it) => {
+      const a = GA.selection.anchorEl(it.id);
+      if (!a) return;
+      const t = a.getBoundingClientRect().top;
+      if (dir === "above") {
+        if (t < 0 && (bestTop == null || t > bestTop)) {
+          bestTop = t;
+          best = a;
+        }
+      } else if (t > H && (bestTop == null || t < bestTop)) {
+        bestTop = t;
+        best = a;
+      }
+    });
+    if (best) best.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
   return { init, add, remove, clear, has, get, setActive, relayout, scheduleLayout };

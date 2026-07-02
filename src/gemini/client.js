@@ -24,43 +24,66 @@ GA.client = (function () {
     if (!tokens.at)
       throw new Error("Missing session token (SNlM0e). Are you logged in to Gemini?");
 
-    const res = await fetch(payload.buildUrl(tokens.bl, tokens.sid), {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "X-Same-Domain": "1",
-      },
-      body: payload.buildBody(req.prompt, tokens.at),
-    });
-    if (!res.ok) throw new Error("Gemini request failed (HTTP " + res.status + ").");
-
-    // No streaming body available — parse the whole response at once.
-    if (!res.body || !res.body.getReader) {
-      const text = parser.parseLatest(await res.text());
-      if (text == null) throw new Error(parseFailMsg());
-      if (onChunk) onChunk(text);
-      return text;
+    // Abort the request if it goes silent (see background/api-util.js); bumped as
+    // stream bytes arrive so a slow-but-live reply isn't cut off.
+    const budget = GA.makeAbortBudget(GA.REQUEST_TIMEOUT_MS);
+    const timeoutMsg = "Gemini request timed out.";
+    let res;
+    try {
+      res = await fetch(payload.buildUrl(tokens.bl, tokens.sid), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-Same-Domain": "1",
+        },
+        body: payload.buildBody(req.prompt, tokens.at),
+        signal: budget.signal,
+      });
+    } catch (e) {
+      budget.clear();
+      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
+      throw e;
+    }
+    if (!res.ok) {
+      budget.clear();
+      throw new Error("Gemini request failed (HTTP " + res.status + ").");
     }
 
-    // Stream: re-parse the growing buffer and emit each newly-longer answer.
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let last = "";
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const text = parser.parseLatest(buf);
-      if (text != null && text !== last) {
-        last = text;
+    try {
+      // No streaming body available — parse the whole response at once.
+      if (!res.body || !res.body.getReader) {
+        const text = parser.parseLatest(await res.text());
+        if (text == null) throw new Error(parseFailMsg());
         if (onChunk) onChunk(text);
+        return text;
       }
+
+      // Stream: re-parse the growing buffer and emit each newly-longer answer.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let last = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        budget.bump();
+        buf += decoder.decode(value, { stream: true });
+        const text = parser.parseLatest(buf);
+        if (text != null && text !== last) {
+          last = text;
+          if (onChunk) onChunk(text);
+        }
+      }
+      const finalText = parser.parseLatest(buf) || last;
+      if (!finalText) throw new Error(parseFailMsg());
+      return finalText;
+    } catch (e) {
+      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
+      throw e;
+    } finally {
+      budget.clear();
     }
-    const finalText = parser.parseLatest(buf) || last;
-    if (!finalText) throw new Error(parseFailMsg());
-    return finalText;
   }
 
   return { ask };

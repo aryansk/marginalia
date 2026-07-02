@@ -29,8 +29,10 @@ function streamResponse(textChunks, { ok = true, status = 200 } = {}) {
 }
 
 function clientWith(fetchFake) {
+  // api-util.js supplies GA.makeAbortBudget / GA.REQUEST_TIMEOUT_MS used by the
+  // client's request-timeout guard.
   return loadGA(
-    ["src/gemini/parser.js", "src/gemini/payload.js", "src/gemini/client.js"],
+    ["src/background/api-util.js", "src/gemini/parser.js", "src/gemini/payload.js", "src/gemini/client.js"],
     { fetch: fetchFake }
   ).client;
 }

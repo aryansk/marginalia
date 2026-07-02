@@ -11,6 +11,17 @@ const els = {
   clearBtn: document.getElementById("clear-btn"),
   clearStatus: document.getElementById("clear-status"),
   debug: document.getElementById("debug"),
+  apikeysStatus: document.getElementById("apikeys-status"),
+};
+
+// settings field <-> input id, for the optional API-key backends
+const API_FIELDS = {
+  openaiApiKey: "openai-key",
+  openaiModel: "openai-model",
+  geminiApiKey: "gemini-key",
+  geminiModel: "gemini-model",
+  anthropicApiKey: "anthropic-key",
+  anthropicModel: "anthropic-model",
 };
 
 let settings = Object.assign({}, DEFAULTS);
@@ -41,6 +52,10 @@ function render() {
     r.checked = r.value === settings.scope;
   });
   els.debug.checked = !!settings.debug;
+  Object.keys(API_FIELDS).forEach((field) => {
+    const input = document.getElementById(API_FIELDS[field]);
+    if (input) input.value = settings[field] == null ? "" : settings[field];
+  });
 }
 
 async function save() {
@@ -93,6 +108,21 @@ document.querySelectorAll('input[name="scope"]').forEach((r) => {
 els.debug.addEventListener("change", async () => {
   settings.debug = els.debug.checked;
   await save();
+});
+
+// API keys + models — save on input (debounced so we don't write on every keystroke)
+let apikeysTimer = 0;
+Object.keys(API_FIELDS).forEach((field) => {
+  const input = document.getElementById(API_FIELDS[field]);
+  if (!input) return;
+  input.addEventListener("input", () => {
+    settings[field] = input.value.trim();
+    clearTimeout(apikeysTimer);
+    apikeysTimer = setTimeout(async () => {
+      await save();
+      els.apikeysStatus.textContent = "Saved.";
+    }, 400);
+  });
 });
 
 els.clearBtn.addEventListener("click", async () => {
