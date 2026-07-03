@@ -1,4 +1,4 @@
-# Gemini Assist
+# Marginalia
 
 A browser extension (**Firefox + Chrome**) that adds **Google-Docs-style margin
 comment threads** to the major AI chat sites — [Gemini](https://gemini.google.com),
@@ -8,7 +8,7 @@ When the AI gives a long answer and you want to drill into one phrase, you no
 longer have to ask in the main chat (and bury the original answer). Instead:
 
 1. **Highlight** the phrase (e.g. _"8 KB page"_).
-2. Click the floating **Comment** pill that appears — or **right-click →
+2. Click the floating **Comment / Ask** pill that appears — or **right-click →
    "Ask about …"**, or press **Ctrl + Shift + H**.
 3. A comment box opens **in the right margin, level with your highlight**
    (Docs-style: focusing a box aligns it with its highlight and shifts the

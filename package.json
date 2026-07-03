@@ -1,5 +1,5 @@
 {
-  "name": "gemini-assist",
+  "name": "marginalia",
   "version": "0.1.0",
   "private": true,
   "description": "Browser extension (Firefox + Chrome): inline follow-up comment threads on Gemini, ChatGPT and Claude",

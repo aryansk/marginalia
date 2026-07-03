@@ -25,10 +25,10 @@ GA.loadSettings = async function () {
 
 GA.log = function () {
   if (GA.settings && GA.settings.debug)
-    console.log.apply(console, ["[gemini-assist]"].concat([].slice.call(arguments)));
+    console.log.apply(console, ["[marginalia]"].concat([].slice.call(arguments)));
 };
 GA.warn = function () {
-  console.warn.apply(console, ["[gemini-assist]"].concat([].slice.call(arguments)));
+  console.warn.apply(console, ["[marginalia]"].concat([].slice.call(arguments)));
 };
 
 GA.uid = function (prefix) {

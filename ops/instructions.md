@@ -89,9 +89,9 @@ page DevTools on Chrome) — enable **debug logging** in the extension's setting
 
 1. **Bump the version** in **all three**: `manifest.json`, `manifest.chrome.json`, and
    `package.json` (stores reject re-uploading an existing version). Keep them identical.
-2. Set a **stable extension id** for real listings. Firefox uses
-   `browser_specific_settings.gecko.id` (currently `gemini-assist@local`) — pick a permanent,
-   unique id (email-like or a domain you own). Chrome assigns its own id on first upload.
+2. Confirm the **extension id**. Firefox uses `browser_specific_settings.gecko.id`
+   (set to `marginalia@midhunkrishna.github.io`) — it is PERMANENT once the first AMO
+   version is published; never change it afterwards. Chrome assigns its own id on first upload.
 3. `npm test` green, `npm run lint` clean, `npm run build`.
 4. Have listing assets + text ready (see below): 128px icon (already in the package),
    1–5 screenshots, a short summary, a full description, a **privacy policy URL**, and a

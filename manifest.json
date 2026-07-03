@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Gemini Assist",
+  "name": "Marginalia",
   "version": "0.1.0",
-  "description": "Inline Google-Docs-style follow-up comment threads on Gemini, ChatGPT and Claude — highlight text, ask in the margin, keep your place.",
+  "description": "Google-Docs-style follow-up comment threads on Gemini, ChatGPT and Claude — highlight text, ask in the margin, keep your place.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "gemini-assist@local",
+      "id": "marginalia@midhunkrishna.github.io",
       "strict_min_version": "142.0",
       "data_collection_permissions": {
         "required": ["websiteContent"]
@@ -113,7 +113,7 @@
   },
   "action": {
     "default_icon": "icons/icon.svg",
-    "default_title": "Gemini Assist — settings",
+    "default_title": "Marginalia — settings",
     "default_popup": "src/options/options.html"
   }
 }
