@@ -54,7 +54,7 @@ GA.ThreadBox = function (thread, handlers) {
     text: snippetText,
   });
   const unreadDot = GA.el("span", { class: "ga-unread-dot", title: "New reply" });
-  const chipCount = GA.el("span", { class: "ga-chip-count" });
+  const chipCount = GA.el("span", { class: "ga-chip-count ga-count" });
   const spinner = GA.el("div", {
     class: "ga-spinner",
     role: "status",
@@ -547,8 +547,12 @@ GA.ThreadBox = function (thread, handlers) {
       root.classList.toggle("ga-orphan", !!orphan);
       let badge = root.querySelector(".ga-orphan-badge");
       if (orphan && !badge) {
-        badge = GA.el("div", { class: "ga-orphan-badge", text: "anchor lost" });
-        header.appendChild(badge);
+        badge = GA.el("div", {
+          class: "ga-orphan-badge ga-tag",
+          text: "detached",
+          title: "The highlighted text no longer exists on the page",
+        });
+        header.insertBefore(badge, snippet);
         invalidateHeight();
       } else if (!orphan && badge) {
         badge.remove();

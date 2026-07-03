@@ -16,6 +16,8 @@ GA.themeDetector = (function () {
   }
 
   function start() {
+    // Per-provider accent palette in content.css keys off this attribute.
+    document.documentElement.setAttribute("data-ga-provider", GA.provider || "");
     detect();
 
     const obs = new MutationObserver(function () {

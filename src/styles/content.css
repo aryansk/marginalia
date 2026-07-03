@@ -13,21 +13,31 @@
   --ga-fg: #1f1f24;
   --ga-muted: #5f6368;
   --ga-border: #dadce0;
-  --ga-accent: #4f8cff; /* rings, links, focus borders (non-text) */
-  --ga-accent-2: #9b5cff;
-  /* gradient for text-bearing buttons — darker than the accents so white
-     text holds ≥ 4.5:1 on both stops (AA) */
-  --ga-btn-grad-a: #2563eb;
-  --ga-btn-grad-b: #6d28d9;
-  --ga-danger: #b3261e;
+  --ga-accent-rgb: 26, 115, 232; /* rings, highlight tint, borders — triplet for alpha variants */
+  --ga-accent: rgb(var(--ga-accent-rgb));
+  /* text-bearing accent: solid button bg, count-pill text, links. Every value
+     (incl. the per-provider overrides below) holds ≥ 4.5:1 on --ga-surface (AA). */
+  --ga-accent-strong: #1967d2;
+  --ga-on-accent: #ffffff;
+  --ga-hover: rgba(60, 64, 67, 0.08); /* hover wash on quiet controls */
+  --ga-surface-2: rgba(60, 64, 67, 0.07); /* fills: code, table headers */
+  --ga-warn-bg: rgba(180, 83, 9, 0.12); /* "detached" status tags */
+  --ga-warn-fg: #92400e;
+  --ga-danger: #b3261e; /* errors, Stop, delete-confirm — never counters */
   --ga-danger-fg: #ffffff;
-  --ga-ring: rgba(79, 140, 255, 0.35);
-  --ga-user-bg: #eef3ff;
+  --ga-ring: rgba(var(--ga-accent-rgb), 0.35);
+  --ga-user-bg: rgba(var(--ga-accent-rgb), 0.1);
   --ga-toast-bg: #323232;
   --ga-toast-fg: #ffffff;
-  --ga-hl: 155, 92, 255; /* highlight tint, rgb triplet for alpha variants */
+  --ga-hl: var(--ga-accent-rgb); /* highlight tint follows the accent hue */
   --ga-hl-resolved: 127, 127, 127;
-  --ga-shadow: 0 4px 18px rgba(0, 0, 0, 0.16);
+  /* elevation tiers: sm = chips/pills, md = boxes/popovers/toast, lg = modal */
+  --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.12);
+  --ga-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.1), 0 16px 48px rgba(0, 0, 0, 0.24);
+  --ga-r-sm: 6px;
+  --ga-r-md: 10px;
+  --ga-r-lg: 14px;
   --ga-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ga-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
 }
@@ -40,14 +50,21 @@
   --ga-fg: #e8eaed;
   --ga-muted: #9aa0a6;
   --ga-border: #3c4043;
-  --ga-accent-2: #b18cff;
+  --ga-accent-rgb: 138, 180, 248;
+  --ga-accent-strong: #8ab4f8; /* dark buttons: light accent bg + dark text */
+  --ga-on-accent: #1f1f24;
+  --ga-hover: rgba(232, 234, 237, 0.08);
+  --ga-surface-2: rgba(232, 234, 237, 0.07);
+  --ga-warn-bg: rgba(251, 191, 36, 0.15);
+  --ga-warn-fg: #fbbf24;
   --ga-danger: #e46962;
   --ga-danger-fg: #1f1f24;
-  --ga-ring: rgba(138, 180, 248, 0.4);
-  --ga-user-bg: #2a3650;
+  --ga-user-bg: rgba(var(--ga-accent-rgb), 0.18);
   --ga-toast-bg: #e8eaed;
   --ga-toast-fg: #1f1f24;
-  --ga-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --ga-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-ga-theme]) {
@@ -56,14 +73,52 @@
     --ga-fg: #e8eaed;
     --ga-muted: #9aa0a6;
     --ga-border: #3c4043;
-    --ga-accent-2: #b18cff;
+    --ga-accent-rgb: 138, 180, 248;
+    --ga-accent-strong: #8ab4f8;
+    --ga-on-accent: #1f1f24;
+    --ga-hover: rgba(232, 234, 237, 0.08);
+    --ga-surface-2: rgba(232, 234, 237, 0.07);
+    --ga-warn-bg: rgba(251, 191, 36, 0.15);
+    --ga-warn-fg: #fbbf24;
     --ga-danger: #e46962;
     --ga-danger-fg: #1f1f24;
-    --ga-ring: rgba(138, 180, 248, 0.4);
-    --ga-user-bg: #2a3650;
+    --ga-user-bg: rgba(var(--ga-accent-rgb), 0.18);
     --ga-toast-bg: #e8eaed;
     --ga-toast-fg: #1f1f24;
-    --ga-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+    --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
+    --ga-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Host-matched accents — content/theme-detector.js stamps
+   <html data-ga-provider="gemini|chatgpt|claude">. Gemini blue is the :root
+   default. The dark combos must follow the plain provider blocks: at equal
+   cascade weight the later rule wins, and dark+provider beats both. */
+:root[data-ga-provider="chatgpt"] {
+  --ga-accent-rgb: 16, 163, 127;
+  --ga-accent-strong: #0f766e;
+}
+:root[data-ga-provider="claude"] {
+  --ga-accent-rgb: 193, 95, 60;
+  --ga-accent-strong: #a04724;
+}
+:root[data-ga-theme="dark"][data-ga-provider="chatgpt"] {
+  --ga-accent-rgb: 52, 211, 153;
+  --ga-accent-strong: #34d399;
+}
+:root[data-ga-theme="dark"][data-ga-provider="claude"] {
+  --ga-accent-rgb: 217, 119, 87;
+  --ga-accent-strong: #d97757;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-ga-theme])[data-ga-provider="chatgpt"] {
+    --ga-accent-rgb: 52, 211, 153;
+    --ga-accent-strong: #34d399;
+  }
+  :root:not([data-ga-theme])[data-ga-provider="claude"] {
+    --ga-accent-rgb: 217, 119, 87;
+    --ga-accent-strong: #d97757;
   }
 }
 
@@ -89,7 +144,9 @@
   transition: background 0.15s ease;
 }
 .ga-highlight:hover,
-.ga-highlight-hover,
+.ga-highlight-hover {
+  background: rgba(var(--ga-hl), 0.32);
+}
 .ga-highlight-active {
   background: rgba(var(--ga-hl), 0.38);
 }
@@ -122,7 +179,7 @@
   color: var(--ga-fg);
   border: 1px solid var(--ga-border);
   border-radius: 12px;
-  box-shadow: var(--ga-shadow);
+  box-shadow: var(--ga-shadow-md);
   pointer-events: auto;
   /* Positioned via --ga-y (gutter.js write phase): a transform is compositor-
      cheap, unlike per-frame `top` writes which force layout. NO position
@@ -138,7 +195,7 @@
 }
 .ga-box.ga-active {
   border-color: var(--ga-accent);
-  box-shadow: 0 0 0 2px var(--ga-ring), var(--ga-shadow);
+  box-shadow: 0 0 0 2px var(--ga-ring), var(--ga-shadow-md);
 }
 /* hovering the box's highlight in the page raises the box (hover linking) */
 .ga-box.ga-hover {
@@ -204,24 +261,29 @@
   position: absolute;
   right: 6px;
   bottom: 16px;
-  width: 54px;
-  height: 54px;
-  border: none;
-  border-radius: 50%;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--ga-border);
+  border-radius: 999px;
   cursor: pointer;
   display: none; /* toggled to flex when there are >= 2 orphans */
   align-items: center;
-  justify-content: center;
-  color: #fff;
-  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
-  box-shadow: var(--ga-shadow);
+  gap: 6px;
+  color: var(--ga-fg);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--ga-surface);
+  box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .ga-cluster:hover {
-  filter: brightness(1.07);
-  transform: translateY(-1px);
+  border-color: var(--ga-accent);
+  box-shadow: var(--ga-shadow-md);
+}
+.ga-cluster:active {
+  transform: scale(0.97);
 }
 .ga-cluster.ga-cluster-open {
   outline: 3px solid var(--ga-ring);
@@ -230,72 +292,62 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--ga-accent-strong);
 }
 .ga-cluster-glyph svg {
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
 }
 .ga-cluster-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  box-sizing: border-box;
-  border-radius: 10px;
-  background: var(--ga-danger);
-  color: var(--ga-danger-fg);
-  font-size: 12px;
   font-weight: 700;
-  line-height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--ga-bg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- off-screen scroll cues (comments above / below the fold) ---------- */
 .ga-scrollcue {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   display: none; /* toggled to flex when there are off-screen comments */
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
-  border: none;
+  padding: 6px 12px;
+  border: 1px solid var(--ga-border);
   border-radius: 999px;
   cursor: pointer;
-  color: #fff;
+  color: var(--ga-fg);
   font-size: 12px;
   font-weight: 600;
-  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
-  box-shadow: var(--ga-shadow);
+  background: var(--ga-surface);
+  box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
-  transition: filter 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .ga-scrollcue:hover {
-  filter: brightness(1.07);
+  border-color: var(--ga-accent);
+  box-shadow: var(--ga-shadow-md);
+}
+.ga-scrollcue:active {
+  transform: scale(0.97);
 }
 .ga-scrollcue-above {
   top: 12px;
 }
-.ga-scrollcue-above:hover {
-  transform: translateX(-50%) translateY(-1px);
-}
 .ga-scrollcue-below {
   bottom: 16px;
 }
-.ga-scrollcue-below:hover {
-  transform: translateX(-50%) translateY(1px);
+.ga-scrollcue-glyph {
+  color: var(--ga-accent-strong);
 }
 .ga-scrollcue-glyph svg {
   width: 12px;
   height: 12px;
 }
 .ga-scrollcue-count {
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -303,16 +355,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--ga-border);
   position: relative;
 }
+/* Docs-style quote bar: the snippet reads as "quoted from the page" */
 .ga-box-snippet {
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ga-muted);
+  border-left: 3px solid rgba(var(--ga-accent-rgb), 0.5);
+  padding-left: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -329,18 +384,19 @@
   color: var(--ga-muted);
   line-height: 1;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: var(--ga-r-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 .ga-iconbtn svg {
   width: 16px;
   height: 16px;
 }
 .ga-iconbtn:hover {
-  background: rgba(127, 127, 127, 0.16);
+  background: var(--ga-hover);
   color: var(--ga-fg);
 }
 
@@ -361,7 +417,7 @@
 }
 .ga-box.ga-collapsed .ga-box-header {
   border-bottom: none;
-  padding: 5px 8px 5px 12px;
+  padding: 6px 10px 6px 12px;
   cursor: pointer;
 }
 .ga-box.ga-collapsed .ga-box-snippet {
@@ -374,15 +430,35 @@
 .ga-box.ga-collapsed:focus-within .ga-minbtn {
   display: inline-flex; /* …hover reveals an explicit restore button */
 }
+/* shared counter pill — accent-tinted, tabular; counts are information, not alarms */
+.ga-count {
+  background: rgba(var(--ga-accent-rgb), 0.12);
+  color: var(--ga-accent-strong);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex: none;
+}
+/* shared status tag ("detached") — amber for warnings; red stays with errors */
+.ga-tag {
+  background: var(--ga-warn-bg);
+  color: var(--ga-warn-fg);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex: none;
+  white-space: nowrap;
+}
 .ga-chip-count {
   display: none;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ga-muted);
-  font-variant-numeric: tabular-nums;
 }
 .ga-box.ga-collapsed .ga-chip-count {
-  display: inline;
+  display: inline-block;
 }
 
 /* unread: a new reply finished while the thread wasn't focused */
@@ -427,7 +503,7 @@
 .ga-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(127, 127, 127, 0.3);
+  border: 2px solid var(--ga-border);
   border-top-color: var(--ga-accent);
   border-radius: 50%;
   display: none;
@@ -442,16 +518,7 @@
   }
 }
 
-.ga-orphan-badge {
-  position: absolute;
-  top: -8px;
-  left: 10px;
-  font-size: 10px;
-  background: var(--ga-danger);
-  color: var(--ga-danger-fg);
-  padding: 1px 6px;
-  border-radius: 8px;
-}
+/* .ga-orphan-badge is an inline .ga-tag in the header (thread-ui.js setOrphan) */
 
 /* messages */
 .ga-messages {
@@ -538,12 +605,12 @@
 .ga-msg-model code {
   font-family: var(--ga-mono);
   font-size: 12px;
-  background: rgba(127, 127, 127, 0.16);
+  background: var(--ga-surface-2);
   padding: 1px 4px;
   border-radius: 4px;
 }
 .ga-msg-model pre {
-  background: rgba(127, 127, 127, 0.14);
+  background: var(--ga-surface-2);
   padding: 8px 10px;
   border-radius: 8px;
   overflow-x: auto;
@@ -569,7 +636,7 @@
 }
 .ga-msg-model .ga-table th {
   font-weight: 700;
-  background: rgba(127, 127, 127, 0.08);
+  background: var(--ga-surface-2);
 }
 .ga-msg-model blockquote {
   border-left: 3px solid var(--ga-border);
@@ -578,14 +645,14 @@
   color: var(--ga-muted);
 }
 .ga-msg-model a {
-  color: var(--ga-accent);
+  color: var(--ga-accent-strong);
 }
 
 /* code block chrome: language label + copy button */
 .ga-codeblock {
   margin: 6px 0;
   border-radius: 8px;
-  background: rgba(127, 127, 127, 0.14);
+  background: var(--ga-surface-2);
   overflow: hidden;
 }
 .ga-codeblock pre {
@@ -661,22 +728,23 @@
   font-size: 12px;
   font-weight: 600;
   padding: 4px 10px;
-  border-radius: 7px;
+  border-radius: var(--ga-r-sm);
   cursor: pointer;
   flex: none;
+  transition: background-color 0.12s ease;
 }
 .ga-retry-btn svg {
   width: 12px;
   height: 12px;
 }
 .ga-retry-btn:hover {
-  background: rgba(127, 127, 127, 0.12);
+  background: var(--ga-hover);
 }
 
 /* composer */
 .ga-composer {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: flex-end;
   padding: 8px;
   border-top: 1px solid var(--ga-border);
@@ -690,8 +758,8 @@
   color: var(--ga-fg);
   background: transparent;
   border: 1px solid var(--ga-border);
-  border-radius: 10px;
-  padding: 7px 10px;
+  border-radius: var(--ga-r-md);
+  padding: 8px 10px;
   max-height: 120px;
   outline: none;
 }
@@ -704,20 +772,27 @@
 .ga-send {
   appearance: none;
   border: none;
-  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
-  color: #fff;
+  background: var(--ga-accent-strong);
+  color: var(--ga-on-accent);
   font-weight: 600;
   font-size: 13px;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: var(--ga-r-md);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  transition: filter 0.12s ease, background-color 0.12s ease;
 }
 .ga-send svg {
   width: 14px;
   height: 14px;
+}
+.ga-send:hover:not(:disabled):not(.ga-stop) {
+  filter: brightness(0.94);
+}
+.ga-send:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .ga-send:disabled {
   opacity: 0.55;
@@ -728,6 +803,9 @@
   background: transparent;
   border: 1px solid var(--ga-danger);
   color: var(--ga-danger);
+}
+.ga-send.ga-stop:hover {
+  background: var(--ga-hover);
 }
 
 /* delete confirm */
@@ -740,8 +818,8 @@
   background: var(--ga-surface);
   color: var(--ga-fg);
   border: 1px solid var(--ga-border);
-  border-radius: 10px;
-  box-shadow: var(--ga-shadow);
+  border-radius: var(--ga-r-md);
+  box-shadow: var(--ga-shadow-md);
   padding: 8px 10px;
   font-size: 12px;
   align-items: center;
@@ -761,7 +839,7 @@
   color: var(--ga-fg);
   font-size: 12px;
   padding: 3px 10px;
-  border-radius: 7px;
+  border-radius: var(--ga-r-sm);
   cursor: pointer;
 }
 .ga-confirm-yes {
@@ -789,8 +867,8 @@
   flex-direction: column;
   background: var(--ga-surface);
   color: var(--ga-fg);
-  border-radius: 14px;
-  box-shadow: var(--ga-shadow);
+  border-radius: var(--ga-r-lg);
+  box-shadow: var(--ga-shadow-lg);
   overflow: hidden;
 }
 .ga-modal-header {
@@ -836,8 +914,8 @@
   font-family: var(--ga-font);
   font-size: 13px;
   padding: 10px 16px;
-  border-radius: 8px;
-  box-shadow: var(--ga-shadow);
+  border-radius: var(--ga-r-md);
+  box-shadow: var(--ga-shadow-md);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -863,7 +941,7 @@
 }
 .ga-gutter.ga-rail .ga-box .ga-box-header {
   border-bottom: none;
-  padding: 5px 8px 5px 12px;
+  padding: 6px 10px 6px 12px;
   cursor: pointer;
 }
 .ga-gutter.ga-rail .ga-box .ga-box-snippet {
@@ -873,7 +951,7 @@
   display: none;
 }
 .ga-gutter.ga-rail .ga-box .ga-chip-count {
-  display: inline;
+  display: inline-block;
 }
 
 /* ---------- all-threads panel button + panel ---------- */
@@ -891,9 +969,10 @@
   justify-content: center;
   color: var(--ga-muted);
   background: var(--ga-surface);
-  box-shadow: var(--ga-shadow);
+  box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
+  transition: color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .ga-panel-btn svg {
   width: 16px;
@@ -901,6 +980,8 @@
 }
 .ga-panel-btn:hover {
   color: var(--ga-fg);
+  border-color: var(--ga-accent);
+  box-shadow: var(--ga-shadow-md);
 }
 .ga-panel {
   width: min(560px, 100%);
@@ -919,10 +1000,16 @@
   padding: 4px 10px;
   border-radius: 999px;
   cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.ga-panel-tab:hover {
+  background: var(--ga-hover);
+  color: var(--ga-fg);
 }
 .ga-panel-tab-on {
-  color: var(--ga-fg);
+  color: var(--ga-accent-strong);
   border-color: var(--ga-accent);
+  background: rgba(var(--ga-accent-rgb), 0.1);
 }
 .ga-panel-body {
   gap: 6px;
@@ -933,11 +1020,13 @@
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--ga-border);
-  border-radius: 10px;
+  border-radius: var(--ga-r-md);
   cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 .ga-panel-row:hover {
   border-color: var(--ga-accent);
+  background: var(--ga-hover);
 }
 .ga-panel-row-main {
   flex: 1;
@@ -968,13 +1057,7 @@
   gap: 6px;
   flex: none;
 }
-.ga-panel-badge {
-  font-size: 10px;
-  background: var(--ga-danger);
-  color: var(--ga-danger-fg);
-  padding: 1px 6px;
-  border-radius: 8px;
-}
+/* .ga-panel-badge is a .ga-tag (panel.js) */
 .ga-panel-jump {
   color: var(--ga-muted);
   display: inline-flex;
@@ -999,12 +1082,13 @@
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  color: #fff;
+  color: var(--ga-on-accent);
   font-family: var(--ga-font);
   font-size: 12px;
   font-weight: 600;
-  background: linear-gradient(135deg, var(--ga-btn-grad-a), var(--ga-btn-grad-b));
-  box-shadow: var(--ga-shadow);
+  background: var(--ga-accent-strong);
+  box-shadow: var(--ga-shadow-sm);
+  transition: filter 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
 }
 .ga-adder.ga-adder-show {
   display: inline-flex;
@@ -1014,7 +1098,12 @@
   height: 14px;
 }
 .ga-adder:hover {
-  filter: brightness(1.07);
+  filter: brightness(0.94);
+  box-shadow: var(--ga-shadow-md);
+  transform: translateY(-1px);
+}
+.ga-adder:active {
+  transform: scale(0.97);
 }
 
 /* ---------- accessibility ---------- */
@@ -1050,15 +1139,21 @@
   .ga-toast,
   .ga-cluster,
   .ga-scrollcue,
+  .ga-adder,
+  .ga-send,
+  .ga-iconbtn,
+  .ga-retry-btn,
+  .ga-panel-btn,
+  .ga-panel-row,
+  .ga-panel-tab,
   .ga-highlight {
     transition: none;
   }
-  .ga-cluster:hover,
-  .ga-scrollcue-above:hover,
-  .ga-scrollcue-below:hover {
-    transform: translateX(-50%);
-  }
-  .ga-cluster:hover {
+  .ga-adder:hover,
+  .ga-adder:active,
+  .ga-cluster:active,
+  .ga-scrollcue:active,
+  .ga-send:active:not(:disabled) {
     transform: none;
   }
   .ga-msg-model.ga-msg-streaming::after {

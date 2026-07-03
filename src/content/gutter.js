@@ -48,7 +48,11 @@ GA.gutter = (function () {
           toggleCluster();
         },
       },
-      [GA.el("span", { class: "ga-cluster-glyph" }, GA.icons.make("comment-plus")), countEl]
+      [
+        GA.el("span", { class: "ga-cluster-glyph" }, GA.icons.make("comment-plus")),
+        countEl,
+        GA.el("span", { class: "ga-cluster-label", text: "detached" }),
+      ]
     );
     aboveCountEl = GA.el("span", { class: "ga-scrollcue-count" });
     aboveCue = GA.el(

@@ -89,7 +89,11 @@ GA.panel = (function () {
             ]),
             GA.el("div", { class: "ga-panel-row-meta" }, [
               !anchored && !t.resolved
-                ? GA.el("span", { class: "ga-panel-badge", text: "anchor lost" })
+                ? GA.el("span", {
+                    class: "ga-panel-badge ga-tag",
+                    text: "detached",
+                    title: "The highlighted text no longer exists on the page",
+                  })
                 : null,
               t.resolved
                 ? GA.el(
