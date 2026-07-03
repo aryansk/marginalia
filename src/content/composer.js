@@ -29,8 +29,7 @@ GA.Composer = function (opts) {
 
   function autosize() {
     const prev = textarea.style.height;
-    textarea.style.height = "auto";
-    const next = Math.min(textarea.scrollHeight, GA.config.TEXTAREA_MAX_PX) + "px";
+    const next = GA.fitTextarea(textarea);
     textarea.style.height = next;
     if (next !== prev && opts.onResize) opts.onResize();
   }

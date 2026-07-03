@@ -72,7 +72,7 @@ describe("computeLayout — basics", () => {
     const anchorTop = VP.height - 5; // just inside the bottom of the viewport
     const { placements, offBelow } = run([{ id: "a", order: 0, anchorTop, naturalHeight: 200 }]);
     expect(offBelow).toEqual([]);
-    expect(placements[0].top).toBe(VP.height - 200 - DEFAULTS.GAP); // lifted so it stays visible
+    expect(placements[0].top).toBe(VP.height - 200 - DEFAULTS.BOTTOM_GAP); // lifted so it stays visible
   });
 });
 

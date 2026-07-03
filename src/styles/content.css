@@ -247,7 +247,7 @@
 .ga-orphan-drawer {
   position: absolute;
   right: 0;
-  bottom: 78px;
+  bottom: 60px; /* clears the 36px cluster pill (16px inset + 8px gap) */
   width: 100%;
   max-height: 70vh;
   overflow-y: auto;
@@ -410,15 +410,16 @@
 .ga-box.ga-collapsed {
   width: fit-content;
   max-width: 100%;
-  margin-left: auto;
   right: 0;
   left: auto;
-  border-radius: 999px;
 }
 .ga-box.ga-collapsed .ga-box-header {
   border-bottom: none;
   padding: 6px 10px 6px 12px;
   cursor: pointer;
+  /* as tall as a revealed icon button (16px svg + 2*6px padding), so the
+     hover-revealed restore button doesn't bump the chip's height */
+  min-height: 28px;
 }
 .ga-box.ga-collapsed .ga-box-snippet {
   max-width: 180px;

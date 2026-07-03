@@ -18,9 +18,9 @@ GA.adder = (function () {
       "button",
       {
         class: "ga-adder",
-        "aria-label": "Comment on the selected text",
+        "aria-label": "Comment on or ask about the selected text",
       },
-      [GA.icons.make("comment-plus"), "Comment"]
+      [GA.icons.make("comment-plus"), "Comment / Ask"]
     );
     // mousedown (not click) + preventDefault: the page selection must survive
     // until createFromSelection() reads it.

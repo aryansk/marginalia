@@ -94,6 +94,23 @@ GA.truncate = function (s, n) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 };
 
+// Height (as a px string) that fits a textarea's content — and, while it is
+// empty, its full (possibly wrapped) placeholder. A textarea only sizes from
+// `rows`, never from its placeholder; CSS `field-sizing: content` would, but
+// it isn't cross-browser and the explicit height the autosize writes would
+// override it anyway. So measure the placeholder as if it were the value
+// (.value writes fire no events).
+GA.fitTextarea = function (textarea) {
+  textarea.style.height = "auto";
+  let sh = textarea.scrollHeight;
+  if (!textarea.value && textarea.placeholder) {
+    textarea.value = textarea.placeholder;
+    sh = Math.max(sh, textarea.scrollHeight);
+    textarea.value = "";
+  }
+  return Math.min(sh, GA.config.TEXTAREA_MAX_PX) + "px";
+};
+
 // Whether the browser supports CSS Anchor Positioning WELL ENOUGH to glue the
 // comment boxes to their highlights during scroll (the gutter then skips all
 // per-frame JS repositioning). A parse check (CSS.supports) is NOT enough: a

@@ -23,7 +23,8 @@ GA.core = GA.core || {};
 
 GA.core.layout = (function () {
   const DEFAULTS = {
-    GAP: 10, // vertical gap between boxes (and viewport edges)
+    GAP: 10, // vertical gap between boxes (and the top edge)
+    BOTTOM_GAP: 20, // clearance under the lowest box so it never kisses the bottom edge
     MARGIN: 12, // gap between the gutter and the viewport's right edge
     MAX_WIDTH: 360,
     MIN_WIDTH: 280,
@@ -136,7 +137,7 @@ GA.core.layout = (function () {
       for (let i = from; i < work.length; i++) {
         const it = work[i];
         const boxH = heights[it.id];
-        const lowest = H - boxH - c.GAP;
+        const lowest = H - boxH - c.BOTTOM_GAP;
         let top = it.orphan ? Math.max(y, lowest) : Math.max(y, Math.min(it.desiredTop, lowest));
         if (i > idx && idx >= 0) top = Math.max(y, top); // never above the pinned box
         else top = Math.max(c.GAP, Math.min(top, lowest));
@@ -152,7 +153,7 @@ GA.core.layout = (function () {
 
     const active = work[idx];
     const ah = heights[active.id];
-    const activeTop = Math.max(c.GAP, Math.min(active.desiredTop, H - ah - c.GAP));
+    const activeTop = Math.max(c.GAP, Math.min(active.desiredTop, H - ah - c.BOTTOM_GAP));
     tops[active.id] = activeTop;
 
     let ceiling = activeTop;
@@ -174,7 +175,7 @@ GA.core.layout = (function () {
   // their natural height — no MIN_BOX_HEIGHT floor, no active budget.
   function distribute(work, H, activeId, c) {
     const n = work.length;
-    const totalGaps = c.GAP * (n + 1);
+    const totalGaps = c.GAP * n + c.BOTTOM_GAP; // top gap + (n-1) inner gaps + bottom clearance
     const naturalSum = work.reduce((s, it) => s + it.natural, 0);
     const heights = {};
     if (naturalSum + totalGaps <= H) {

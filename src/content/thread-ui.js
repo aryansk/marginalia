@@ -252,8 +252,7 @@ GA.ThreadBox = function (thread, handlers) {
   function autosize() {
     if (state.destroyed) return;
     const prev = textarea.style.height;
-    textarea.style.height = "auto";
-    const next = Math.min(textarea.scrollHeight, GA.config.TEXTAREA_MAX_PX) + "px";
+    const next = GA.fitTextarea(textarea);
     textarea.style.height = next;
     // Relayout measures every box — only ask for one when the height changed.
     if (next !== prev) {
