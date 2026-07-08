@@ -82,4 +82,4 @@ here, and the change will be visible in the repository's history.
 
 Questions about this policy: open an issue at
 <https://github.com/midhunkrishna/marginalia/issues> or email
-<kr1shn4.m1dhun@gmail.com>.
+<extensions.by.midhun@gmail.com>.
