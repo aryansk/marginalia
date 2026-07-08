@@ -34,10 +34,12 @@ GA.keyboardNav = (function () {
       } else if (e.key === "ArrowUp" && !e.shiftKey) {
         e.preventDefault();
         cycle(-1);
-      } else if (e.shiftKey && (e.key === "C" || e.key === "c")) {
+      } else if (e.shiftKey && (e.code === "KeyC" || e.key === "C" || e.key === "c")) {
+        // e.code (physical key) first: on macOS Option+Shift remaps e.key to a
+        // special character ("Ç"/"Å"), so matching by e.key alone never fires.
         e.preventDefault();
         GA.gutter.toggleAllCollapsed();
-      } else if (e.shiftKey && (e.key === "A" || e.key === "a")) {
+      } else if (e.shiftKey && (e.code === "KeyA" || e.key === "A" || e.key === "a")) {
         e.preventDefault();
         GA.panel.toggle();
       }

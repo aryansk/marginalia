@@ -24,7 +24,8 @@ GA.core = GA.core || {};
 GA.core.layout = (function () {
   const DEFAULTS = {
     GAP: 10, // vertical gap between boxes (and the top edge)
-    BOTTOM_GAP: 20, // clearance under the lowest box so it never kisses the bottom edge
+    BOTTOM_GAP: 60, // clearance under the lowest box — reserves the bottom control strip
+    // (panel button at 16px + 34px tall, plus the below-cue), so boxes never cover it
     MARGIN: 12, // gap between the gutter and the viewport's right edge
     MAX_WIDTH: 360,
     MIN_WIDTH: 280,
