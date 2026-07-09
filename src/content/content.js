@@ -15,7 +15,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
           // no gutter on very narrow windows — the highlight opens the modal
           GA.threadController.expandThreadById(hl.dataset.gaThread);
         } else {
-          GA.gutter.setActive(hl.dataset.gaThread);
+          GA.gutter.focusThread(hl.dataset.gaThread);
         }
         return;
       }

@@ -169,6 +169,22 @@ GA.gutter = (function () {
     scheduleLayout({ animate: true }); // Docs-style eased shift toward the anchor
   }
 
+  // Focus mode: a USER click activated thread `id` (its box, its chip, or its
+  // page highlight). Collapse every OTHER currently-expanded box to its chip so
+  // the user reads one conversation at a time, then delegate to setActive for
+  // the active/dim/z bookkeeping and its single coalesced relayout. Deliberately
+  // NOT inside setActive — programmatic activations (restore, Alt+↓/↑ cycling,
+  // panel.go) must not collapse others. Does not force-expand or resolve the
+  // target box; setCollapsed(true) on an already-collapsed (e.g. resolved) box
+  // is a no-op. No explicit relayout here: each setCollapsed schedules a
+  // coalesced onResize and setActive schedules the settle pass.
+  function focusThread(id) {
+    registry.forEach((it, tid) => {
+      if (tid !== id && !it.box.isCompact()) it.box.setCollapsed(true);
+    });
+    setActive(id);
+  }
+
   // Thread ids ordered by their highlight's vertical position; orphans last
   // (in creation order). Drives keyboard next/prev cycling.
   function orderedIds() {
@@ -449,6 +465,7 @@ GA.gutter = (function () {
     has,
     get,
     setActive,
+    focusThread,
     activeId,
     mode,
     orderedIds,

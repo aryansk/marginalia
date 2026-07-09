@@ -23,7 +23,7 @@ GA.threadController = (function () {
       ask: (t, opts) => askThread(t, opts),
       persist: (t) => persistThread(t),
       onDelete: (t) => deleteThread(t),
-      onFocus: (t) => GA.gutter.setActive(t.id),
+      onFocus: (t) => GA.gutter.focusThread(t.id),
       onExpand: (t) => expandThread(t),
       onStop: (t) => stopAsk(t.id),
       onResize: (opts) => GA.gutter.scheduleLayout(opts),
@@ -56,8 +56,13 @@ GA.threadController = (function () {
     if (sel) sel.removeAllRanges();
     const box = addThread(thread);
     await persistThread(thread);
+    // Focus the newly-created thread: collapse the others to chips, then let the
+    // single relayout below settle everyone. focusThread runs AFTER addThread
+    // (box registered → excluded from the collapse sweep, marked active) and
+    // BEFORE relayout() (others' isCompact already flipped → one settled reflow,
+    // no flash of all-expanded, new box never self-collapsed).
+    GA.gutter.focusThread(thread.id);
     GA.gutter.relayout();
-    GA.gutter.setActive(thread.id);
     box.focusInput();
   }
 
