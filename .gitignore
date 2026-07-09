@@ -143,3 +143,17 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# queue-run scratch (queue files, manifest, batons, unit brief)
+tickets/queue/
+tickets/manifest.json
+tickets/.last-handoff.json
+tickets/.last-plan.json
+tickets/.unit-plan.md
+tickets/.last-implemented.md
+
+# planning scratch (not part of the shipped extension)
+impl_plan.md
+tickets.md
+loop.config.json
+to_remove.md
