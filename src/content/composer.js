@@ -40,10 +40,14 @@ GA.Composer = function (opts) {
       if (!loading) submit();
     }
   });
+  // Composer-local undo: restore text lost to a select-all-delete or the
+  // clear-on-send below; re-fit the box after any restore.
+  const undo = GA.attachComposerUndo(textarea, { onRestore: autosize });
 
   function submit() {
     const q = textarea.value.trim();
     if (!q) return;
+    undo.snapshot(); // remember the sent text so focus + Ctrl+Z brings it back
     textarea.value = "";
     autosize();
     opts.onSubmit && opts.onSubmit(q);

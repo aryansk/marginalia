@@ -18,6 +18,7 @@ function makeGA() {
       "src/content/icons.js",
       "src/content/markdown.js",
       "src/content/thread-turn.js",
+      "src/content/undo-stack.js",
       "src/content/thread-ui.js",
     ],
     {
@@ -72,6 +73,46 @@ describe("ThreadBox.destroy()", () => {
     expect(box.el.classList.contains("ga-msg-streaming")).toBe(false);
     expect(resizes).toBe(resizesAtDestroy); // no relayout churn from the dead box
     expect(thread.messages.map((m) => m.role)).toEqual(["user", "model"]); // turn itself completed
+  });
+
+  it("Ctrl+Z restores the inline composer text after send; Ctrl+Shift+Z re-clears", () => {
+    const GA = makeGA();
+    const thread = { id: "tu", selector: { exact: "x" }, messages: [] };
+    const box = GA.ThreadBox(thread, {
+      ask: () => new Promise(() => {}), // never resolves — we only care about the clear
+      persist: () => {},
+    });
+    document.body.appendChild(box.el);
+    const ta = box.el.querySelector(".ga-input");
+
+    ta.value = "bring me back";
+    box.el.querySelector(".ga-send").click(); // submit clears the box
+    expect(ta.value).toBe("");
+
+    const e1 = new window.KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    ta.dispatchEvent(e1);
+    expect(ta.value).toBe("bring me back");
+    expect(e1.defaultPrevented).toBe(true);
+
+    const e2 = new window.KeyboardEvent("keydown", {
+      key: "z",
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    ta.dispatchEvent(e2);
+    expect(ta.value).toBe("");
+  });
+
+  it("Ctrl+Z on an empty inline composer stack does not preventDefault", () => {
+    const GA = makeGA();
+    const box = GA.ThreadBox({ id: "te", selector: { exact: "x" }, messages: [] }, { persist: () => {} });
+    document.body.appendChild(box.el);
+    const ta = box.el.querySelector(".ga-input");
+    const e = new window.KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    ta.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
   });
 
   it("appendMessage on a destroyed box returns a handle without attaching it", () => {

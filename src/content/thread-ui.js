@@ -160,6 +160,9 @@ GA.ThreadBox = function (thread, handlers) {
       submit();
     }
   });
+  // Composer-local undo: restore text lost to a select-all-delete or the
+  // clear-on-send in submit(); re-fit the box after any restore.
+  const undo = GA.attachComposerUndo(textarea, { onRestore: autosize });
   // One button, two jobs: Ask normally; Stop while a reply is streaming.
   const sendBtn = GA.el("button", {
     class: "ga-send",
@@ -492,6 +495,7 @@ GA.ThreadBox = function (thread, handlers) {
   function submit() {
     const q = textarea.value.trim();
     if (!q || state.loading) return;
+    undo.snapshot(); // remember the sent text so focus + Ctrl+Z brings it back
     textarea.value = "";
     autosize();
     GA.threadTurn

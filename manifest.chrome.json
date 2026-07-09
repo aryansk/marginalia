@@ -54,6 +54,7 @@
         "src/content/anchor.js",
         "src/content/selection.js",
         "src/content/thread-turn.js",
+        "src/content/undo-stack.js",
         "src/content/thread-ui.js",
         "src/content/composer.js",
         "src/content/modal.js",
