@@ -875,6 +875,7 @@
 .ga-modal-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--ga-border);
@@ -1011,6 +1012,51 @@
   color: var(--ga-accent-strong);
   border-color: var(--ga-accent);
   background: rgba(var(--ga-accent-rgb), 0.1);
+}
+/* search bar wraps to its own full-width line inside the header. Colours come
+   from the shared --ga-* variables, so it reads correctly in light and dark. */
+.ga-panel-search {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ga-panel-search-input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  border: 1px solid var(--ga-border);
+  background: var(--ga-surface);
+  color: var(--ga-fg);
+  font-family: var(--ga-font);
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: var(--ga-r-md);
+  transition: border-color 0.12s ease;
+}
+.ga-panel-search-input::placeholder {
+  color: var(--ga-muted);
+}
+.ga-panel-search-input:focus {
+  border-color: var(--ga-accent);
+  outline: none;
+}
+.ga-panel-search-input:focus-visible {
+  outline: 2px solid var(--ga-accent);
+  outline-offset: 1px;
+}
+.ga-panel-search-clear {
+  flex: none;
+  visibility: hidden;
+}
+.ga-panel-search-clear.ga-panel-search-clear-on {
+  visibility: visible;
+}
+.ga-panel-count {
+  flex: none;
+  color: var(--ga-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .ga-panel-body {
   gap: 6px;

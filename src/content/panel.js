@@ -8,6 +8,10 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.panel = (function () {
   let overlay = null;
   let filter = "open"; // "open" | "resolved" | "all"
+  // Set while the panel is open so the capture-phase onKey can decide, on
+  // Escape, between clearing the search query and closing the panel. Reset in
+  // close(). The `clear` closure lives in open() so it captures its query state.
+  let activeSearch = null;
 
   function firstQuestion(thread) {
     const m = (thread.messages || []).find((x) => x.role === "user");
@@ -16,6 +20,9 @@ GA.panel = (function () {
 
   function open() {
     close();
+    // Query state is local to open() so it resets every time the panel is
+    // reopened — unlike the module-scoped, persistent `filter`.
+    let query = "";
     overlay = GA.el("div", {
       class: "ga-modal-overlay",
       role: "dialog",
@@ -52,18 +59,66 @@ GA.panel = (function () {
         })
       );
     });
-    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, closeBtn]);
+    const searchInput = GA.el("input", {
+      class: "ga-panel-search-input",
+      type: "text",
+      placeholder: "Search threads…",
+      "aria-label": "Search threads by highlight or message text",
+      oninput: function () {
+        query = this.value.trim();
+        clearBtn.classList.toggle("ga-panel-search-clear-on", !!this.value);
+        renderList();
+      },
+    });
+    const clearBtn = GA.el(
+      "button",
+      {
+        class: "ga-iconbtn ga-panel-search-clear",
+        type: "button",
+        title: "Clear search",
+        "aria-label": "Clear search",
+        onclick: function () {
+          clearQuery();
+          searchInput.focus();
+        },
+      },
+      GA.icons.make("close")
+    );
+    const count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
+    const search = GA.el("div", { class: "ga-panel-search" }, [searchInput, clearBtn, count]);
+
+    function clearQuery() {
+      query = "";
+      searchInput.value = "";
+      clearBtn.classList.remove("ga-panel-search-clear-on");
+      renderList();
+    }
+
+    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, closeBtn]);
     const body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
 
     function renderList() {
       body.textContent = "";
-      const threads = GA.threadController.threads().filter((t) => {
+      const inTab = GA.threadController.threads().filter((t) => {
         if (filter === "open") return !t.resolved;
         if (filter === "resolved") return !!t.resolved;
         return true;
       });
+      const threads = inTab.filter((t) => GA.core.threadSearch.matches(t, query));
+      if (query) {
+        count.textContent = threads.length + " of " + inTab.length;
+        count.classList.add("ga-panel-count-on");
+      } else {
+        count.textContent = "";
+        count.classList.remove("ga-panel-count-on");
+      }
       if (!threads.length) {
-        body.appendChild(GA.el("div", { class: "ga-modal-empty", text: "No threads here." }));
+        body.appendChild(
+          GA.el("div", {
+            class: "ga-modal-empty",
+            text: query ? "No threads match your search." : "No threads here.",
+          })
+        );
         return;
       }
       threads.forEach((t) => {
@@ -144,22 +199,31 @@ GA.panel = (function () {
     overlay.addEventListener("mousedown", function (e) {
       if (e.target === overlay) close();
     });
+    activeSearch = { input: searchInput, clear: clearQuery };
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     closeBtn.focus();
   }
 
   function onKey(e) {
-    if (e.key === "Escape") {
+    if (e.key !== "Escape") return;
+    // Escape inside a non-empty search box clears the query and keeps the panel
+    // open; otherwise it closes the panel. This decision must live here because
+    // onKey is a capture-phase listener that fires before the input's handlers.
+    if (activeSearch && document.activeElement === activeSearch.input && activeSearch.input.value.trim()) {
       e.stopPropagation();
-      close();
+      activeSearch.clear();
+      return;
     }
+    e.stopPropagation();
+    close();
   }
 
   function close() {
     if (!overlay) return;
     overlay.remove();
     overlay = null;
+    activeSearch = null;
     document.removeEventListener("keydown", onKey, true);
   }
 

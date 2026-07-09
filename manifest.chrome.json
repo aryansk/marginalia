@@ -45,6 +45,7 @@
         "src/core/theme.js",
         "src/core/adder-position.js",
         "src/core/cycle.js",
+        "src/core/thread-search.js",
         "src/content/util.js",
         "src/content/frame.js",
         "src/content/icons.js",
