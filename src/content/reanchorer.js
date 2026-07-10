@@ -11,7 +11,27 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.reanchorer = (function () {
   function observe(ctx) {
+    // Turns whose text may have changed since we last fingerprinted them.
+    // Collected from the observer's records so a streaming answer invalidates
+    // only itself — re-fingerprinting every mounted turn on every mutation
+    // burst would put that work on the hot path.
+    const dirty = new Set();
+
+    function dropStaleFingerprints() {
+      if (!dirty.size || !GA.turns) return dirty.clear();
+      const seen = new Set();
+      dirty.forEach(function (node) {
+        const turn = GA.turns.turnOf(node);
+        if (turn && !seen.has(turn.el)) {
+          seen.add(turn.el);
+          GA.turns.invalidate(turn.el);
+        }
+      });
+      dirty.clear();
+    }
+
     function onFrame() {
+      dropStaleFingerprints();
       if (ctx.checkNav) ctx.checkNav();
       if (ctx.hasOrphans()) ctx.reanchor();
       // Anchors may have moved even with no orphans. Mode-aware: JS mode does a
@@ -20,7 +40,8 @@ GA.reanchorer = (function () {
       else GA.gutter.onAnchorsMoved();
     }
 
-    const obs = new MutationObserver(function () {
+    const obs = new MutationObserver(function (records) {
+      for (const r of records) if (r.target) dirty.add(r.target);
       GA.frame.schedule("reanchor", onFrame);
     });
     obs.observe(document.body, { childList: true, subtree: true });

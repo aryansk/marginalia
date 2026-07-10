@@ -44,13 +44,22 @@ GA.selection = (function () {
     const text = range.toString().trim();
     if (!text) return null;
     const sectionEl = findSection(range.commonAncestorContainer);
-    const selector = GA.anchor.fromRange(range, sectionEl);
+    // The selector is relative to the TURN, not to whichever nested container
+    // findSection() happened to match: re-locate searches the turn, so its
+    // offsets, context and occurrence index must be measured there too.
+    const turn = noTurnAdapter() ? null : GA.turns.turnOf(range.commonAncestorContainer);
+    const selector = GA.anchor.fromRange(range, turn ? turn.el : sectionEl);
     return {
       range,
       text,
       sectionEl,
       sectionText: (sectionEl.innerText || sectionEl.textContent || "").trim(),
       selector,
+      // Who spoke, and which message. Null on a site with no turn adapter —
+      // an unavailable signal, which the cascade degrades around.
+      anchor: turn
+        ? { v: 2, role: turn.role, turn: GA.turns.fingerprintOf(turn.el) }
+        : null,
     };
   }
 
@@ -105,6 +114,134 @@ GA.selection = (function () {
       el.style.setProperty("anchor-name", "--ga-" + threadId);
   }
 
+  // ---------------------------------------------------------------------
+  // Locating a thread: narrow to its message, never widen.
+  //
+  // A signal fails two ways, and conflating them is what put a comment on the
+  // question above the answer it was written on:
+  //   UNAVAILABLE — can't evaluate it here (turn not hydrated yet, legacy
+  //                 thread, site has no adapter). No evidence → try a weaker
+  //                 signal.
+  //   VIOLATED    — evaluated, and it says no (this turn does not contain the
+  //                 quote; the role is wrong). → orphan. Never widen.
+  //
+  // Widening on a *violated* signal is exactly what the old whole-document
+  // fallback did. An orphan retries on every mutation and scroll, so it is also
+  // the right state while a virtualized turn has not mounted yet.
+  // ---------------------------------------------------------------------
+
+  const SIM_MIN = 0.6; // stored section must reproduce this much of a candidate
+  const SIM_MARGIN = 0.15; // …and beat the runner-up by this much
+  const AMBIGUOUS = { ambiguous: true };
+
+  // Sites we have no turn adapter for. Only reachable off the three hosts in
+  // the manifest; keeps the old heuristic rather than orphaning everything.
+  function noTurnAdapter() {
+    return !GA.turns || !GA.core.sites.turnSelector(GA.provider);
+  }
+
+  function textCache() {
+    const byEl = new Map();
+    return function (el) {
+      let t = byEl.get(el);
+      if (t === undefined) {
+        t = GA.anchor.textOf(el);
+        byEl.set(el, t);
+      }
+      return t;
+    };
+  }
+
+  // Which message is this thread's? Exact by fingerprint, else fuzzy against
+  // the turn text we stored at capture. Returns an element, AMBIGUOUS, or null
+  // (unavailable).
+  function pickTurn(thread, candidates, textFor) {
+    const fp = thread.anchor && thread.anchor.turn;
+    if (fp) {
+      const hits = candidates.filter(function (t) {
+        return GA.core.turnId.sameFingerprint(GA.turns.fingerprintOf(t.el), fp);
+      });
+      if (hits.length === 1) return hits[0].el;
+      if (hits.length > 1) return AMBIGUOUS; // duplicate messages — refuse
+      // 0 hits: the turn was edited, regenerated, or was still streaming when
+      // the thread was created. Not a contradiction — fall through to fuzzy.
+    }
+    if (!thread.section) return null; // legacy thread with nothing to compare
+    let best = null,
+      bestScore = 0,
+      second = 0;
+    candidates.forEach(function (t) {
+      const s = GA.core.turnId.similarity(thread.section, textFor(t.el));
+      if (s > bestScore) {
+        second = bestScore;
+        bestScore = s;
+        best = t.el;
+      } else if (s > second) {
+        second = s;
+      }
+    });
+    if (best && bestScore >= SIM_MIN && bestScore - second >= SIM_MARGIN) return best;
+    return null;
+  }
+
+  // → { range, turnEl } or null (orphan).
+  function locateThread(thread, textFor) {
+    textFor = textFor || textCache();
+    const turns = GA.turns.findTurns();
+    if (!turns.length) return null; // nothing hydrated yet — orphan and retry
+
+    // Role is a hard gate: a thread born in an answer is never offered a
+    // question. A turn whose role we cannot read stays eligible (unavailable).
+    const wantRole = thread.anchor && thread.anchor.role;
+    const eligible = wantRole
+      ? turns.filter((t) => t.role === null || t.role === wantRole)
+      : turns;
+    if (!eligible.length) return null;
+
+    // Rung 1 — we know the message.
+    const turnEl = pickTurn(thread, eligible, textFor);
+    if (turnEl === AMBIGUOUS) return null;
+    if (turnEl) {
+      const range = GA.anchor.locateWithin(textFor(turnEl), thread.selector, turnEl);
+      // The quote is not in the message it belongs to: VIOLATED. Orphan.
+      return range ? { range: range, turnEl: turnEl } : null;
+    }
+
+    // Rung 2 — we know only the role. Structure told us little, so the text
+    // must carry the load: demand reproduced context, and refuse on a tie.
+    let found = null;
+    for (const t of eligible) {
+      const m = GA.anchor.evaluateIn(textFor(t.el), thread.selector, t.el);
+      if (!m || !m.confident) continue;
+      if (found) return null; // two messages equally corroborated — refuse
+      found = { range: m.range, turnEl: t.el };
+    }
+    return found;
+  }
+
+  // Record the signals a legacy thread was created without, once we have
+  // located it confidently. The population heals as the user browses.
+  function backfillAnchor(thread, turnEl) {
+    if (thread.anchor || !turnEl) return false;
+    const role = GA.turns.roleOf(turnEl);
+    if (!role) return false;
+    thread.anchor = { v: 2, role: role, turn: GA.turns.fingerprintOf(turnEl) };
+    return true;
+  }
+
+  // Anchor one thread. Returns its highlight spans, or [] for an orphan.
+  function highlightThread(thread) {
+    if (noTurnAdapter()) return highlightSelector(thread.selector, thread.id);
+    const hit = locateThread(thread, textCache());
+    if (!hit) return [];
+    const spans = highlightRange(hit.range, thread.id);
+    if (spans.length) backfillAnchor(thread, hit.turnEl);
+    return spans;
+  }
+
+  // Legacy locate for sites with no turn adapter: first section that matches,
+  // then the whole document. Retained only for unknown hosts — on Gemini,
+  // ChatGPT and Claude the cascade above replaces it.
   function highlightSelector(selector, threadId) {
     const sections = findAllSections();
     for (const section of sections) {
@@ -114,9 +251,6 @@ GA.selection = (function () {
         if (spans.length) return spans;
       }
     }
-    // Fallback: search the whole document. The section selectors are heuristic,
-    // so the highlight may live in a container none of them matched. anchor.js
-    // already skips our own UI text, so this won't match inside a comment box.
     if (!(sections.length === 1 && sections[0] === document.body)) {
       const range = GA.anchor.locate(selector, document.body);
       if (range) {
@@ -127,29 +261,25 @@ GA.selection = (function () {
     return [];
   }
 
-  // Batch form of highlightSelector for the re-anchor pass: extract each
-  // section's text ONCE and match every orphan against the cached strings —
-  // instead of walking the whole document per thread, per frame. Wrapping a
-  // match in highlight spans doesn't change any extracted text, so the caches
-  // stay valid across threads. Returns Map(threadId -> spans).
+  // Batch form for the re-anchor pass: each turn's text is extracted ONCE and
+  // every orphan matched against the cached strings, instead of walking the
+  // document per thread, per frame. Wrapping a match in highlight spans doesn't
+  // change any extracted text, so the cache stays valid across threads.
+  // Returns Map(threadId -> spans).
   function reanchorAll(threads) {
     const result = new Map();
     if (!threads.length) return result;
-    const sections = findAllSections();
-    const texts = sections.map((s) => GA.anchor.textOf(s));
-    const useBodyFallback = !(sections.length === 1 && sections[0] === document.body);
-    let bodyText = null; // extracted at most once per pass
-
+    if (noTurnAdapter()) {
+      threads.forEach((t) => result.set(t.id, highlightSelector(t.selector, t.id)));
+      return result;
+    }
+    const textFor = textCache();
     threads.forEach(function (thread) {
+      const hit = locateThread(thread, textFor);
       let spans = [];
-      for (let i = 0; i < sections.length && !spans.length; i++) {
-        const range = GA.anchor.locateInText(texts[i], thread.selector, sections[i]);
-        if (range) spans = highlightRange(range, thread.id);
-      }
-      if (!spans.length && useBodyFallback) {
-        if (bodyText === null) bodyText = GA.anchor.textOf(document.body);
-        const range = GA.anchor.locateInText(bodyText, thread.selector, document.body);
-        if (range) spans = highlightRange(range, thread.id);
+      if (hit) {
+        spans = highlightRange(hit.range, thread.id);
+        if (spans.length) backfillAnchor(thread, hit.turnEl);
       }
       result.set(thread.id, spans);
     });
@@ -221,6 +351,8 @@ GA.selection = (function () {
     findAllSections,
     highlightRange,
     highlightSelector,
+    highlightThread,
+    locateThread,
     reanchorAll,
     unhighlight,
     anchorEl,

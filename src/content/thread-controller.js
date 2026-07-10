@@ -47,6 +47,9 @@ GA.threadController = (function () {
     const thread = {
       id: GA.uid("t"),
       selector: cap.selector,
+      // Who spoke and which message — so a reload re-anchors inside the answer
+      // this was written on, not on an earlier question that repeats a word.
+      anchor: cap.anchor,
       section: GA.truncate(cap.sectionText, GA.config.SECTION_CHARS),
       messages: [],
       createdAt: Date.now(),
@@ -67,7 +70,11 @@ GA.threadController = (function () {
   }
 
   function restoreThread(thread) {
-    GA.selection.highlightSelector(thread.selector, thread.id); // empty -> orphan
+    const hadAnchor = !!thread.anchor;
+    GA.selection.highlightThread(thread); // no spans -> orphan, retried later
+    // A thread created before turn identity existed just learned its role and
+    // message. Record it so the next reload takes the exact path.
+    if (!hadAnchor && thread.anchor) persistThread(thread);
     addThread(thread);
   }
 

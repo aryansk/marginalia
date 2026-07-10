@@ -83,11 +83,17 @@ GA.turns = (function () {
     return m ? { el: m, role: roleOf(m) } : null;
   }
 
-  // textContent, not the filtered TreeWalker: it is native, and our highlight
-  // spans wrap existing text nodes without adding text, so a turn's textContent
-  // is invariant under highlighting. Capture and re-locate MUST agree on this.
+  // MUST be the same extraction anchor.js uses for offsets — a matched offset is
+  // mapped back to a DOM range by walking these same text nodes, so a different
+  // string (e.g. raw textContent, which includes our own injected UI) would
+  // shift every range. Falls back to textContent only if anchor.js is absent.
+  //
+  // Highlight spans wrap existing text nodes without adding text, so a turn's
+  // extracted text is invariant under highlighting — which is what lets the
+  // fingerprint cache and the per-pass text cache survive a re-anchor.
   function textOf(el) {
-    return (el && el.textContent) || "";
+    if (!el) return "";
+    return GA.anchor && GA.anchor.textOf ? GA.anchor.textOf(el) : el.textContent || "";
   }
 
   function fingerprintOf(el) {
