@@ -116,4 +116,20 @@ describe("similarity", () => {
     expect(similarity("", "anything")).toBe(0);
     expect(similarity(null, "anything")).toBe(0);
   });
+
+  it("survives Gemini's screen-reader label prefix (innerText vs textContent)", () => {
+    // Gemini injects <span class="cdk-visually-hidden">Gemini said</span> inside
+    // each turn. It is present in textContent (what re-locate reads) and absent
+    // from innerText (what thread.section was captured from). The stored snippet
+    // therefore starts PART WAY INTO the live text, not at offset 0.
+    const storedFromInnerText = "You've hit on two very common perceptions.";
+    const liveFromTextContent = "Gemini said You've hit on two very common perceptions. Let's break down…";
+    expect(similarity(storedFromInnerText, liveFromTextContent)).toBeCloseTo(1, 5);
+  });
+
+  it("still separates a wrong turn that shares the label prefix", () => {
+    const stored = "You've hit on two very common perceptions.";
+    const wrongTurn = "Gemini said ClickHouse handles replication entirely differently.";
+    expect(similarity(stored, wrongTurn)).toBeLessThan(0.2);
+  });
 });

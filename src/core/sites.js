@@ -20,10 +20,14 @@ GA.core.sites = (function () {
         "message-content",
         "model-response",
         ".model-response-text",
-        '[data-message-author-role="model"]',
         ".markdown",
         ".response-container-content",
       ],
+      // Verified against a captured conversation: Gemini renders each turn as a
+      // custom Angular element and exposes NO author-role attribute at all.
+      // (`[data-message-author-role="model"]` used to sit in the list above and
+      // matched exactly zero elements — copied from the ChatGPT adapter.)
+      turns: { user: ["user-query"], model: ["model-response"] },
     },
     chatgpt: {
       hosts: ["chatgpt.com", "chat.openai.com"],
@@ -34,17 +38,33 @@ GA.core.sites = (function () {
         "div.markdown",
         ".agent-turn",
       ],
+      // Verified: every message carries data-message-author-role and a
+      // data-message-id holding a server UUID. Turns do not nest.
+      turns: {
+        user: ['[data-message-author-role="user"]'],
+        model: ['[data-message-author-role="assistant"]'],
+      },
     },
     claude: {
       hosts: ["claude.ai"],
       // /chat/<conversation-uuid> — unanchored, so project-scoped chats
       // (/project/<projectId>/chat/<id>) resolve to the same chat id.
       sessionRes: [/\/chat\/([^/?#]+)/],
+      // `.font-claude-response` is the live class. The three selectors that
+      // used to be here — .font-claude-message, [data-testid=assistant-message]
+      // and div.prose — matched NOTHING on a captured conversation, so every
+      // restore fell through to a whole-page text search. Kept as trailing
+      // fallbacks in case an older build still renders them.
       responseSelectors: [
+        ".font-claude-response",
         ".font-claude-message",
         '[data-testid="assistant-message"]',
         "div.prose",
       ],
+      turns: {
+        user: ['[data-testid="user-message"]'],
+        model: [".font-claude-response"],
+      },
     },
   };
 
@@ -78,7 +98,34 @@ GA.core.sites = (function () {
     return def ? def.responseSelectors.slice() : [];
   }
 
-  return { providerForHost, sessionIdFromPath, responseSelectors, PROVIDERS };
+  // The site's TURN containers, split by who spoke. A thread remembers the role
+  // of the turn it was created in, so a comment written on an answer can never
+  // re-anchor onto a question — the single most durable signal we have, since a
+  // turn's author never changes even when the site's markup does.
+  //
+  // These must be the OUTERMOST element per turn: the response selectors above
+  // nest (on Gemini one answer matches five of them at once), and treating
+  // nested matches as separate turns would read one answer as several.
+  function turnSelectors(provider) {
+    const def = PROVIDERS[provider];
+    if (!def || !def.turns) return { user: [], model: [] };
+    return { user: def.turns.user.slice(), model: def.turns.model.slice() };
+  }
+
+  // Combined selector for "any turn", for a single querySelectorAll pass.
+  function turnSelector(provider) {
+    const t = turnSelectors(provider);
+    return t.user.concat(t.model).join(", ");
+  }
+
+  return {
+    providerForHost,
+    sessionIdFromPath,
+    responseSelectors,
+    turnSelectors,
+    turnSelector,
+    PROVIDERS,
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.sites;
