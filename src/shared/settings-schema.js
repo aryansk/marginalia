@@ -6,6 +6,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.schema = {
   SETTINGS_KEY: "ga:settings",
   THREADS_PREFIX: "ga:threads:", // storage.local key prefix, one bucket per session
+  CONVO_PREFIX: "ga:convo:", // transcript record per session (per-message gzip blobs)
   DRAFT_SESSION: "__draft__", // bucket for threads created before /app/<id> exists
 
   DEFAULT_SETTINGS: {

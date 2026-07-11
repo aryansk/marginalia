@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadGA } from "../helpers/loadGA.js";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 // A minimal in-memory stand-in for browser.storage.local. Like the real API,
 // get/set exchange CLONES — callers never share object references with the
@@ -355,5 +360,141 @@ describe("draft retention under concurrency (Siege findings)", () => {
     );
     expect(survivors.has("a")).toBe(true);
     expect(survivors.has("b")).toBe(true);
+  });
+});
+
+describe("conversation transcripts (ga:convo:*)", () => {
+  const FILES = ["src/shared/settings-schema.js", "src/core/backup.js", "src/content/store.js"];
+  // A turn-index entry and its blob key — fp.hash + ":" + fp.len, BOTH parts.
+  const T = (role, hash, len, order) => ({ role, fp: { hash, len }, order });
+  const blobKey = (t) => t.fp.hash + ":" + t.fp.len;
+
+  function convoRecord() {
+    const turns = [T("user", "h1", 5, 0), T("model", "h2", 42, 1)];
+    return {
+      provider: "gemini",
+      id: "abc",
+      title: "A chat",
+      url: "https://gemini.google.com/app/abc",
+      capturedAt: 123,
+      turns,
+      blobs: {
+        [blobKey(turns[0])]: "H4sIfakegzipblob0",
+        [blobKey(turns[1])]: "H4sIfakegzipblob1",
+      },
+    };
+  }
+
+  let b;
+  beforeEach(() => {
+    b = fakeBrowser();
+    GA = loadGA(FILES, { browser: b });
+  });
+
+  it("GA.schema.CONVO_PREFIX is the convo bucket prefix", () => {
+    expect(GA.schema.CONVO_PREFIX).toBe("ga:convo:");
+  });
+
+  it("convoKey namespaces the session under ga:convo:", () => {
+    expect(GA.store.convoKey("gemini:abc")).toBe("ga:convo:gemini:abc");
+  });
+
+  it("saveConvo/loadConvo round-trip a record verbatim", async () => {
+    const rec = convoRecord();
+    await GA.store.saveConvo("gemini:abc", rec);
+    const loaded = await GA.store.loadConvo("gemini:abc");
+    expect(loaded).toEqual(rec);
+    expect(b._data["ga:convo:gemini:abc"]).toEqual(rec); // stored under the convo key
+  });
+
+  it("blobs come back as the SAME compressed strings — the store never (de)compresses", async () => {
+    const rec = convoRecord();
+    await GA.store.saveConvo("gemini:abc", rec);
+    const loaded = await GA.store.loadConvo("gemini:abc");
+    expect(loaded.blobs["h1:5"]).toBe("H4sIfakegzipblob0");
+    expect(loaded.blobs["h2:42"]).toBe("H4sIfakegzipblob1");
+    expect(Object.keys(loaded.blobs).sort()).toEqual(["h1:5", "h2:42"]);
+  });
+
+  it("loadConvo returns null for an unknown session", async () => {
+    expect(await GA.store.loadConvo("gemini:nope")).toBeNull();
+  });
+
+  it("falsy session: loadConvo -> null, saveConvo -> no-op (drafts get no convo bucket)", async () => {
+    expect(await GA.store.loadConvo(null)).toBeNull();
+    expect(await GA.store.loadConvo("")).toBeNull();
+    await GA.store.saveConvo(null, convoRecord());
+    await GA.store.saveConvo("", convoRecord());
+    expect(Object.keys(b._data)).toEqual([]); // nothing written
+  });
+
+  it("convo records live beside threads without collisions and survive clearAll", async () => {
+    await GA.store.upsert("gemini:abc", { id: "t1", selector: { exact: "x" }, messages: [] });
+    await GA.store.saveConvo("gemini:abc", convoRecord());
+    await GA.store.clearAll(); // clears ga:threads:* only
+    expect(Object.keys(b._data)).toEqual(["ga:convo:gemini:abc"]);
+  });
+
+  it("saveConvo goes through the serialize() queue (ordered with thread writes)", async () => {
+    const calls = [];
+    const realSet = b.storage.local.set;
+    b.storage.local.set = async (obj) => {
+      await new Promise((r) => setTimeout(r, 0)); // widen the interleaving window
+      calls.push(Object.keys(obj)[0]);
+      return realSet(obj);
+    };
+    GA = loadGA(FILES, { browser: b });
+    await Promise.all([
+      GA.store.upsert("gemini:abc", { id: "t1", selector: { exact: "x" }, messages: [] }),
+      GA.store.saveConvo("gemini:abc", convoRecord()),
+      GA.store.upsert("gemini:abc", { id: "t2", selector: { exact: "y" }, messages: [] }),
+    ]);
+    expect(calls).toEqual(["ga:threads:gemini:abc", "ga:convo:gemini:abc", "ga:threads:gemini:abc"]);
+    expect((await GA.store.load("gemini:abc")).map((t) => t.id)).toEqual(["t1", "t2"]); // no lost update
+  });
+
+  describe("mergeTurns delegates to GA.core.backup.mergeTurnLists (the ONE interleave)", () => {
+    it("passes the exact arguments through and returns the exact result", () => {
+      const a = [T("user", "h1", 5, 0)];
+      const c = [T("model", "h2", 7, 0)];
+      const sentinel = [T("user", "h9", 9, 0)];
+      const seen = [];
+      const real = GA.core.backup.mergeTurnLists;
+      GA.core.backup.mergeTurnLists = (x, y) => {
+        seen.push([x, y]);
+        return sentinel;
+      };
+      try {
+        expect(GA.store.mergeTurns(a, c)).toBe(sentinel);
+        expect(seen).toHaveLength(1);
+        expect(seen[0][0]).toBe(a); // same references, no cloning/wrapping
+        expect(seen[0][1]).toBe(c);
+      } finally {
+        GA.core.backup.mergeTurnLists = real;
+      }
+    });
+
+    it("via the delegate: a scroll-up prepend lands before the stored turns", () => {
+      const stored = [T("user", "h3", 3, 0), T("model", "h4", 4, 1)];
+      const snapshot = [T("user", "h1", 1, 0), T("model", "h2", 2, 1), T("user", "h3", 3, 2), T("model", "h4", 4, 3)];
+      const merged = GA.store.mergeTurns(stored, snapshot);
+      expect(merged.map((t) => t.fp.hash)).toEqual(["h1", "h2", "h3", "h4"]);
+      expect(merged.map((t) => t.order)).toEqual([0, 1, 2, 3]); // renumbered
+    });
+
+    it("via the delegate: repeated identical turns survive as a multiset", () => {
+      const cont = (order) => T("user", "hc", 8, order);
+      const stored = [cont(0), T("model", "hr", 9, 1)];
+      const snapshot = [cont(0), T("model", "hr", 9, 1), cont(2), T("model", "hr2", 10, 3)];
+      const merged = GA.store.mergeTurns(stored, snapshot);
+      expect(merged.map((t) => t.fp.hash)).toEqual(["hc", "hr", "hc", "hr2"]);
+    });
+
+    it("store.js contains no second interleave — only the delegation", () => {
+      const src = fs.readFileSync(path.join(ROOT, "src/content/store.js"), "utf8").replace(/\/\/.*$/gm, "");
+      const body = src.match(/function mergeTurns\(([^)]*)\)\s*\{([\s\S]*?)\n  \}/);
+      expect(body, "mergeTurns should be defined in store.js").toBeTruthy();
+      expect(body[2].trim()).toBe("return GA.core.backup.mergeTurnLists(existingTurns, newTurns);");
+    });
   });
 });

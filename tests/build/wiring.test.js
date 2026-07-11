@@ -45,6 +45,12 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     // Same file, same position, right after the module it loads beside.
     expect(fxJs.indexOf("src/core/backup.js")).toBe(fxJs.indexOf("src/core/thread-search.js") + 1);
     expect(crJs.indexOf("src/core/backup.js")).toBe(crJs.indexOf("src/core/thread-search.js") + 1);
+    // The transcript codec loads right after backup (and before store.js uses GA.core).
+    expect(fxJs.indexOf("src/core/compress.js")).toBe(fxJs.indexOf("src/core/backup.js") + 1);
+    expect(crJs.indexOf("src/core/compress.js")).toBe(crJs.indexOf("src/core/backup.js") + 1);
+    expect(fxJs.indexOf("src/core/compress.js")).toBeLessThan(fxJs.indexOf("src/content/store.js"));
+    // The two content-script lists never drift.
+    expect(crJs).toEqual(fxJs);
     // Options page loads it after the schema it reads and before options.js.
     const html = read("src/options/options.html");
     const backupAt = html.indexOf('<script src="../core/backup.js"></script>');

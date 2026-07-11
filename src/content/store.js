@@ -183,5 +183,58 @@ GA.store = (function () {
     if (toRemove.length) await browser.storage.local.remove(toRemove);
   }
 
-  return { load, saveAll, upsert, remove, migrateDraft, sweepDrafts, isStaleDraft, clearAll };
+  // ---- conversation transcripts (ga:convo:*) -------------------------------
+  // One record per session: { provider, id, title, url, capturedAt,
+  //   turns:[{role, fp:{hash,len}, order}], blobs:{ "<hash>:<len>": <gzip+b64> } }.
+  // The store carries records verbatim: blobs are opaque already-compressed
+  // strings here — loadConvo NEVER decompresses and saveConvo NEVER compresses
+  // (GA.core.compress owns the codec; the sole decompress site is the export).
+  // Blob keys use BOTH fingerprint parts (fp.hash + ":" + fp.len) so a hash
+  // collision can't render the wrong text under a turn.
+  const CONVO = GA.schema.CONVO_PREFIX;
+
+  function convoKey(session) {
+    return CONVO + session;
+  }
+
+  // loadConvo(session) -> the RAW stored record, or null (unknown/falsy session).
+  function loadConvo(session) {
+    if (!session) return Promise.resolve(null); // drafts never get a convo bucket
+    return serialize(async () => {
+      const k = convoKey(session);
+      const obj = await browser.storage.local.get(k);
+      return obj[k] === undefined ? null : obj[k];
+    });
+  }
+
+  // saveConvo(session, record) -> Promise<void>. Plain JSON write through the
+  // same serialize() queue as every other store mutation. Falsy session: no-op.
+  function saveConvo(session, record) {
+    if (!session) return Promise.resolve();
+    return serialize(async () => {
+      await browser.storage.local.set({ [convoKey(session)]: record });
+    });
+  }
+
+  // mergeTurns — THIN delegate to the system's ONE order-preserving turn-index
+  // merge (see backup.js). Deliberately not reimplemented or wrapped: callers
+  // get mergeTurnLists's exact contract (pure, idempotent, multiset-safe).
+  function mergeTurns(existingTurns, newTurns) {
+    return GA.core.backup.mergeTurnLists(existingTurns, newTurns);
+  }
+
+  return {
+    load,
+    saveAll,
+    upsert,
+    remove,
+    migrateDraft,
+    sweepDrafts,
+    isStaleDraft,
+    clearAll,
+    convoKey,
+    loadConvo,
+    saveConvo,
+    mergeTurns,
+  };
 })();
