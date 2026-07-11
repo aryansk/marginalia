@@ -106,7 +106,17 @@ GA.threadController = (function () {
   async function restoreForSession(session) {
     currentSession = session;
     await GA.store.migrateDraft(session);
-    (await GA.store.load(session)).forEach(restoreThread);
+    // Each restore is isolated: one malformed/legacy record must not abort the
+    // loop and hide every other annotation. The failing record is skipped but
+    // left INTACT in storage (never deleted or re-persisted here) so a future
+    // load or migration can still deal with it.
+    for (const thread of await GA.store.load(session)) {
+      try {
+        restoreThread(thread);
+      } catch (e) {
+        GA.warn("restore failed, skipping thread", thread && thread.id, e);
+      }
+    }
     GA.gutter.relayout();
     // Gemini hydrates async (and lazily) — retry anchoring for a while.
     GA.config.REANCHOR_RETRY_MS.forEach((d) => setTimeout(reanchorOrphans, d));
