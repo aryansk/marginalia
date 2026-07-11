@@ -133,7 +133,10 @@ GA.core.backup = (function () {
     var local = Array.isArray(localArr) ? localArr : [];
     var imported = Array.isArray(importedArr) ? importedArr : [];
     var out = local.slice();
-    var indexById = {};
+    // Null-prototype: record ids come from user JSON, so inherited names like
+    // "__proto__" or "toString" must not read as phantom collisions (`in` on a
+    // plain object would hit Object.prototype and corrupt the bucket array).
+    var indexById = Object.create(null);
     for (var i = 0; i < out.length; i++) {
       if (out[i] && out[i].id != null) indexById[out[i].id] = i;
     }
@@ -195,16 +198,33 @@ GA.core.backup = (function () {
     var convos = imported.convos || {};
     var next = Object.assign({}, existing || {});
     var key;
+    // Bucket keys come from user-supplied JSON: only correctly-prefixed keys may
+    // be written, so a crafted archive can never reach the settings/API-key
+    // record (or any other non-thread key) through an import.
+    function threadKeyOk(k) {
+      return k.indexOf(THREADS_PREFIX) === 0;
+    }
+    function convoKeyOk(k) {
+      return k.indexOf(CONVO_PREFIX) === 0;
+    }
     if (mode === "replace") {
-      for (key in threads) if (Array.isArray(threads[key])) next[key] = threads[key];
-      for (key in convos) if (isRecord(convos[key])) next[key] = convos[key];
+      for (key in threads) {
+        if (threadKeyOk(key) && Array.isArray(threads[key])) next[key] = threads[key];
+      }
+      for (key in convos) {
+        if (convoKeyOk(key) && isRecord(convos[key])) next[key] = convos[key];
+      }
       return next;
     }
     for (key in threads) {
-      if (Array.isArray(threads[key])) next[key] = mergeThreadBucket(next[key], threads[key]);
+      if (threadKeyOk(key) && Array.isArray(threads[key])) {
+        next[key] = mergeThreadBucket(next[key], threads[key]);
+      }
     }
     for (key in convos) {
-      if (isRecord(convos[key])) next[key] = mergeConvoRecord(next[key], convos[key]);
+      if (convoKeyOk(key) && isRecord(convos[key])) {
+        next[key] = mergeConvoRecord(next[key], convos[key]);
+      }
     }
     return next;
   }

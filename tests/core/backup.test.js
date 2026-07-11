@@ -508,6 +508,75 @@ describe("GA.core.backup.mergeImport — replace mode", () => {
   });
 });
 
+// ---------- mergeImport: bucket keys must carry the right prefix ----------
+
+describe("GA.core.backup.mergeImport — key-prefix guard (crafted archive)", () => {
+  // Archive maps are user-supplied JSON: a key that doesn't carry the matching
+  // prefix (e.g. "ga:settings" smuggled into `threads` as an array, which
+  // passes the shape check) must be skipped in BOTH modes, or an import could
+  // clobber the settings/API-key record.
+  const existing = deepFreeze({
+    "ga:settings": { openaiApiKey: "sk-SECRET", scope: "section" },
+    "ga:threads:gemini:s1": [{ id: "keep", messages: [] }],
+  });
+  const crafted = {
+    format: "marginalia-threads",
+    version: 1,
+    threads: {
+      "ga:settings": [{ id: "evil", messages: [{ role: "user", text: "x" }] }],
+      "ga:convo:gemini:conv1": [{ id: "misfiled", messages: [] }],
+      "unrelated-key": [{ id: "junk", messages: [] }],
+      "ga:threads:gemini:s2": [{ id: "legit", messages: [] }],
+    },
+    convos: {
+      "ga:settings": makeConvo(),
+      "ga:threads:gemini:s1": makeConvo(),
+      "ga:convo:gemini:conv9": makeConvo({ id: "conv9" }),
+    },
+  };
+
+  for (const mode of ["merge", "replace"]) {
+    it(`${mode} mode: writes only correctly-prefixed buckets, never the settings key`, () => {
+      const next = mergeImport(existing, clone(crafted), { mode });
+      expect(next["ga:settings"]).toEqual(existing["ga:settings"]);
+      expect(next["unrelated-key"]).toBeUndefined();
+      expect(next["ga:threads:gemini:s2"].map((t) => t.id)).toEqual(["legit"]);
+      expect(next["ga:convo:gemini:conv9"].id).toBe("conv9");
+      // The misfiled cross-prefix entries must not arrive through the wrong map.
+      expect(next["ga:convo:gemini:conv1"]).toBeUndefined();
+      expect(next["ga:threads:gemini:s1"]).toEqual(existing["ga:threads:gemini:s1"]);
+    });
+  }
+});
+
+// ---------- merge: hostile record ids from Object.prototype ----------
+
+describe("GA.core.backup.mergeImport — prototype-name record ids", () => {
+  it('an archive record with id "__proto__" appends cleanly instead of corrupting the bucket', () => {
+    const existing = { "ga:threads:gemini:s1": [{ id: "normal", messages: [] }] };
+    const archive = {
+      format: "marginalia-threads",
+      version: 1,
+      threads: {
+        "ga:threads:gemini:s1": [
+          { id: "__proto__", messages: [{ role: "user", text: "q" }] },
+          { id: "toString", messages: [] },
+        ],
+      },
+      convos: {},
+    };
+    const next = mergeImport(existing, archive, { mode: "merge" });
+    const bucket = next["ga:threads:gemini:s1"];
+    expect(Array.isArray(bucket)).toBe(true);
+    expect(bucket.map((t) => t.id)).toEqual(["normal", "__proto__", "toString"]);
+    // No junk expando keys written onto the array itself.
+    expect(Object.keys(bucket)).toEqual(["0", "1", "2"]);
+    // Idempotent for these ids too.
+    const again = mergeImport(next, archive, { mode: "merge" });
+    expect(again["ga:threads:gemini:s1"]).toHaveLength(3);
+  });
+});
+
 // ---------- purity of the module source ----------
 
 describe("src/core/backup.js purity", () => {

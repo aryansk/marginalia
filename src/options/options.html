@@ -77,6 +77,19 @@
         <p class="hint">Threads are stored locally, separately per conversation.</p>
         <button id="clear-btn" class="danger">Delete all saved threads</button>
         <p id="clear-status" class="status"></p>
+        <div class="row">
+          <button id="export-btn">Export backup</button>
+          <button id="import-btn" class="ghost">Import backup…</button>
+          <input type="file" id="import-file" accept="application/json" hidden />
+        </div>
+        <label class="opt inline">
+          <input type="checkbox" id="import-replace" />
+          <span>
+            <b>Replace instead of merge</b> — discards your current threads for conversations
+            present in the backup
+          </span>
+        </label>
+        <p id="backup-status" class="status"></p>
       </section>
 
       <section class="card">
