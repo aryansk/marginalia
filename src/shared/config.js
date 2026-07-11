@@ -11,7 +11,7 @@ GA.config = {
   SECTION_CHARS: 4000, // max chars of answer-section context sent to Gemini
   CONVERSATION_CHARS: 12000, // max chars of whole-conversation context
   TOAST_MS: 2600, // toast visible duration
-  DRAFT_TTL_MS: 7 * 24 * 60 * 60 * 1000, // abandoned draft buckets older than this are swept
+  DRAFT_TTL_MS: 7 * 24 * 60 * 60 * 1000, // isStaleDraft's age threshold (sweeps never delete non-empty buckets)
   SNIPPET_CHARS: 60, // highlighted-text snippet length in a box header
   TEXTAREA_MAX_PX: 120, // composer auto-grow cap
 };

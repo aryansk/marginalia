@@ -46,7 +46,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
       if (area === "local" && changes[GA.SETTINGS_KEY]) GA.loadSettings();
     });
 
-    await GA.store.sweepDrafts(); // adopt legacy drafts, drop abandoned ones
+    await GA.store.sweepDrafts(); // adopt stray non-empty drafts, drop empty buckets
 
     GA.themeDetector.start(); // boxes follow the SITE's theme, not the OS's
 

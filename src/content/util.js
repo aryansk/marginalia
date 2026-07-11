@@ -43,6 +43,12 @@ GA.provider = GA.core.sites.providerForHost(location.hostname);
 // A stable per-tab token (survives SPA navigation and reloads, distinct across
 // tabs). Namespaces the pre-id draft bucket so two tabs of the same site can't
 // steal each other's draft threads when one of them gets a conversation id.
+// When sessionStorage is blocked (private/partitioned browsing) we fall back
+// to one FIXED token rather than a fresh random one: a random per-load token
+// would resolve every reload to a brand-new draft bucket and orphan the
+// previous load's drafts. With the sentinel, all this-provider tabs share a
+// single draft bucket — shared beats lost. (Must stay synchronous: everything
+// below reads GA.tabToken at load time, so no async storage fallback here.)
 GA.tabToken = (function () {
   try {
     let t = sessionStorage.getItem("ga:tab");
@@ -52,7 +58,7 @@ GA.tabToken = (function () {
     }
     return t;
   } catch (e) {
-    return GA.uid("tab"); // sessionStorage blocked — unique per page load is still safe
+    return "tab_shared"; // stable across reloads — same draft bucket every load
   }
 })();
 

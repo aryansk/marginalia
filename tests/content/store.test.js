@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
-// A minimal in-memory stand-in for browser.storage.local.
+// A minimal in-memory stand-in for browser.storage.local. Like the real API,
+// get/set exchange CLONES — callers never share object references with the
+// stored values (so the store's in-place createdAt stamping can't silently
+// rewrite what "storage" holds, matching real extension behavior).
 function fakeBrowser() {
   const data = {};
   return {
@@ -9,15 +12,15 @@ function fakeBrowser() {
     storage: {
       local: {
         get: async (k) => {
-          if (k == null) return { ...data };
+          if (k == null) return structuredClone(data);
           const keys = Array.isArray(k) ? k : [k];
           const out = {};
           keys.forEach((key) => {
-            if (key in data) out[key] = data[key];
+            if (key in data) out[key] = structuredClone(data[key]);
           });
           return out;
         },
-        set: async (obj) => Object.assign(data, obj),
+        set: async (obj) => Object.assign(data, structuredClone(obj)),
         remove: async (keys) => (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
       },
     },
@@ -140,12 +143,12 @@ describe("draft housekeeping", () => {
   const NOW = 100 * DAY;
   const aged = (id, at) => ({ id, selector: { exact: id }, messages: [], createdAt: at });
 
-  it("isStaleDraft: fresh buckets stay, old/undatable buckets are stale", () => {
+  it("isStaleDraft: only provably-old buckets are stale; undatable buckets are kept", () => {
     expect(GA.store.isStaleDraft([aged("a", NOW - DAY)], NOW)).toBe(false);
     expect(GA.store.isStaleDraft([aged("a", NOW - 8 * DAY)], NOW)).toBe(true);
     expect(GA.store.isStaleDraft([aged("old", NOW - 30 * DAY), aged("new", NOW - DAY)], NOW)).toBe(false);
-    expect(GA.store.isStaleDraft([], NOW)).toBe(true);
-    expect(GA.store.isStaleDraft([{ id: "x" }], NOW)).toBe(true); // no createdAt
+    expect(GA.store.isStaleDraft([], NOW)).toBe(false); // nothing datable -> keep
+    expect(GA.store.isStaleDraft([{ id: "x" }], NOW)).toBe(false); // no createdAt -> keep
   });
 
   function storeFor(browser, token) {
@@ -155,7 +158,7 @@ describe("draft housekeeping", () => {
     return g.store;
   }
 
-  it("sweepDrafts adopts a fresh legacy (pre-tab-token) bucket for this provider", async () => {
+  it("sweepDrafts adopts a legacy (pre-tab-token) bucket for this provider", async () => {
     const b = fakeBrowser();
     b._data["ga:threads:__draft__:gemini"] = [aged("legacy1", NOW - DAY)]; // old key shape
     const store = storeFor(b, "tab_1");
@@ -164,17 +167,193 @@ describe("draft housekeeping", () => {
     expect(b._data["ga:threads:__draft__:gemini"]).toBeUndefined();
   });
 
-  it("sweepDrafts removes abandoned buckets but keeps other tabs' fresh drafts", async () => {
+  it("sweepDrafts adopts (never deletes) a non-empty bucket older than the TTL", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_dead"] = [aged("old", NOW - 30 * DAY)];
+    const store = storeFor(b, "tab_1");
+    await store.sweepDrafts(NOW);
+    expect((await store.load(null)).map((t) => t.id)).toEqual(["old"]); // adopted, not lost
+    expect(b._data["ga:threads:__draft__:gemini:tab_dead"]).toBeUndefined(); // source gone
+  });
+
+  it("sweepDrafts adopts this provider's buckets, leaves other providers and sessions alone", async () => {
     const b = fakeBrowser();
     b._data["ga:threads:__draft__:gemini:tab_dead"] = [aged("old", NOW - 30 * DAY)];
     b._data["ga:threads:__draft__:gemini:tab_live"] = [aged("fresh", NOW - DAY)];
     b._data["ga:threads:__draft__:claude"] = [aged("other-provider", NOW - DAY)];
+    b._data["ga:threads:__draft__:claude:tab_z"] = [aged("other-provider-tab", NOW - DAY)];
     b._data["ga:threads:gemini:real"] = [aged("real", NOW - 30 * DAY)]; // sessions never swept
     const store = storeFor(b, "tab_1");
     await store.sweepDrafts(NOW);
+    expect((await store.load(null)).map((t) => t.id).sort()).toEqual(["fresh", "old"]);
     expect(b._data["ga:threads:__draft__:gemini:tab_dead"]).toBeUndefined();
-    expect(b._data["ga:threads:__draft__:gemini:tab_live"]).toBeDefined();
+    expect(b._data["ga:threads:__draft__:gemini:tab_live"]).toBeUndefined(); // adopted, key removed
     expect(b._data["ga:threads:__draft__:claude"]).toBeDefined(); // another provider's legacy
+    expect(b._data["ga:threads:__draft__:claude:tab_z"]).toBeDefined();
     expect(b._data["ga:threads:gemini:real"]).toBeDefined();
+  });
+
+  it("sweepDrafts removes only EMPTY buckets, and only for this provider", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_x"] = [];
+    b._data["ga:threads:__draft__:claude:tab_y"] = []; // other provider: untouched even when empty
+    const store = storeFor(b, "tab_1");
+    await store.sweepDrafts(NOW);
+    expect(b._data["ga:threads:__draft__:gemini:tab_x"]).toBeUndefined();
+    expect(b._data["ga:threads:__draft__:claude:tab_y"]).toBeDefined();
+    expect(await store.load(null)).toEqual([]); // nothing spuriously adopted
+  });
+
+  it("sweepDrafts adopts a different-tab bucket, unioning by id with de-dupe", async () => {
+    const b = fakeBrowser();
+    const store = storeFor(b, "tab_1");
+    await store.upsert(null, aged("a", NOW - DAY)); // already in this tab's bucket
+    b._data["ga:threads:__draft__:gemini:tab_other"] = [aged("a", NOW - DAY), aged("b", NOW - DAY)];
+    b._data["ga:threads:__draft__:gemini:tab_third"] = [aged("b", NOW - DAY), aged("c", NOW - DAY)];
+    await store.sweepDrafts(NOW);
+    expect((await store.load(null)).map((t) => t.id).sort()).toEqual(["a", "b", "c"]);
+    expect(b._data["ga:threads:__draft__:gemini:tab_other"]).toBeUndefined();
+    expect(b._data["ga:threads:__draft__:gemini:tab_third"]).toBeUndefined();
+  });
+
+  it("sweepDrafts keeps a bucket whose threads lack createdAt (undatable -> adopt, not drop)", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_old"] = [{ id: "undated", selector: { exact: "u" }, messages: [] }];
+    const store = storeFor(b, "tab_1");
+    await store.sweepDrafts(NOW);
+    const mine = await store.load(null);
+    expect(mine.map((t) => t.id)).toEqual(["undated"]);
+    expect(typeof mine[0].createdAt).toBe("number"); // stamped on the adoption write
+  });
+
+  it("GUARD: no sweep ever deletes a thread from any non-empty bucket", async () => {
+    const b = fakeBrowser();
+    const seededIds = ["own", "legacy", "othertab", "ancient", "undated", "foreign", "real"];
+    b._data["ga:threads:__draft__:gemini"] = [aged("legacy", NOW - 20 * DAY)];
+    b._data["ga:threads:__draft__:gemini:tab_a"] = [aged("othertab", NOW - DAY)];
+    b._data["ga:threads:__draft__:gemini:tab_b"] = [aged("ancient", NOW - 365 * DAY)];
+    b._data["ga:threads:__draft__:gemini:tab_c"] = [{ id: "undated" }];
+    b._data["ga:threads:__draft__:claude:tab_d"] = [aged("foreign", NOW - 365 * DAY)];
+    b._data["ga:threads:gemini:real"] = [aged("real", NOW - 365 * DAY)];
+    const store = storeFor(b, "tab_1");
+    await store.upsert(null, aged("own", NOW - DAY));
+    await store.sweepDrafts(NOW);
+    const survivors = new Set(
+      Object.keys(b._data)
+        .filter((k) => k.indexOf("ga:threads:") === 0)
+        .flatMap((k) => b._data[k].map((t) => t.id))
+    );
+    seededIds.forEach((id) => expect(survivors.has(id)).toBe(true));
+  });
+
+  it("upsert stamps a numeric createdAt on threads that lack one", async () => {
+    await GA.store.upsert("s1", { id: "nostamp", selector: { exact: "x" }, messages: [] });
+    await GA.store.upsert("s1", aged("stamped", 12345));
+    const all = await GA.store.load("s1");
+    expect(typeof all.find((t) => t.id === "nostamp").createdAt).toBe("number");
+    expect(all.find((t) => t.id === "stamped").createdAt).toBe(12345); // existing stamp untouched
+  });
+
+  it("sweepDrafts leaves a non-array (corrupt) bucket untouched — never classified empty", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_g"] = { not: "an array" };
+    const store = storeFor(b, "tab_1");
+    await store.sweepDrafts(NOW);
+    expect(b._data["ga:threads:__draft__:gemini:tab_g"]).toEqual({ not: "an array" });
+    expect(await store.load(null)).toEqual([]);
+  });
+
+  it("sweepDrafts adopts distinct id-less threads without collapsing them", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_p"] = [{ selector: { exact: "p" }, messages: [] }];
+    b._data["ga:threads:__draft__:gemini:tab_q"] = [{ selector: { exact: "q" }, messages: [] }];
+    const store = storeFor(b, "tab_1");
+    await store.sweepDrafts(NOW);
+    const mine = await store.load(null);
+    expect(mine.map((t) => t.selector.exact).sort()).toEqual(["p", "q"]);
+  });
+
+  it("a null element in a stored bucket is shed, not allowed to wedge promotion", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_1"] = [null, aged("ok", NOW - DAY)];
+    const store = storeFor(b, "tab_1");
+    await store.migrateDraft("gemini:abc");
+    expect((await store.load("gemini:abc")).map((t) => t.id)).toEqual(["ok"]);
+    expect(b._data["ga:threads:__draft__:gemini:tab_1"]).toBeUndefined();
+  });
+});
+
+describe("draft retention under concurrency (Siege findings)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = 100 * DAY;
+  const aged = (id, at) => ({ id, selector: { exact: id }, messages: [], createdAt: at });
+
+  function storeFor(browser, token) {
+    const g = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], { browser });
+    g.provider = "gemini";
+    g.tabToken = token;
+    return g.store;
+  }
+
+  it("sweep does not remove a source bucket that changed mid-sweep (no TOCTOU loss)", async () => {
+    const b = fakeBrowser();
+    const LIVE = "ga:threads:__draft__:gemini:tab_live";
+    b._data[LIVE] = [aged("t1", NOW - DAY)];
+    const store = storeFor(b, "tab_1");
+    const realGet = b.storage.local.get;
+    let injected = false;
+    b.storage.local.get = async (k) => {
+      const out = await realGet(k);
+      if (k == null && !injected) {
+        injected = true; // the "live tab" writes t2 right after the sweep snapshots
+        b._data[LIVE] = b._data[LIVE].concat([aged("t2", NOW)]);
+      }
+      return out;
+    };
+    await store.sweepDrafts(NOW);
+    expect((await store.load(null)).map((t) => t.id)).toEqual(["t1"]); // snapshot adopted
+    expect(b._data[LIVE].map((t) => t.id)).toEqual(["t1", "t2"]); // changed source kept — t2 safe
+  });
+
+  it("migrateDraft keeps a draft written into a shared bucket mid-migration", async () => {
+    const b = fakeBrowser();
+    const SHARED = "ga:threads:__draft__:gemini:tab_shared";
+    const store = storeFor(b, "tab_shared");
+    await store.upsert(null, aged("t1", NOW - DAY));
+    const realGet = b.storage.local.get;
+    let injected = false;
+    b.storage.local.get = async (k) => {
+      const out = await realGet(k);
+      if (k === SHARED && !injected) {
+        injected = true; // the other context sharing the token writes t2 mid-migration
+        b._data[SHARED] = b._data[SHARED].concat([aged("t2", NOW)]);
+      }
+      return out;
+    };
+    await store.migrateDraft("gemini:abc");
+    expect((await store.load("gemini:abc")).map((t) => t.id)).toEqual(["t1"]);
+    expect(b._data[SHARED].map((t) => t.id)).toEqual(["t2"]); // NOT blind-removed
+  });
+
+  it("two tabs sweeping concurrently lose no threads (mutual-adoption annihilation)", async () => {
+    const b = fakeBrowser();
+    b._data["ga:threads:__draft__:gemini:tab_A"] = [aged("a", NOW - DAY)];
+    b._data["ga:threads:__draft__:gemini:tab_B"] = [aged("b", NOW - DAY)];
+    // Slow reads widen the interleaving window, as in the serializer tests.
+    const realGet = b.storage.local.get;
+    b.storage.local.get = async (k) => {
+      await new Promise((r) => setTimeout(r, 0));
+      return realGet(k);
+    };
+    const tabA = storeFor(b, "tab_A");
+    const tabB = storeFor(b, "tab_B");
+    await Promise.all([tabA.sweepDrafts(NOW), tabB.sweepDrafts(NOW)]);
+    const survivors = new Set(
+      Object.keys(b._data)
+        .filter((k) => k.indexOf("ga:threads:") === 0)
+        .flatMap((k) => b._data[k].map((t) => t.id))
+    );
+    expect(survivors.has("a")).toBe(true);
+    expect(survivors.has("b")).toBe(true);
   });
 });
