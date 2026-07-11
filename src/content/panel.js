@@ -18,6 +18,134 @@ GA.panel = (function () {
     return m ? m.text : "";
   }
 
+  // ---- export for NotebookLM (T-012) ---------------------------------------
+  // THE system's sole decompress site: capture, store and backup all carry
+  // message blobs as opaque compressed strings; only this click handler ever
+  // calls GA.core.compress.b64ToText. It loads the RAW convo record, inflates
+  // each turn's blob by its "<hash>:<len>" key, hands the decoded record plus
+  // this conversation's threads to the pure Markdown builder, and delivers via
+  // a blob: download and a best-effort clipboard copy.
+
+  // Download filename: "<sanitized title|provider>-YYYYMMDD.md". Keep only
+  // [A-Za-z0-9_ -] so a captured <title> can't smuggle path separators or
+  // shell metacharacters into the download attribute.
+  function exportFilename(title, provider) {
+    let base = String(title || "")
+      .replace(/[^\w -]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60)
+      .trim()
+      .replace(/ /g, "-");
+    if (!base) base = String(provider || "conversation");
+    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return base + "-" + ymd + ".md";
+  }
+
+  // Blob + temporary <a download> click. The md string only ever enters the
+  // Blob (and the clipboard) — never innerHTML. The object URL is revoked in
+  // finally so failure paths can't leak it either; the revoke is deferred one
+  // tick because same-tick revocation right after click() is the historically
+  // flaky pattern (old Firefox aborted the just-started download).
+  function deliverDownload(md, filename) {
+    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+    try {
+      const a = GA.el("a", { href: url, download: filename });
+      document.body.appendChild(a); // Firefox requires the anchor in the document
+      a.click();
+      a.remove();
+    } finally {
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+  }
+
+  // Whole body guarded: an unhandled rejection inside an onclick is silent,
+  // and a failed export must always surface a toast instead.
+  async function exportConversation() {
+    try {
+      const session = GA.getSessionId();
+      const raw = session ? await GA.store.loadConvo(session) : null;
+      const rawTurns = raw && Array.isArray(raw.turns) ? raw.turns : [];
+      if (!rawTurns.length) {
+        // Friendly degrade — never a broken or empty download. (Capture only
+        // runs on annotated conversations, hence the nudge.)
+        GA.toast("No transcript captured yet — it fills in as you annotate this conversation.");
+        return;
+      }
+      const blobs =
+        raw.blobs && typeof raw.blobs === "object" && !Array.isArray(raw.blobs) ? raw.blobs : {};
+      const corrupt = [];
+      const turns = [];
+      for (const t of rawTurns) {
+        const entry = t && typeof t === "object" ? t : {};
+        const key = entry.fp ? entry.fp.hash + ":" + entry.fp.len : null;
+        const blob = key != null && blobs[key] != null ? blobs[key] : null;
+        let text = ""; // a missing blob degrades to an empty turn, never a throw
+        if (blob != null) {
+          try {
+            text = await GA.core.compress.b64ToText(blob);
+          } catch (e) {
+            corrupt.push(key); // corrupt blob: degrade AND self-heal below
+          }
+        }
+        turns.push({ role: entry.role, order: entry.order, fp: entry.fp, text: text });
+      }
+      // Fix F5 — self-heal: a blob that provably fails to inflate carries no
+      // recoverable data, and capture skips keys that EXIST, so deleting the
+      // entry is exactly what lets the next capture re-compress the message
+      // from the live DOM. Best-effort in its own catch — a heal failure must
+      // not block the export. Merely-MISSING blobs are never touched (nothing
+      // to heal). The record is RE-LOADED right before the write: the
+      // decompress loop above awaited for arbitrarily long, and a concurrent
+      // capture may have re-written the record — saving our stale snapshot
+      // would silently revert its freshly banked turns/blobs. The re-read
+      // narrows that race to microtasks (storage.local has no transactions;
+      // capture-vs-capture accepts the same residual window). A vanished or
+      // malformed fresh record means there is nothing to heal — never write
+      // the stale snapshot back.
+      if (corrupt.length) {
+        try {
+          const fresh = await GA.store.loadConvo(session);
+          const healable =
+            fresh && fresh.blobs && typeof fresh.blobs === "object" && !Array.isArray(fresh.blobs);
+          if (healable) {
+            corrupt.forEach((k) => delete fresh.blobs[k]);
+            await GA.store.saveConvo(session, fresh);
+          }
+        } catch (e) {
+          GA.warn("transcript self-heal failed", e);
+        }
+      }
+      const md = GA.core.transcript.build(
+        {
+          provider: raw.provider,
+          id: raw.id,
+          title: raw.title,
+          url: raw.url,
+          capturedAt: raw.capturedAt,
+          turns: turns,
+        },
+        GA.threadController.threads()
+      );
+      deliverDownload(md, exportFilename(raw.title, raw.provider));
+      // Best-effort clipboard in its OWN catch — a denied clipboard must not
+      // undo the already-successful download.
+      let copied = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(md);
+          copied = true;
+        }
+      } catch (e) {}
+      GA.toast(copied ? "Transcript downloaded and copied to clipboard." : "Transcript downloaded.");
+    } catch (e) {
+      GA.warn("export failed", e);
+      GA.toast("Export failed — couldn't build the transcript.");
+    }
+  }
+
   function open() {
     close();
     // Query state is local to open() so it resets every time the panel is
@@ -49,6 +177,16 @@ GA.panel = (function () {
         },
       },
       GA.icons.make("gear")
+    );
+    const exportBtn = GA.el(
+      "button",
+      {
+        class: "ga-iconbtn",
+        title: "Export for NotebookLM",
+        "aria-label": "Export conversation for NotebookLM",
+        onclick: exportConversation,
+      },
+      GA.icons.make("download")
     );
     const tabs = GA.el("div", { class: "ga-panel-tabs" });
     [
@@ -108,7 +246,9 @@ GA.panel = (function () {
       renderList();
     }
 
-    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, gearBtn, closeBtn]);
+    // Coordinated header order (T-006 gear, T-012 export): closeBtn stays last
+    // — it takes the initial focus below.
+    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, exportBtn, gearBtn, closeBtn]);
     const body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
 
     function renderList() {
