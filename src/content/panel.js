@@ -36,6 +36,20 @@ GA.panel = (function () {
       { class: "ga-iconbtn", title: "Close (Esc)", "aria-label": "Close", onclick: close },
       GA.icons.make("close")
     );
+    // Content scripts can't call openOptionsPage directly — ask the background
+    // (via MSG_OPEN_OPTIONS) to open it. Catch-guarded: a dead worker just no-ops.
+    const gearBtn = GA.el(
+      "button",
+      {
+        class: "ga-iconbtn",
+        title: "Settings",
+        "aria-label": "Settings",
+        onclick: function () {
+          browser.runtime.sendMessage({ type: GA.protocol.MSG_OPEN_OPTIONS }).catch(function () {});
+        },
+      },
+      GA.icons.make("gear")
+    );
     const tabs = GA.el("div", { class: "ga-panel-tabs" });
     [
       ["open", "Open"],
@@ -94,7 +108,7 @@ GA.panel = (function () {
       renderList();
     }
 
-    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, closeBtn]);
+    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, gearBtn, closeBtn]);
     const body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
 
     function renderList() {

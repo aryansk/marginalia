@@ -80,6 +80,16 @@ browser.runtime.onMessage.addListener(function (msg, sender) {
     });
 });
 
+// Open the extension's options page on request from the panel's gear button.
+// A SEPARATE, ungated listener (not the gemini-gated token router above) so it
+// works on every supported site. Fire-and-forget, and ALWAYS returns undefined:
+// returning a value/Promise from a non-matching listener would hijack another
+// handler's sendResponse channel.
+browser.runtime.onMessage.addListener(function (msg) {
+  if (!msg || msg.type !== P.MSG_OPEN_OPTIONS) return;
+  Promise.resolve(browser.runtime.openOptionsPage()).catch(function () {});
+});
+
 // Heartbeat cadence while an ask is streaming. Any port message resets Chrome's
 // MV3 service-worker idle timer (30s), so 20s keeps the worker alive through
 // long silent "thinking" periods; the content side uses the same pings to feed

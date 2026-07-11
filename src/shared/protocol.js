@@ -13,6 +13,7 @@ GA.protocol = {
   // Chrome's MV3 worker alive and feeds the content-side watchdog)
   MSG_OPEN_FROM_CONTEXT: "ga-open-from-context", // bg -> content (context-menu click)
   MSG_READ_TOKENS: "ga-read-tokens", // content -> bg: read WIZ_global_data in MAIN world
+  MSG_OPEN_OPTIONS: "ga-open-options", // content -> bg: open the extension options page
   CONTEXT_MENU_ID: "ga-ask",
 };
 
