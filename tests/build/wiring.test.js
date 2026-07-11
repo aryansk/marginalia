@@ -38,6 +38,20 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(chrome.background.service_worker).toBe("src/sw.js");
   });
 
+  it("backup core is registered in both content-script lists and the options page", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    // Same file, same position, right after the module it loads beside.
+    expect(fxJs.indexOf("src/core/backup.js")).toBe(fxJs.indexOf("src/core/thread-search.js") + 1);
+    expect(crJs.indexOf("src/core/backup.js")).toBe(crJs.indexOf("src/core/thread-search.js") + 1);
+    // Options page loads it after the schema it reads and before options.js.
+    const html = read("src/options/options.html");
+    const backupAt = html.indexOf('<script src="../core/backup.js"></script>');
+    expect(backupAt).toBeGreaterThan(html.indexOf("settings-schema.js"));
+    expect(backupAt).toBeLessThan(html.indexOf('<script src="options.js"></script>'));
+  });
+
   it("dependency helpers load before the clients that use them", () => {
     const at = (rel) => fxScripts.indexOf(rel);
     expect(at("src/shared/sse.js")).toBeGreaterThanOrEqual(0);
