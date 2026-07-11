@@ -38,6 +38,9 @@ GA.reanchorer = (function () {
       // full relayout; CSS-anchored mode (Chrome) lets the compositor follow
       // and only refreshes cues + debounces a settle pass.
       else GA.gutter.onAnchorsMoved();
+      // Something on the page just changed — let settle-watchers (transcript
+      // capture) know. They debounce on their side; this stays one call.
+      if (ctx.onSettled) ctx.onSettled();
     }
 
     const obs = new MutationObserver(function (records) {

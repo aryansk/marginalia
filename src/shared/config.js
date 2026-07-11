@@ -13,6 +13,7 @@ GA.config = {
   TOAST_MS: 2600, // toast visible duration
   DRAFT_TTL_MS: 7 * 24 * 60 * 60 * 1000, // isStaleDraft's age threshold (sweeps never delete non-empty buckets)
   SNIPPET_CHARS: 60, // highlighted-text snippet length in a box header
+  CONVO_CAPTURE_DEBOUNCE_MS: 1200, // transcript capture runs this long after the last settle ping
   TEXTAREA_MAX_PX: 120, // composer auto-grow cap
 };
 

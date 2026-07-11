@@ -59,6 +59,12 @@ GA.threadController = (function () {
     if (sel) sel.removeAllRanges();
     const box = addThread(thread);
     await persistThread(thread);
+    // Transcript capture runs NOW, not debounced: the turn this thread
+    // annotates must survive even if the tab closes seconds later. (A
+    // mid-stream partial captured here is cleaned up at render time by the
+    // transcript builder's prefix-dedupe.)
+    if (GA.convoCapture)
+      GA.convoCapture.capture().catch((e) => GA.warn("convo capture failed", e));
     // Focus the newly-created thread: collapse the others to chips, then let the
     // single relayout below settle everyone. focusThread runs AFTER addThread
     // (box registered → excluded from the collapse sweep, marked active) and
@@ -120,6 +126,9 @@ GA.threadController = (function () {
     GA.gutter.relayout();
     // Gemini hydrates async (and lazily) — retry anchoring for a while.
     GA.config.REANCHOR_RETRY_MS.forEach((d) => setTimeout(reanchorOrphans, d));
+    // Revisit capture, debounced: turns are still hydrating here, and an empty
+    // snapshot is a no-op — the settle pings that follow will catch the rest.
+    if (GA.convoCapture) GA.convoCapture.schedule();
   }
 
   async function onRouteChange() {

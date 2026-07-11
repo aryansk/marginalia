@@ -91,6 +91,7 @@
         "src/content/markdown.js",
         "src/content/anchor.js",
         "src/content/turns.js",
+        "src/content/convo-capture.js",
         "src/content/selection.js",
         "src/content/thread-turn.js",
         "src/content/undo-stack.js",

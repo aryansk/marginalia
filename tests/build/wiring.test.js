@@ -58,6 +58,14 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(backupAt).toBeLessThan(html.indexOf('<script src="options.js"></script>'));
   });
 
+  it("convo capture is registered in both content-script lists, right after the turns module it reads", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    expect(fxJs.indexOf("src/content/convo-capture.js")).toBe(fxJs.indexOf("src/content/turns.js") + 1);
+    expect(crJs.indexOf("src/content/convo-capture.js")).toBe(crJs.indexOf("src/content/turns.js") + 1);
+  });
+
   it("dependency helpers load before the clients that use them", () => {
     const at = (rel) => fxScripts.indexOf(rel);
     expect(at("src/shared/sse.js")).toBeGreaterThanOrEqual(0);

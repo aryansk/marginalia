@@ -62,6 +62,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
       reanchor: ctrl.reanchorOrphans,
       hasOrphans: ctrl.hasOrphans,
       checkNav: nav.checkNow,
+      onSettled: () => GA.convoCapture && GA.convoCapture.schedule(), // transcript capture after streaming settles
     });
 
     await ctrl.restoreForSession(GA.getSessionId());
