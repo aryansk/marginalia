@@ -83,6 +83,7 @@
         "src/core/thread-search.js",
         "src/core/backup.js",
         "src/core/compress.js",
+        "src/core/transcript.js",
         "src/content/util.js",
         "src/content/frame.js",
         "src/content/icons.js",

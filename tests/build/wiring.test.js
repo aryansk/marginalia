@@ -49,6 +49,9 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(fxJs.indexOf("src/core/compress.js")).toBe(fxJs.indexOf("src/core/backup.js") + 1);
     expect(crJs.indexOf("src/core/compress.js")).toBe(crJs.indexOf("src/core/backup.js") + 1);
     expect(fxJs.indexOf("src/core/compress.js")).toBeLessThan(fxJs.indexOf("src/content/store.js"));
+    // The transcript builder rounds out the wave-2 core block, after compress.
+    expect(fxJs.indexOf("src/core/transcript.js")).toBe(fxJs.indexOf("src/core/compress.js") + 1);
+    expect(crJs.indexOf("src/core/transcript.js")).toBe(crJs.indexOf("src/core/compress.js") + 1);
     // The two content-script lists never drift.
     expect(crJs).toEqual(fxJs);
     // Options page loads it after the schema it reads and before options.js.
