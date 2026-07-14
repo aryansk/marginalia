@@ -122,7 +122,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
     expect(md.match(/^## You$/gm)).toHaveLength(1);
   });
 
-  it("a thread anchored to the DROPPED partial lands in Unanchored notes, never lost", () => {
+  it("a thread anchored to the DROPPED partial re-homes onto the completed turn via its quote", () => {
     const partial = "Lifetimes are";
     const full = "Lifetimes are how the borrow checker reasons about scope.";
     const th = thread({
@@ -131,9 +131,29 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
       messages: [{ role: "user", text: "what does this mean?", ts: 1 }],
     });
     const md = build(convo([turn("model", partial, 0), turn("model", full, 1)]), [th]);
-    expect(md).toContain("## Unanchored notes");
+    // quote containment places it under the surviving full turn — no
+    // Unanchored section needed, nothing lost
+    expect(md).not.toContain("## Unanchored notes");
     const at = md.indexOf("what does this mean?");
-    expect(at).toBeGreaterThan(md.indexOf("## Unanchored notes"));
+    expect(at).toBeGreaterThan(md.indexOf(full));
+  });
+
+  it("quote fallback respects the anchor's recorded role — a quote repeated in a user turn cannot capture a model-anchored thread", () => {
+    const th = thread({
+      anchor: anchorTo("model", "some turn that is gone"),
+      selector: { exact: "shared words" },
+      messages: [{ role: "user", text: "note body", ts: 1 }],
+    });
+    const md = build(
+      convo([
+        turn("user", "I quote shared words here first", 0),
+        turn("model", "The answer also has shared words in it.", 1),
+      ]),
+      [th]
+    );
+    const at = md.indexOf("note body");
+    expect(at).toBeGreaterThan(md.indexOf("The answer also has shared words"));
+    expect(md).not.toContain("## Unanchored notes");
   });
 });
 

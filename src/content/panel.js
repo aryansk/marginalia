@@ -77,6 +77,12 @@ GA.panel = (function () {
       const blobs =
         raw.blobs && typeof raw.blobs === "object" && !Array.isArray(raw.blobs) ? raw.blobs : {};
       const corrupt = [];
+      // Heads for index entries that predate them (records captured before the
+      // stale-partial upgrade existed). Capture can't compute these — it never
+      // decompresses — but right here the plaintext is in hand, and a headless
+      // entry is exactly what keeps a legacy wedged record from ever
+      // re-anchoring. Keyed role:hash:len, the same identity capture matches by.
+      const heads = new Map();
       const turns = [];
       for (const t of rawTurns) {
         const entry = t && typeof t === "object" ? t : {};
@@ -89,6 +95,9 @@ GA.panel = (function () {
           } catch (e) {
             corrupt.push(key); // corrupt blob: degrade AND self-heal below
           }
+        }
+        if (text && entry.role && key != null && (typeof entry.head !== "string" || !entry.head)) {
+          heads.set(entry.role + ":" + key, GA.core.turnId.indexHead(text));
         }
         turns.push({ role: entry.role, order: entry.order, fp: entry.fp, text: text });
       }
@@ -105,15 +114,35 @@ GA.panel = (function () {
       // capture-vs-capture accepts the same residual window). A vanished or
       // malformed fresh record means there is nothing to heal — never write
       // the stale snapshot back.
-      if (corrupt.length) {
+      if (corrupt.length || heads.size) {
         try {
           const fresh = await GA.store.loadConvo(session);
-          const healable =
-            fresh && fresh.blobs && typeof fresh.blobs === "object" && !Array.isArray(fresh.blobs);
-          if (healable) {
+          let dirty = false;
+          if (
+            corrupt.length &&
+            fresh &&
+            fresh.blobs &&
+            typeof fresh.blobs === "object" &&
+            !Array.isArray(fresh.blobs)
+          ) {
             corrupt.forEach((k) => delete fresh.blobs[k]);
-            await GA.store.saveConvo(session, fresh);
+            dirty = true;
           }
+          // Head backfill writes into the RE-LOADED record for the same reason
+          // the heal does; an entry a concurrent capture already gave a head
+          // (or removed) is simply left alone.
+          if (heads.size && fresh && Array.isArray(fresh.turns)) {
+            for (const t of fresh.turns) {
+              if (!t || typeof t !== "object" || !t.role || !t.fp) continue;
+              if (typeof t.head === "string" && t.head) continue;
+              const h = heads.get(t.role + ":" + t.fp.hash + ":" + t.fp.len);
+              if (h) {
+                t.head = h;
+                dirty = true;
+              }
+            }
+          }
+          if (dirty) await GA.store.saveConvo(session, fresh);
         } catch (e) {
           GA.warn("transcript self-heal failed", e);
         }

@@ -13,11 +13,13 @@
 //    lose real content, which is worse than the duplicate it cleans.
 //  - Thread placement: a thread lands after the turn whose fp matches its
 //    recorded anchor fingerprint (FIRST matching turn — duplicate fps are
-//    expected for repeated identical messages). No match (legacy null anchor,
-//    or the anchor points at a dropped/mid-stream fp) routes it to a trailing
-//    "Unanchored notes" section — never silently lost. A hash collision is
-//    documented-safe in turn-id.js for anchoring; here it could at worst file
-//    a note under a same-length twin turn, never lose it.
+//    expected for repeated identical messages). A miss (the anchor points at
+//    a dropped/upgraded mid-stream fp) falls back to quote containment —
+//    first same-role turn whose text contains the quoted exact. Still no
+//    match (legacy null anchor, quote nowhere on record) routes it to a
+//    trailing "Unanchored notes" section — never silently lost. A hash
+//    collision is documented-safe in turn-id.js for anchoring; here it could
+//    at worst file a note under a same-length twin turn, never lose it.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
@@ -131,6 +133,26 @@ GA.core.transcript = (function () {
     return quote("[!note] Annotation\n" + parts.join("\n\n"));
   }
 
+  // Placement fallback (stale-anchor recovery): a thread created while its
+  // turn was still streaming recorded the PARTIAL turn's fingerprint. The
+  // capture-side stale-partial upgrade replaces that fingerprint in the index
+  // with the completed turn's, and render-time prefix-dedupe can drop the
+  // partial too — either way the fp match misses. The quoted text still
+  // identifies the turn: place the thread under the FIRST turn (of the
+  // anchor's recorded role, when present) whose text CONTAINS the quote.
+  // Containment of the exact quote is strong evidence; anything weaker keeps
+  // falling through to Unanchored notes.
+  function quoteFallback(thread, turns) {
+    var exact = norm(thread && thread.selector ? thread.selector.exact : "");
+    if (!exact) return -1;
+    var role = thread.anchor && thread.anchor.role;
+    for (var i = 0; i < turns.length; i++) {
+      if (role && turns[i].role !== role) continue;
+      if (norm(turns[i].text).indexOf(exact) !== -1) return i;
+    }
+    return -1;
+  }
+
   // Deterministic order for threads sharing a turn and for the unanchored
   // list: createdAt, then original array position for ties/missing stamps.
   function orderedThreads(threads) {
@@ -171,6 +193,7 @@ GA.core.transcript = (function () {
           }
         }
       }
+      if (at === -1) at = quoteFallback(th, turns);
       if (at === -1) {
         unanchored.push(th);
       } else {

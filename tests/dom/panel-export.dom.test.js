@@ -43,14 +43,15 @@ function makeGA({ session = "gemini:abc", record = null, threads = [] } = {}) {
   return GA;
 }
 
-// A convo record exactly as capture (T-010) stores it: plaintext turn index +
-// per-message gzip blobs keyed by BOTH fingerprint parts.
+// A convo record exactly as capture (T-010) stores it: plaintext turn index
+// (with per-entry heads, post stale-partial fix) + per-message gzip blobs
+// keyed by BOTH fingerprint parts.
 async function makeRecord(GA, msgs, extra = {}) {
   const turns = [];
   const blobs = {};
   for (let i = 0; i < msgs.length; i++) {
     const fp = GA.core.turnId.fingerprint(msgs[i].text);
-    turns.push({ role: msgs[i].role, fp, order: i });
+    turns.push({ role: msgs[i].role, fp, head: GA.core.turnId.indexHead(msgs[i].text), order: i });
     blobs[fp.hash + ":" + fp.len] = await GA.core.compress.gzipToB64(msgs[i].text);
   }
   return Object.assign(

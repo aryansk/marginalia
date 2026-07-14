@@ -70,6 +70,7 @@ function setup({ turns = [], threads = 1, session = "gemini:c1" } = {}) {
 }
 
 const fpOf = (GA, text) => GA.core.turnId.fingerprint(text);
+const headOf = (GA, text) => GA.core.turnId.indexHead(text);
 const keyOf = (GA, text) => {
   const fp = fpOf(GA, text);
   return fp.hash + ":" + fp.len;
@@ -97,10 +98,11 @@ describe("convoCapture.capture — basic bucket shape", () => {
     expect(rec.title).toBe("Monads — Gemini");
     expect(rec.url).toBe(location.href);
     expect(typeof rec.capturedAt).toBe("number");
-    // Index mirrors the findTurns mapping: role + fingerprint, order 0..n-1.
+    // Index mirrors the findTurns mapping: role + fingerprint + plaintext
+    // head (stale-partial recovery), order 0..n-1.
     expect(rec.turns).toEqual([
-      { role: "user", fp: fpOf(GA, A.text), order: 0 },
-      { role: "model", fp: fpOf(GA, B.text), order: 1 },
+      { role: "user", fp: fpOf(GA, A.text), head: headOf(GA, A.text), order: 0 },
+      { role: "model", fp: fpOf(GA, B.text), head: headOf(GA, B.text), order: 1 },
     ]);
     expect(Object.keys(rec.blobs).sort()).toEqual([keyOf(GA, A.text), keyOf(GA, B.text)].sort());
   });
@@ -369,14 +371,14 @@ describe("convoCapture.capture — gates", () => {
 });
 
 describe("convoCapture.snapshot — pure reuse of GA.turns", () => {
-  it("maps findTurns through textOf/fingerprintOf into {role, text, fp, order}", () => {
+  it("maps findTurns through textOf/fingerprintOf into {role, text, fp, head, order}", () => {
     const { GA } = setup({ turns: [A, B] });
 
     const snap = GA.convoCapture.snapshot();
 
     expect(snap).toEqual([
-      { role: "user", text: A.text, fp: fpOf(GA, A.text), order: 0 },
-      { role: "model", text: B.text, fp: fpOf(GA, B.text), order: 1 },
+      { role: "user", text: A.text, fp: fpOf(GA, A.text), head: headOf(GA, A.text), order: 0 },
+      { role: "model", text: B.text, fp: fpOf(GA, B.text), head: headOf(GA, B.text), order: 1 },
     ]);
     expect(GA.turns.findTurns).toHaveBeenCalledTimes(1);
     expect(GA.turns.textOf).toHaveBeenCalledTimes(2);
