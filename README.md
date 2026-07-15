@@ -1,5 +1,9 @@
 # Marginalia
 
+
+> Just here to learn how to install and use Marginalia? See [`usage instructions`](ops/using.md)
+
+
 A browser extension (**Firefox + Chrome**) that adds **Google-Docs-style margin
 comment threads** to the major AI chat sites — [Gemini](https://gemini.google.com),
 [ChatGPT](https://chatgpt.com), and [Claude](https://claude.ai).
