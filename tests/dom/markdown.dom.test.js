@@ -4,7 +4,12 @@ import { loadGA } from "../helpers/loadGA.js";
 
 let GA;
 beforeAll(() => {
-  GA = loadGA(["src/core/markdown-ast.js", "src/content/markdown.js"]);
+  GA = loadGA([
+    "src/core/tex-tables.js",
+    "src/core/tex-unicode.js",
+    "src/core/markdown-ast.js",
+    "src/content/markdown.js",
+  ]);
 });
 
 function render(md) {
@@ -57,6 +62,36 @@ describe("markdown render (AST -> DOM)", () => {
   });
 });
 
+describe("math (AST -> DOM)", () => {
+  it("renders inline math as a .ga-math span with real sub/sup elements", () => {
+    const host = render("bound: $Pr_{h \\sim H} \\le \\frac{1}{m}$ holds");
+    const span = host.querySelector("span.ga-math");
+    expect(span).not.toBeNull();
+    expect(span.classList.contains("ga-math-display")).toBe(false);
+    expect(span.querySelector("sub").textContent).toBe("h ∼ H");
+    expect(span.textContent).toBe("Prh ∼ H ≤ 1/m");
+  });
+
+  it("renders display math ($$…$$ on its own line) with the block class", () => {
+    const host = render("intro\n\n$$x \\le \\frac{1}{m}$$");
+    const span = host.querySelector("span.ga-math-display");
+    expect(span).not.toBeNull();
+    expect(span.textContent).toBe("x ≤ 1/m");
+  });
+
+  it("keeps model text inside math inert (XSS guard)", () => {
+    const host = render('$<img src=x onerror="alert(1)">$');
+    expect(host.querySelector("img")).toBeNull();
+    expect(host.textContent).toContain("<img");
+  });
+
+  it("does not italicize formula subscripts (the mangling bug)", () => {
+    const host = render("choose $n_1 * m_2$ keys");
+    expect(host.querySelector("em")).toBeNull();
+    expect(host.querySelectorAll(".ga-math sub")).toHaveLength(2);
+  });
+});
+
 describe("makeStreamRenderer (incremental streaming render)", () => {
   // Simulate a stream: at every prefix flush, the incrementally-updated DOM
   // must equal a one-shot render of the same text.
@@ -72,6 +107,8 @@ describe("makeStreamRenderer (incremental streaming render)", () => {
       "```js",
       "const pageSize = 8 * 1024;",
       "```",
+      "",
+      "$$Pr_{h \\sim H} \\le \\frac{1}{m}$$",
       "",
       "> quoted conclusion",
     ].join("\n");

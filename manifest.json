@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Marginalia",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Google-Docs-style follow-up comment threads on Gemini, ChatGPT and Claude — highlight text, ask in the margin, keep your place.",
   "browser_specific_settings": {
     "gecko": {
@@ -74,6 +74,8 @@
         "src/core/prompt.js",
         "src/core/anchor-match.js",
         "src/core/turn-id.js",
+        "src/core/tex-tables.js",
+        "src/core/tex-unicode.js",
         "src/core/markdown-ast.js",
         "src/core/layout-engine.js",
         "src/core/session-bindings.js",

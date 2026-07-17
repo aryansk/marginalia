@@ -148,6 +148,77 @@ describe("markdown-ast — nested lists", () => {
   });
 });
 
+describe("markdown-ast — math", () => {
+  const inlineOf = (s) => parse(s)[0].inline;
+  const flat = (nodes) =>
+    nodes
+      .map((n) => {
+        if (n.type === "text") return n.value;
+        if (n.type === "sub") return "_(" + flat(n.children) + ")";
+        if (n.type === "sup") return "^(" + flat(n.children) + ")";
+        return "<" + n.type + ">";
+      })
+      .join("");
+
+  it("parses all four delimiter forms into math nodes", () => {
+    expect(inlineOf("cost is $O(N)$ here")[1]).toMatchObject({
+      type: "math",
+      display: false,
+      tex: "O(N)",
+    });
+    expect(inlineOf("bound \\(p > |U|\\) holds")[1]).toMatchObject({ type: "math", display: false });
+    expect(inlineOf("so $$x \\le y$$ holds")[1]).toMatchObject({ type: "math", display: true });
+    expect(inlineOf("so \\[x \\le y\\] holds")[1]).toMatchObject({ type: "math", display: true });
+  });
+
+  it("prettifies the tex into renderable inline nodes", () => {
+    const m = inlineOf("$Pr_{h \\sim H} \\le \\frac{1}{m}$")[0];
+    expect(flat(m.inline)).toBe("Pr_(h ∼ H) ≤ 1/m");
+  });
+
+  it("protects _ and * inside math from the emphasis rules", () => {
+    const nodes = inlineOf("$n_1 * m_2$ and $a_b$");
+    expect(nodes[0].type).toBe("math");
+    expect(nodes[2].type).toBe("math");
+    expect(nodes.some((n) => n.type === "em" || n.type === "strong")).toBe(false);
+  });
+
+  it("does not mistake currency for math ($5 and $10)", () => {
+    const nodes = inlineOf("it costs $5 and $10 today");
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({ type: "text", value: "it costs $5 and $10 today" });
+  });
+
+  it("parses a display-math block on its own line", () => {
+    const blocks = parse("intro\n\n$$Pr_{h \\sim H} \\le \\frac{1}{m}$$\n\noutro");
+    expect(types(blocks)).toEqual(["paragraph", "math", "paragraph"]);
+    expect(blocks[1].display).toBe(true);
+  });
+
+  it("parses a multi-line $$ block and \\[ \\] block", () => {
+    const b = parse("$$\nx \\le y\n$$")[0];
+    expect(b).toMatchObject({ type: "math", display: true, tex: "x \\le y" });
+    const c = parse("\\[\nx + y\n\\]")[0];
+    expect(c).toMatchObject({ type: "math", display: true, tex: "x + y" });
+  });
+
+  it("an unclosed $$ block runs to the end of input (streaming)", () => {
+    const b = parse("$$\nx \\le")[0];
+    expect(b).toMatchObject({ type: "math", tex: "x \\le" });
+  });
+
+  it("a math fence ends the preceding paragraph", () => {
+    const blocks = parse("text line\n$$x$$");
+    expect(types(blocks)).toEqual(["paragraph", "math"]);
+  });
+
+  it("streaming: a growing math block re-renders only itself", () => {
+    const { firstChangedBlock } = md;
+    const diff = (a, b) => firstChangedBlock(parse(a), parse(b));
+    expect(diff("Head\n\n$$x \\le", "Head\n\n$$x \\le y$$")).toBe(1);
+  });
+});
+
 describe("markdown-ast — tables", () => {
   it("parses a pipe table with header + rows", () => {
     const t = parse("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")[0];

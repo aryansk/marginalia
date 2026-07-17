@@ -112,6 +112,8 @@ GA.markdown = (function () {
         table.appendChild(tbody);
         return table;
       }
+      case "math":
+        return mathEl(b);
       default: {
         const p = document.createElement("p");
         renderInline(b.inline, p);
@@ -120,12 +122,28 @@ GA.markdown = (function () {
     }
   }
 
+  // A math node (core/tex-unicode.js output): a span (valid inside <p>; CSS
+  // makes the display variant a centered block). Children are text/<sub>/<sup>
+  // only — still createElement + textContent, never innerHTML.
+  function mathEl(n) {
+    const span = document.createElement("span");
+    span.className = "ga-math" + (n.display ? " ga-math-display" : "");
+    renderInline(n.inline, span);
+    return span;
+  }
+
   function renderInline(nodes, parent) {
     nodes.forEach((n) => {
       if (n.type === "text") {
         parent.appendChild(document.createTextNode(n.value));
       } else if (n.type === "br") {
         parent.appendChild(document.createElement("br"));
+      } else if (n.type === "math") {
+        parent.appendChild(mathEl(n));
+      } else if (n.type === "sub" || n.type === "sup") {
+        const el = document.createElement(n.type);
+        renderInline(n.children, el);
+        parent.appendChild(el);
       } else if (n.type === "code") {
         const c = document.createElement("code");
         c.textContent = n.value;

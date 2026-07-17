@@ -678,6 +678,22 @@
   height: 13px;
 }
 
+/* math (TeX prettified by core/tex-unicode.js into text + sub/sup) */
+.ga-math {
+  font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", Georgia, serif;
+  font-style: normal;
+  white-space: normal;
+}
+.ga-math-display {
+  display: block;
+  text-align: center;
+  margin: 8px 0;
+}
+.ga-math sub,
+.ga-math sup {
+  line-height: 1; /* keep tall formulas from stretching the line box */
+}
+
 /* hover-revealed actions on a finished reply (copy) */
 .ga-msg-actions {
   display: flex;

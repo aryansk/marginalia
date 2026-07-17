@@ -9,8 +9,16 @@
 // Inline nodes: {type:'text',value} | {type:'code',value} | {type:'br'} |
 //               {type:'strong',children:[inline]} | {type:'em',children:[inline]} |
 //               {type:'link',text,href|null}   (href null => render as plain text)
+// Math (block and inline): {type:'math',display,tex,inline:[inline]} — the four
+// delimiter forms LLMs emit ($$…$$ and $…$ from Gemini/Claude, \[…\] and \(…\)
+// from ChatGPT) become inert nodes whose `inline` is prettified by
+// core/tex-unicode.js, so _ and * inside formulas never hit the emphasis rules.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
+// Browser: core/tex-unicode.js loaded earlier set GA.core.texUnicode.
+// Node/tests: require it so this module stays importable on its own.
+var texUnicode =
+  GA.core.texUnicode || (typeof require !== "undefined" ? require("./tex-unicode.js") : null);
 
 GA.core.markdownAst = (function () {
   const FENCE = /^\s*```(.*)$/;
@@ -21,10 +29,16 @@ GA.core.markdownAst = (function () {
   const ORDERED = /^\s*\d+\.\s+/;
   // GFM pipe-table separator row: |---|:--:|--- (at least one dash per cell)
   const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+  // Display-math fence opener: a line starting with $$ or \[ (closed by the
+  // matching $$ / \], possibly lines later — handled like FENCE).
+  const MATH_FENCE = /^\s*(\$\$|\\\[)\s*([\s\S]*)$/;
   // Bold uses [\s\S]+? (not [^*]) so it can contain nested *emphasis*; italic
-  // stays single-char. Backtick code is first so emphasis inside code is inert.
+  // stays single-char. Backtick code is first so emphasis inside code is inert;
+  // math is next so _ and * inside formulas are inert too. Single-$ math uses
+  // the Pandoc currency guard: content can't start/end with whitespace and the
+  // closing $ can't be followed by a digit, so "$5 and $10" stays plain text.
   const INLINE =
-    /(`+)([^`]+?)\1|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|\*([^*]+?)\*|_([^_]+?)_|\[([^\]]+?)\]\(([^)\s]+)\)/;
+    /(`+)([^`]+?)\1|\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$(?!\s)([^$\n]+?)(?<!\s)\$(?!\d)|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|\*([^*]+?)\*|_([^_]+?)_|\[([^\]]+?)\]\(([^)\s]+)\)/;
 
   function parse(md) {
     const text = String(md == null ? "" : md).replace(/\r\n/g, "\n");
@@ -32,7 +46,24 @@ GA.core.markdownAst = (function () {
   }
 
   function isBlockStart(line) {
-    return FENCE.test(line) || HEADING.test(line) || LIST.test(line) || QUOTE.test(line) || HR.test(line);
+    return (
+      FENCE.test(line) ||
+      HEADING.test(line) ||
+      LIST.test(line) ||
+      QUOTE.test(line) ||
+      HR.test(line) ||
+      MATH_FENCE.test(line)
+    );
+  }
+
+  function mathNode(tex, display) {
+    tex = tex.trim();
+    return {
+      type: "math",
+      display: !!display,
+      tex,
+      inline: texUnicode ? texUnicode.toInline(tex) : [{ type: "text", value: tex }],
+    };
   }
 
   function parseBlocks(lines) {
@@ -93,6 +124,36 @@ GA.core.markdownAst = (function () {
         }
         blocks.push({ type: "table", header, rows });
         continue;
+      }
+      // Display-math fence: $$…$$ / \[…\] on its own line(s). Multi-line works
+      // like FENCE: an unclosed opener runs to the end of input (streaming).
+      const mopen = line.match(MATH_FENCE);
+      if (mopen) {
+        const close = mopen[1] === "$$" ? "$$" : "\\]";
+        const rest = mopen[2];
+        const closeAt = rest.indexOf(close);
+        if (closeAt !== -1) {
+          if (/^\s*$/.test(rest.slice(closeAt + close.length))) {
+            blocks.push(mathNode(rest.slice(0, closeAt), true));
+            i++;
+            continue;
+          }
+          // prose after the closer on the same line — fall through and let the
+          // paragraph + inline rules handle the whole line
+        } else {
+          const buf = [rest];
+          i++;
+          while (i < lines.length && lines[i].indexOf(close) === -1) buf.push(lines[i++]);
+          if (i < lines.length) {
+            const at = lines[i].indexOf(close);
+            buf.push(lines[i].slice(0, at));
+            const after = lines[i].slice(at + close.length);
+            if (/^\s*$/.test(after)) i++;
+            else lines[i] = after; // rare: prose after the closer — reprocess it
+          }
+          blocks.push(mathNode(buf.join("\n"), true));
+          continue;
+        }
       }
       const buf = [line];
       i++;
@@ -173,11 +234,13 @@ GA.core.markdownAst = (function () {
       }
       if (m.index > 0) out.push({ type: "text", value: rest.slice(0, m.index) });
       if (m[2] != null) out.push({ type: "code", value: m[2] });
-      else if (m[3] != null || m[4] != null)
-        out.push({ type: "strong", children: inlineChildren(m[3] != null ? m[3] : m[4]) });
-      else if (m[5] != null || m[6] != null)
-        out.push({ type: "em", children: inlineChildren(m[5] != null ? m[5] : m[6]) });
-      else if (m[7] != null) out.push({ type: "link", text: m[7], href: safeHref(m[8]) });
+      else if (m[3] != null || m[4] != null) out.push(mathNode(m[3] != null ? m[3] : m[4], true));
+      else if (m[5] != null || m[6] != null) out.push(mathNode(m[5] != null ? m[5] : m[6], false));
+      else if (m[7] != null || m[8] != null)
+        out.push({ type: "strong", children: inlineChildren(m[7] != null ? m[7] : m[8]) });
+      else if (m[9] != null || m[10] != null)
+        out.push({ type: "em", children: inlineChildren(m[9] != null ? m[9] : m[10]) });
+      else if (m[11] != null) out.push({ type: "link", text: m[11], href: safeHref(m[12]) });
       rest = rest.slice(m.index + m[0].length);
     }
   }

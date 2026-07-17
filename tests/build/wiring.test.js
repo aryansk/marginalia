@@ -61,6 +61,18 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(backupAt).toBeLessThan(html.indexOf('<script src="options.js"></script>'));
   });
 
+  it("tex tables + converter load right before the markdown AST that uses them", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    expect(fxJs.indexOf("src/core/tex-unicode.js")).toBe(fxJs.indexOf("src/core/tex-tables.js") + 1);
+    expect(fxJs.indexOf("src/core/markdown-ast.js")).toBe(fxJs.indexOf("src/core/tex-unicode.js") + 1);
+    expect(crJs).toEqual(fxJs);
+    for (const rel of ["src/core/tex-tables.js", "src/core/tex-unicode.js"]) {
+      expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
+    }
+  });
+
   it("convo capture is registered in both content-script lists, right after the turns module it reads", () => {
     const chrome = JSON.parse(read("manifest.chrome.json"));
     const fxJs = manifest.content_scripts[0].js;
