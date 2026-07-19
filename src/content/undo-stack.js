@@ -6,7 +6,7 @@
 // stack (value + caret) and handles Ctrl/Cmd+Z itself.
 //
 //   GA.UndoStack(cap) -> pure, DOM-free stack:
-//     { push(entry), undo(current), redo(current), size(), reset() }
+//     { push(entry), undo(current), redo(current), peek(), size(), reset() }
 //     undo/redo return the entry to restore, or undefined when there's nothing
 //     to do (an empty-stack undo is a no-op so the event can fall through).
 //   GA.attachComposerUndo(textarea, { onRestore }) -> { snapshot() }
@@ -40,6 +40,11 @@ GA.UndoStack = function (cap) {
       undoArr.push(current);
       return entry;
     },
+    // Current undo top without popping (undefined when empty) — entries stay
+    // opaque here; callers decide what counts as a duplicate.
+    peek() {
+      return undoArr[undoArr.length - 1];
+    },
     size() {
       return undoArr.length;
     },
@@ -72,6 +77,8 @@ GA.attachComposerUndo = function (textarea, opts) {
   // Skip a push that duplicates the current stack top (repeated snapshot()s of
   // an unchanged value would otherwise pile up).
   function checkpoint(entry) {
+    const top = stack.peek();
+    if (top && top.value === entry.value && top.caret === entry.caret) return;
     stack.push(entry);
   }
 

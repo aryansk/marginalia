@@ -151,16 +151,6 @@ describe("draft housekeeping", () => {
   const NOW = 100 * DAY;
   const aged = (id, at) => ({ id, selector: { exact: id }, messages: [], createdAt: at });
 
-  it("isStaleDraft: only provably-old buckets are stale; undatable buckets are kept", () => {
-    expect(GA.store.isStaleDraft([aged("a", NOW - DAY)], NOW)).toBe(false);
-    expect(GA.store.isStaleDraft([aged("a", NOW - 8 * DAY)], NOW)).toBe(true);
-    expect(GA.store.isStaleDraft([aged("old", NOW - 30 * DAY), aged("new", NOW - DAY)], NOW)).toBe(
-      false,
-    );
-    expect(GA.store.isStaleDraft([], NOW)).toBe(false); // nothing datable -> keep
-    expect(GA.store.isStaleDraft([{ id: "x" }], NOW)).toBe(false); // no createdAt -> keep
-  });
-
   function storeFor(browser, token) {
     const g = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], { browser });
     g.provider = "gemini";

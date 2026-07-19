@@ -1,7 +1,7 @@
 // anchor.js — robust text anchoring via a W3C-style TextQuoteSelector.
 // Create {exact, prefix, suffix} from a Range, and re-locate that Range later
 // (after reload / re-render) by best-matching exact text + surrounding context.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.anchor = (function () {
   const CTX = 32; // chars of context kept on each side
@@ -54,9 +54,9 @@ GA.anchor = (function () {
     return locateInText(textOf(rootEl), selector, rootEl);
   }
 
-  // Same as locate() but against a pre-extracted text of rootEl — lets a batch
-  // re-anchor (selection.reanchorAll) extract each section's text ONCE and
-  // match many selectors against it.
+  // Same as locate() but against a pre-extracted text of rootEl, so many
+  // selectors can be matched against one extraction. (Batch re-anchoring now
+  // goes through locateWithin/evaluateIn; only locate() calls this here.)
   function locateInText(full, selector, rootEl) {
     if (!selector || !selector.exact) return null;
     const idx = GA.core.anchorMatch.bestMatch(full, selector);
@@ -163,5 +163,7 @@ GA.anchor = (function () {
     return -1;
   }
 
+  // locateInText and occurrenceAt have no production callers outside this
+  // module — exported for tests.
   return { fromRange, locate, locateInText, locateWithin, evaluateIn, occurrenceAt, textOf };
 })();

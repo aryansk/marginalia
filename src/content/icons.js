@@ -14,7 +14,6 @@ GA.icons = (function () {
     expand: ["M15 3h6v6", "M9 21H3v-6", "M21 3l-7 7", "M3 21l7-7"],
     trash: ["M3 6h18", "M8 6V4h8v2", "M19 6l-1 14H6L5 6", "M10 11v6", "M14 11v6"],
     close: ["M18 6L6 18", "M6 6l12 12"],
-    send: ["M12 19V5", "M5 12l7-7 7 7"],
     stop: ["M7 7h10v10H7z"],
     retry: ["M3 12a9 9 0 1 0 3-6.7", "M3 4v5h5"],
     copy: ["M9 9h11v11H9z", "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"],

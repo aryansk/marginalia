@@ -97,7 +97,9 @@ GA.threadController = (function () {
     bindings.handlesFor(thread.id).forEach((h) => {
       try {
         h.abort();
-      } catch (e) {}
+      } catch (e) {
+        /* a torn-down handle may already be closed — nothing to do */
+      }
     });
     GA.selection.unhighlight(thread.id);
     GA.gutter.remove(thread.id);
@@ -158,7 +160,9 @@ GA.threadController = (function () {
     bindings.drainHandles().forEach((h) => {
       try {
         h.abort();
-      } catch (e) {}
+      } catch (e) {
+        /* a drained handle may already be closed — nothing to do */
+      }
     });
     teardownAll();
     await restoreForSession(next);
@@ -255,7 +259,9 @@ GA.threadController = (function () {
     bindings.handlesFor(threadId).forEach((h) => {
       try {
         h.stop();
-      } catch (e) {}
+      } catch (e) {
+        /* the ask may have settled and closed its handle already — nothing to do */
+      }
     });
   }
 

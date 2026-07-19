@@ -3,7 +3,7 @@
 // resolve/delete buttons. Supports multi-turn Q&A, Del/Backspace-to-delete
 // with a Yes/No confirm, streaming model output with a Stop button, error
 // cards with Retry, per-reply copy, an unread dot, and markdown rendering.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 // handlers: { ask(thread,{onChunk})->Promise<string>, persist(thread),
 //             onDelete(thread), onFocus(thread), onExpand(thread),
@@ -342,7 +342,10 @@ GA.ThreadBox = function (thread, handlers) {
           e.stopPropagation();
           GA.copyText(textOf.get(el) || "");
           GA.icons.swap(copyBtn, "check");
-          setTimeout(() => !state.destroyed && GA.icons.swap(copyBtn, "copy"), 1500);
+          setTimeout(
+            () => !state.destroyed && GA.icons.swap(copyBtn, "copy"),
+            GA.config.COPY_FEEDBACK_MS,
+          );
         },
       },
       GA.icons.make("copy"),
@@ -509,7 +512,7 @@ GA.ThreadBox = function (thread, handlers) {
     },
     invalidateHeight,
     setMaxHeight(px) {
-      const next = px == null ? "" : Math.max(40, px) + "px";
+      const next = px == null ? "" : Math.max(GA.config.BOX_MESSAGES_MIN_PX, px) + "px";
       if (messagesEl.style.maxHeight !== next) messagesEl.style.maxHeight = next;
     },
     destroy() {

@@ -9,7 +9,7 @@
 // promote are adopted back into the current tab's bucket on startup
 // (sweepDrafts). No code path here deletes a draft bucket that still holds
 // threads — only empty buckets are ever removed.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.store = (function () {
   const PREFIX = GA.schema.THREADS_PREFIX;
@@ -106,20 +106,6 @@ GA.store = (function () {
       if (leftover.length) await saveAllRaw(null, leftover);
       else await browser.storage.local.remove(key(null));
     });
-  }
-
-  // A draft bucket is stale only when its newest thread is PROVABLY older than
-  // the TTL. A bucket holding nothing datable (no createdAt anywhere, or empty)
-  // is NOT stale — "not datable → keep": age must never be grounds for deleting
-  // threads we can't actually date. Pure — exported for tests.
-  function isStaleDraft(threads, now) {
-    const ttl = (GA.config && GA.config.DRAFT_TTL_MS) || 7 * 24 * 60 * 60 * 1000;
-    let newest = 0;
-    (threads || []).forEach((t) => {
-      if (t && t.createdAt > newest) newest = t.createdAt;
-    });
-    if (!newest) return false; // undatable — keep
-    return newest < now - ttl;
   }
 
   // Startup housekeeping for `ga:threads:__draft__:*` — retain, never reap.
@@ -230,7 +216,6 @@ GA.store = (function () {
     remove,
     migrateDraft,
     sweepDrafts,
-    isStaleDraft,
     clearAll,
     convoKey,
     loadConvo,

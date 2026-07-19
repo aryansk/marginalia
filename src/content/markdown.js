@@ -57,7 +57,11 @@ GA.markdown = (function () {
               e.stopPropagation();
               GA.copyText(b.text);
               GA.icons.swap(copyBtn, "check");
-              setTimeout(() => copyBtn.isConnected && GA.icons.swap(copyBtn, "copy"), 1500);
+              // Guarded fallback: pure-markdown test contexts load without config.js.
+              setTimeout(
+                () => copyBtn.isConnected && GA.icons.swap(copyBtn, "copy"),
+                (GA.config && GA.config.COPY_FEEDBACK_MS) || 1500,
+              );
             },
           },
           GA.icons.make("copy"),

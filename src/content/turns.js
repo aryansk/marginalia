@@ -9,7 +9,7 @@
 // message-content, a .model-response-text, a .markdown and a
 // .response-container-content), and treating nested matches as separate turns
 // would read one answer as five.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.turns = (function () {
   // Fingerprints keyed by element. A message's text never changes once it has

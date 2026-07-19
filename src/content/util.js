@@ -1,7 +1,9 @@
 // util.js — shared namespace + helpers for all content scripts.
 // All content scripts run in the same isolated-world global scope (manifest load order),
-// so `GA` is shared across files. `var GA = GA || {}` is safe to repeat per file.
-var GA = GA || {};
+// so `GA` is shared across files. The guarded `typeof` form is safe to repeat
+// per file, in any load order (a bare `GA ||` would throw if a file ran first
+// in a fresh scope, e.g. under a test loader).
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 // Settings shape lives in shared/settings-schema.js (one source of truth across
 // the content script, background, and options page).

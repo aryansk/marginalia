@@ -1,6 +1,6 @@
 // selection.js — capture the current selection, locate its answer "section",
 // build an anchor, and wrap/unwrap highlight spans across multiple text nodes.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.selection = (function () {
   // Live registry of highlight spans per thread. anchorEl()/orphan checks are
@@ -22,9 +22,11 @@ GA.selection = (function () {
       const match = el.closest(sel);
       if (match) return match;
     }
+    // Guarded fallback: the selection specs load without config.js.
+    const min = (GA.config && GA.config.SECTION_MIN_CHARS) || 200;
     let cur = el;
     while (cur && cur !== document.body) {
-      if (cur.textContent && cur.textContent.trim().length > 200) return cur;
+      if (cur.textContent && cur.textContent.trim().length > min) return cur;
       cur = cur.parentElement;
     }
     return el;

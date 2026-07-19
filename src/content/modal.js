@@ -4,7 +4,7 @@
 // GA.dialog; this module keeps the modal-specific parts: header/body assembly,
 // the edge drag-resize with session width memory, and the live-stream
 // late-join. The docked box is refreshed by the controller's onClosed callback.
-var GA = GA || {};
+var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.Modal = (function () {
   let dlg = null; // current dialog handle — module close() targets it
@@ -17,7 +17,10 @@ GA.Modal = (function () {
   function open(thread, handlers, onClosed) {
     close();
 
-    const snippet = GA.truncate(thread.selector && thread.selector.exact, 120);
+    const snippet = GA.truncate(
+      thread.selector && thread.selector.exact,
+      GA.config.MODAL_SNIPPET_CHARS,
+    );
     const title = GA.el("div", {
       class: "ga-modal-title",
       text: snippet,
@@ -171,7 +174,9 @@ GA.Modal = (function () {
         e.preventDefault();
         const startX = e.clientX;
         const startW =
-          parseInt(panel.style.width, 10) || panel.getBoundingClientRect().width || 820;
+          parseInt(panel.style.width, 10) ||
+          panel.getBoundingClientRect().width ||
+          GA.config.MODAL_FALLBACK_PX;
         const max = Math.round(window.innerWidth * GA.config.MODAL_MAX_FRAC);
         function move(ev) {
           const dx = ev.clientX - startX;

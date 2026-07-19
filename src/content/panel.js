@@ -120,11 +120,12 @@ GA.panel = (function () {
         GA.el("div", { class: "ga-panel-row-main" }, [
           GA.el("div", {
             class: "ga-panel-snippet",
-            text: GA.truncate(t.selector && t.selector.exact, 70),
+            text: GA.truncate(t.selector && t.selector.exact, GA.config.PANEL_SNIPPET_CHARS),
           }),
           GA.el("div", {
             class: "ga-panel-question",
-            text: GA.truncate(firstQuestion(t), 90) || "No messages yet.",
+            text:
+              GA.truncate(firstQuestion(t), GA.config.PANEL_QUESTION_CHARS) || "No messages yet.",
           }),
         ]),
         GA.el("div", { class: "ga-panel-row-meta" }, [
@@ -212,12 +213,15 @@ GA.panel = (function () {
         GA.el("button", {
           class: "ga-panel-tab" + (filter === key ? " ga-panel-tab-on" : ""),
           text: label,
+          // Active-tab bookkeeping keys off this, never off the rendered label
+          // text (which is presentation and free to change).
+          "data-filter": key,
           "aria-pressed": filter === key ? "true" : "false",
           onclick: function () {
             filter = key;
             renderList();
             Array.from(tabs.children).forEach((b) => {
-              const on = b.textContent === label;
+              const on = b.dataset.filter === key;
               b.classList.toggle("ga-panel-tab-on", on);
               b.setAttribute("aria-pressed", on ? "true" : "false");
             });
