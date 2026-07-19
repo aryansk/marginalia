@@ -426,7 +426,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   // ---- turn wiring (orchestration lives in thread-turn.js) ----
 
-  function flush(el) {
+  function flush() {
     stream.frame = 0;
     if (stream.pending == null) return;
     stream.lastText = stream.pending;
@@ -453,7 +453,7 @@ GA.ThreadBox = function (thread, handlers) {
       },
       renderModel: (el, text) => {
         stream.pending = text;
-        if (!stream.frame) stream.frame = requestAnimationFrame(() => flush(el));
+        if (!stream.frame) stream.frame = requestAnimationFrame(flush);
       },
       renderError: (el, message) => {
         if (stream.frame) cancelAnimationFrame(stream.frame);

@@ -1,0 +1,8 @@
+dist/
+coverage/
+web-ext-artifacts/
+node_modules/
+package-lock.json
+src/core/tex-tables.js
+tickets/
+tests/fixtures/

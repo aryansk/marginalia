@@ -91,9 +91,7 @@ GA.claudeClient = (function () {
       return await GA.streamText(res, parser.makeStream(), onChunk, failMsg, budget);
     } catch (e) {
       if (e && (e.status === 401 || e.status === 403)) cachedOrgId = null;
-      if (budget.cancelled()) throw GA.abortError();
-      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
-      throw e;
+      throw GA.mapBudgetError(e, budget, timeoutMsg);
     } finally {
       budget.clear();
     }

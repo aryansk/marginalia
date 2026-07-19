@@ -140,9 +140,8 @@ GA.store = (function () {
   // before removal and deleted only if its contents are still exactly the
   // snapshot we adopted. A key that changed is left for the next sweep; the
   // remaining race window is a few microtasks instead of the whole sweep.
-  // Other providers' buckets are left alone. `now` is accepted for signature
-  // compatibility but no longer read: age plays no part in sweeping.
-  function sweepDrafts(now) {
+  // Other providers' buckets are left alone. Age plays no part in sweeping.
+  function sweepDrafts() {
     return serialize(async () => {
       const all = await browser.storage.local.get();
       const draftPrefix = PREFIX + DRAFT + ":";

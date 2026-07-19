@@ -492,7 +492,7 @@ describe("conversation transcripts (ga:convo:*)", () => {
 
     it("store.js contains no second interleave — only the delegation", () => {
       const src = fs.readFileSync(path.join(ROOT, "src/content/store.js"), "utf8").replace(/\/\/.*$/gm, "");
-      const body = src.match(/function mergeTurns\(([^)]*)\)\s*\{([\s\S]*?)\n  \}/);
+      const body = src.match(/function mergeTurns\(([^)]*)\)\s*\{([\s\S]*?)\n {2}\}/);
       expect(body, "mergeTurns should be defined in store.js").toBeTruthy();
       expect(body[2].trim()).toBe("return GA.core.backup.mergeTurnLists(existingTurns, newTurns);");
     });

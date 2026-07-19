@@ -13,18 +13,20 @@ copies it into `dist/<target>/` with the right manifest, then `web-ext` zips eac
 
 | Target  | Manifest               | Background                 | Icons        | Unpacked dir   | Package |
 |---------|------------------------|----------------------------|--------------|----------------|---------|
-| Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `dist/firefox` | `web-ext-artifacts/firefox/gemini_assist-<version>.zip` |
-| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `dist/chrome`  | `web-ext-artifacts/chrome/gemini_assist-<version>.zip` |
+| Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `dist/firefox` | `web-ext-artifacts/firefox/marginalia-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `dist/chrome`  | `web-ext-artifacts/chrome/marginalia-<version>.zip` |
 
 ```bash
 npm install            # once: web-ext + test tooling (Node 24 via mise)
 npm test               # must be green
-npm run lint           # must be clean (self-contained: assembles dist/firefox, then web-ext lints it)
-npm run build          # -> web-ext-artifacts/{firefox,chrome}/gemini_assist-<version>.zip
+npm run lint           # ESLint, must be clean
+npm run format:check   # Prettier, must be clean
+npm run lint:ext       # web-ext manifest lint (assembles dist/firefox first)
+npm run build          # -> web-ext-artifacts/{firefox,chrome}/marginalia-<version>.zip
 ```
 
-Each step is independent — `lint` and `build` assemble `dist/` themselves, so there is
-no required order beyond "all three must pass before you ship".
+Each step is independent — `lint:ext` and `build` assemble `dist/` themselves, so there
+is no required order beyond "all of them must pass before you ship".
 `npm run build:firefox` / `npm run build:chrome` build a single target.
 To only refresh the unpacked `dist/` folders (no zips): `node build.js` (or
 `node build.js firefox|chrome`).
@@ -92,7 +94,7 @@ page DevTools on Chrome) — enable **debug logging** in the extension's setting
 2. Confirm the **extension id**. Firefox uses `browser_specific_settings.gecko.id`
    (set to `marginalia@midhunkrishna.github.io`) — it is PERMANENT once the first AMO
    version is published; never change it afterwards. Chrome assigns its own id on first upload.
-3. `npm test` green, `npm run lint` clean, `npm run build`.
+3. `npm test` green, `npm run lint` + `npm run format:check` + `npm run lint:ext` clean, `npm run build`.
 4. Have listing assets + text ready (see below): 128px icon (already in the package),
    1–5 screenshots, a short summary, a full description, a **privacy policy URL**, and a
    permission justification.
@@ -115,7 +117,7 @@ page DevTools on Chrome) — enable **debug logging** in the extension's setting
 1. **Developer account**: sign in at the
    [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) and
    pay the **one-time US$5** registration fee (first time only).
-2. `npm run build:chrome` → upload `web-ext-artifacts/chrome/gemini_assist-<version>.zip` via
+2. `npm run build:chrome` → upload `web-ext-artifacts/chrome/marginalia-<version>.zip` via
    **Add new item**.
 3. **Store listing**: name, summary (≤132 chars), detailed description, **Productivity**
    category, language, and at least one **screenshot** (1280×800 or 640×400). The 128px icon
@@ -151,7 +153,7 @@ npx web-ext sign --source-dir dist/firefox --channel=listed \
   --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET"
 ```
 Alternative without API keys: `npm run build:firefox`, then upload
-`web-ext-artifacts/firefox/gemini_assist-<version>.zip` manually via
+`web-ext-artifacts/firefox/marginalia-<version>.zip` manually via
 **Developer Hub → Submit a New Add-on → "On this site"**. Either way, AMO reviews
 listed add-ons before they go public; fill in the listing (summary, description,
 screenshots, categories) and note the declared data collection (the manifest already
@@ -185,7 +187,7 @@ re-submit the new version on the existing listing (Option A).
   fallback.
 - **Icons**: Chrome needs the PNGs (`icon-16/32/48/128.png`); Firefox uses `icon.svg`. Both are
   committed.
-- **`web-ext lint` must pass** for AMO; run `npm run lint` first.
+- **`web-ext lint` must pass** for AMO; run `npm run lint:ext` first.
 - Keep `manifest.json` and `manifest.chrome.json` in sync (name, version, permissions, content
   scripts) — only the background entry, the icon format, and the Firefox-only
   `browser_specific_settings` should differ. The Firefox `background.scripts` list and Chrome's

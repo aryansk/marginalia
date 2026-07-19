@@ -69,8 +69,8 @@ per-browser differences are the manifest and the background entry:
 
 | Target  | Manifest               | Background                | Icons       | Package output |
 |---------|------------------------|---------------------------|-------------|----------------|
-| Firefox | `manifest.json`        | `background.scripts`      | `icon.svg`  | `web-ext-artifacts/firefox/gemini_assist-<version>.zip` |
-| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/gemini_assist-<version>.zip` |
+| Firefox | `manifest.json`        | `background.scripts`      | `icon.svg`  | `web-ext-artifacts/firefox/marginalia-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/marginalia-<version>.zip` |
 
 A tiny [`src/shared/browser-polyfill.js`](src/shared/browser-polyfill.js) aliases
 `browser` → `chrome`, so the shared code runs unchanged on both.
@@ -83,8 +83,30 @@ npm install            # once: web-ext + test tooling (Node 24 via mise)
 npm run build          # both targets
 npm run build:firefox  # just Firefox
 npm run build:chrome   # just Chrome
-npm run lint           # validate the (Firefox) manifest + code
 ```
+
+### Checks
+
+```bash
+npm test               # vitest suite (includes manifest/sw.js wiring drift guards)
+npm run lint           # ESLint
+npm run format:check   # Prettier (npm run format to write)
+npm run lint:ext       # web-ext validation of the built Firefox manifest
+```
+
+GitLab CI ([`.gitlab-ci.yml`](.gitlab-ci.yml)) runs the same checks on every
+push, and additionally packages both zips as pipeline artifacts when a commit
+on the default branch bumps the version (package.json + both manifests must
+agree — a wiring test enforces the parity).
+
+### Tools
+
+- [`tools/gen-tex-tables.js`](tools/gen-tex-tables.js) regenerates the
+  generated `src/core/tex-tables.js` from a sibling checkout of
+  `latex-to-unicode` (defaults to `../latex-to-unicode`; see its header).
+- [`tools/probe-turns.js`](tools/probe-turns.js) is pasted into a site's
+  DevTools console to probe which turn selectors match — used when a vendor
+  changes their DOM.
 
 ### Run during development (temporary, auto-reload)
 

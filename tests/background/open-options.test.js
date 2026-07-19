@@ -63,7 +63,7 @@ describe("background MSG_OPEN_OPTIONS routing", () => {
   });
 
   it("ignores unrelated message types and null messages", () => {
-    const { GA, calls, dispatch } = loadBackground();
+    const { calls, dispatch } = loadBackground();
     const returns = [
       ...dispatch({ type: "something-else" }, CLAUDE_SENDER),
       ...dispatch(null, CLAUDE_SENDER),

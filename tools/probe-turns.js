@@ -57,7 +57,7 @@
 
   // 1-3. Which selectors match, and what they look like.
   const rows = CANDIDATES[site].map((sel) => {
-    let els = [];
+    let els;
     try {
       els = Array.from(document.querySelectorAll(sel));
     } catch (e) {

@@ -211,7 +211,7 @@ describe("options import — merge", () => {
       "ga:threads:gemini:s1": [thread("t1", 2), thread("local-only")],
       "ga:threads:chatgpt:z2": [thread("mine")],
     };
-    const { store, el } = setup({ initial: local });
+    const { store } = setup({ initial: local });
     await importText(archiveText);
 
     expect(store.setCalls).toHaveLength(1);

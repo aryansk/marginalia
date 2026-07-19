@@ -38,9 +38,7 @@ GA.makeApiClient = function (config) {
       });
     } catch (e) {
       budget.clear();
-      if (budget.cancelled()) throw GA.abortError();
-      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
-      throw e;
+      throw GA.mapBudgetError(e, budget, timeoutMsg);
     }
     if (!res.ok) {
       budget.clear();
@@ -50,9 +48,7 @@ GA.makeApiClient = function (config) {
       const failMsg = "Couldn't parse " + config.label + "'s response — the API shape may have changed.";
       return await GA.streamText(res, config.makeStream(), onChunk, failMsg, budget);
     } catch (e) {
-      if (budget.cancelled()) throw GA.abortError();
-      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
-      throw e;
+      throw GA.mapBudgetError(e, budget, timeoutMsg);
     } finally {
       budget.clear();
     }

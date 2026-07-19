@@ -10,14 +10,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "lint": "node build.js firefox && web-ext lint --source-dir dist/firefox",
+    "lint": "eslint .",
+    "lint:ext": "node build.js firefox && web-ext lint --source-dir dist/firefox",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "build": "npm run build:firefox && npm run build:chrome",
     "build:firefox": "node build.js firefox && web-ext build --overwrite-dest --source-dir dist/firefox --artifacts-dir web-ext-artifacts/firefox",
     "build:chrome": "node build.js chrome && web-ext build --overwrite-dest --source-dir dist/chrome --artifacts-dir web-ext-artifacts/chrome"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-formatter-gitlab": "^7.2.0",
+    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
+    "prettier": "^3.9.5",
     "vitest": "^4.1.9",
     "web-ext": "^8.3.0"
   }

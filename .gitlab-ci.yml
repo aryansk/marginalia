@@ -1,0 +1,78 @@
+# GitLab CI for the Marginalia extension.
+#
+#   test     — full vitest suite (includes the manifest/sw.js wiring drift
+#              guards), JUnit report rendered in the GitLab UI.
+#   lint     — ESLint (also emitted as a Code Quality report for the MR
+#              widget), Prettier check, and web-ext manifest lint.
+#   package  — builds the Firefox + Chrome zips, but ONLY when the commit
+#              actually bumps the version: rules:changes narrows to commits
+#              touching the version-carrying files, then the script compares
+#              package.json's version against the parent commit and exits
+#              quietly when it is unchanged. The wiring test asserts
+#              package.json and both manifests carry the same version, so
+#              package.json is a safe single proxy for "version update".
+default:
+  image: node:24
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+stages:
+  - test
+  - lint
+  - package
+
+test:
+  stage: test
+  script:
+    - npx vitest run --reporter=default --reporter=junit --outputFile=vitest-junit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: vitest-junit.xml
+
+lint:
+  stage: lint
+  variables:
+    ESLINT_CODE_QUALITY_REPORT: gl-code-quality-report.json
+  script:
+    - npx eslint . --format gitlab
+    - npm run format:check
+    - npm run lint:ext
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+
+package:
+  stage: package
+  variables:
+    GIT_DEPTH: "2" # the version guard diffs against HEAD~1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        paths:
+          - package.json
+          - manifest.json
+          - manifest.chrome.json
+  script:
+    - CURR=$(node -p "require('./package.json').version")
+    - PREV=$(git show HEAD~1:package.json 2>/dev/null | node -p "try { JSON.parse(require('fs').readFileSync(0, 'utf8')).version } catch (e) { '' }" || echo "")
+    - |
+      if [ "$CURR" = "$PREV" ]; then
+        echo "Version unchanged ($CURR) — skipping packaging."
+        exit 0
+      fi
+    - echo "Version bump detected ($PREV -> $CURR) — building extension artifacts."
+    - npm run build
+    - ls -R web-ext-artifacts
+  artifacts:
+    name: "marginalia-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - web-ext-artifacts/
+    expire_in: 90 days

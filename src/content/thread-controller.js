@@ -22,7 +22,7 @@ GA.threadController = (function () {
     return GA.store.upsert(bindings.sessionFor(thread.id), thread);
   }
 
-  function makeHandlers(thread) {
+  function makeHandlers() {
     return {
       ask: (t, opts) => askThread(t, opts),
       persist: (t) => persistThread(t),
@@ -36,7 +36,7 @@ GA.threadController = (function () {
   }
 
   function addThread(thread) {
-    const box = GA.ThreadBox(thread, makeHandlers(thread));
+    const box = GA.ThreadBox(thread, makeHandlers());
     threadsById.set(thread.id, thread);
     bindings.bind(thread.id, currentSession);
     GA.gutter.add(thread.id, box);
@@ -265,7 +265,7 @@ GA.threadController = (function () {
     const it = GA.gutter.get(thread.id);
     const wasCompact = !!(it && it.box.isCompact());
     if (it && !wasCompact) it.box.setCollapsed(true, false);
-    GA.Modal.open(thread, makeHandlers(thread), function () {
+    GA.Modal.open(thread, makeHandlers(), function () {
       const cur = GA.gutter.get(thread.id);
       if (cur) {
         if (!wasCompact) cur.box.setCollapsed(false, false);

@@ -72,6 +72,18 @@ GA.abortError = function () {
   return e;
 };
 
+// Map a caught transport error against its abort budget: an external cancel
+// (user stop / port disconnect) becomes AbortError, a budget timeout or fetch
+// AbortError becomes the client's timeout message (with the original error as
+// `cause`), anything else passes through untouched. Callers `throw` the return
+// value. One helper so the cancel-vs-timeout distinction can't drift between
+// clients.
+GA.mapBudgetError = function (e, budget, timeoutMsg) {
+  if (budget.cancelled()) return GA.abortError();
+  if (budget.aborted() || (e && e.name === "AbortError")) return new Error(timeoutMsg, { cause: e });
+  return e;
+};
+
 // Read a streamed response through an incremental parser cursor
 // (`{ push(text) -> answerSoFar|null, end() -> answer|null }`, see
 // sse.makeStream / gemini.parser.makeStream) and emit each newly different

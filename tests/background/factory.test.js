@@ -33,9 +33,6 @@ function recordingFetch(responder) {
   return fn;
 }
 
-// provider dir -> GA client global
-const CLIENTS = { openai: "openaiClient", googleai: "googleaiClient", anthropic: "anthropicClient" };
-
 function load(provider, fetchFake) {
   return loadGA(
     [

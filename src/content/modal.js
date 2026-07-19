@@ -78,7 +78,7 @@ GA.Modal = (function () {
     let composer = null;
     if (handlers && handlers.ask) {
       const stream = { pending: null, frame: 0, renderer: null, lastText: null, errored: false };
-      function flush(el) {
+      function flush() {
         stream.frame = 0;
         if (stream.pending == null) return;
         stream.lastText = stream.pending;
@@ -100,7 +100,7 @@ GA.Modal = (function () {
         },
         renderModel: (el, text) => {
           stream.pending = text;
-          if (!stream.frame) stream.frame = requestAnimationFrame(() => flush(el));
+          if (!stream.frame) stream.frame = requestAnimationFrame(flush);
         },
         renderError: (el, message) => {
           if (stream.frame) cancelAnimationFrame(stream.frame);

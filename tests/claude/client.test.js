@@ -138,7 +138,7 @@ describe("claudeClient.ask (web session)", () => {
   it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
     const external = new AbortController();
     const fetchFake = routedFetch([
-      ["/api/organizations", (url, opts) => {
+      ["/api/organizations", () => {
         // simulate the fetch being killed by the chained abort signal
         external.abort();
         const e = new Error("aborted");

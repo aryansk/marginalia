@@ -43,9 +43,7 @@ GA.client = (function () {
       });
     } catch (e) {
       budget.clear();
-      if (budget.cancelled()) throw GA.abortError();
-      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
-      throw e;
+      throw GA.mapBudgetError(e, budget, timeoutMsg);
     }
     if (!res.ok) {
       budget.clear();
@@ -61,9 +59,7 @@ GA.client = (function () {
       // frame-format cursor — only new complete lines are parsed per chunk.
       return await GA.streamText(res, parser.makeStream(), onChunk, parseFailMsg(), budget);
     } catch (e) {
-      if (budget.cancelled()) throw GA.abortError();
-      if (budget.aborted() || (e && e.name === "AbortError")) throw new Error(timeoutMsg);
-      throw e;
+      throw GA.mapBudgetError(e, budget, timeoutMsg);
     } finally {
       budget.clear();
     }

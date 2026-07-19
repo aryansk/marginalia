@@ -93,6 +93,20 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(crJs.indexOf("src/content/convo-capture.js")).toBe(crJs.indexOf("src/content/turns.js") + 1);
   });
 
+  it("release metadata stays in lockstep across both manifests and package.json", () => {
+    // The version is hand-copied in three places and has drifted once before
+    // (a release went out as 0.3.0 instead of 0.2.2). CI's package job also
+    // keys off the package.json version — parity is load-bearing.
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const pkg = JSON.parse(read("package.json"));
+    expect(chrome.version).toBe(manifest.version);
+    expect(pkg.version).toBe(manifest.version);
+    expect(chrome.name).toBe(manifest.name);
+    expect(chrome.description).toBe(manifest.description);
+    expect(chrome.permissions).toEqual(manifest.permissions);
+    expect(chrome.host_permissions).toEqual(manifest.host_permissions);
+  });
+
   it("dependency helpers load before the clients that use them", () => {
     const at = (rel) => fxScripts.indexOf(rel);
     expect(at("src/shared/sse.js")).toBeGreaterThanOrEqual(0);
