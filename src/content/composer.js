@@ -2,9 +2,11 @@
 // any surface that needs to send a follow-up). Same classes as the box
 // composer (.ga-composer/.ga-input/.ga-send) so every surface looks identical.
 //
-// GA.Composer({ placeholder, onSubmit(text), onStop(), onResize() }) ->
-//   { el, textarea, focus(), setLoading(bool) }
-// Enter and Cmd/Ctrl+Enter submit; Shift+Enter inserts a newline.
+// GA.Composer({ placeholder, ariaLabel, onSubmit(text), onStop(), onResize() })
+//   -> { el, textarea, focus(), setLoading(bool) }
+// Enter and Cmd/Ctrl+Enter submit; Shift+Enter inserts a newline. ariaLabel
+// overrides the label when the visible placeholder (which may end in "…")
+// isn't the right screen-reader text; it falls back to the placeholder.
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.Composer = function (opts) {
@@ -14,7 +16,7 @@ GA.Composer = function (opts) {
     class: "ga-input",
     rows: "1",
     placeholder: opts.placeholder || "Ask a follow-up…",
-    "aria-label": opts.placeholder || "Ask a follow-up",
+    "aria-label": opts.ariaLabel || opts.placeholder || "Ask a follow-up",
   });
   const sendBtn = GA.el("button", {
     class: "ga-send",

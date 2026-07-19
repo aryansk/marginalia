@@ -134,12 +134,12 @@ describe("expandThread minimize/restore", () => {
     await restoreOne(GA, "t1");
     GA.threadController.expandThreadById("t1");
 
-    expect(box.setCollapsed).toHaveBeenCalledWith(true, false); // transient — no persist
+    expect(box.setCollapsed).toHaveBeenCalledWith(true, { persist: false }); // transient
     expect(GA.Modal.open).toHaveBeenCalledTimes(1);
 
     const onClosed = GA.Modal.open.mock.calls[0][2];
     onClosed();
-    expect(box.setCollapsed).toHaveBeenLastCalledWith(false, false);
+    expect(box.setCollapsed).toHaveBeenLastCalledWith(false, { persist: false });
     expect(box.refreshMessages).toHaveBeenCalledTimes(1);
     expect(GA.gutter.scheduleLayout).toHaveBeenCalled();
   });
@@ -160,5 +160,14 @@ describe("expandThread minimize/restore", () => {
     const handlers = GA.Modal.open.mock.calls[0][1];
     expect(typeof handlers.liveStream).toBe("function");
     expect(handlers.liveStream("t1")).toBeNull(); // nothing in flight
+  });
+
+  it("makeHandlers includes inRail, reflecting the gutter's rail mode", async () => {
+    const { handlers } = await restoreOne(GA, "t1");
+    expect(typeof handlers.inRail).toBe("function");
+    GA.gutter.mode = vi.fn(() => "rail");
+    expect(handlers.inRail()).toBe(true);
+    GA.gutter.mode = vi.fn(() => "full");
+    expect(handlers.inRail()).toBe(false);
   });
 });

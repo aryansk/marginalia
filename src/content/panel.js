@@ -6,12 +6,13 @@
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.panel = (function () {
-  let overlay = null;
-  let filter = "open"; // "open" | "resolved" | "all"
-  // Set while the panel is open so the capture-phase onKey can decide, on
-  // Escape, between clearing the search query and closing the panel. Reset in
-  // close(). The `clear` closure lives in open() so it captures its query state.
-  let activeSearch = null;
+  let dlg = null; // current dialog handle (GA.dialog) — close() targets it
+  let filter = "open"; // "open" | "resolved" | "all" — persists across opens
+  // Per-open view state shared by the build/render helpers below:
+  // { query, body, count, searchInput, clearBtn }. Set in open(), nulled when
+  // the dialog closes, so a query never leaks into the next open — unlike the
+  // deliberately persistent `filter`.
+  let view = null;
 
   function firstQuestion(thread) {
     const m = (thread.messages || []).find((x) => x.role === "user");
@@ -19,11 +20,9 @@ GA.panel = (function () {
   }
 
   // ---- export for NotebookLM (T-012) ---------------------------------------
-  // THE system's sole decompress site: capture, store and backup all carry
-  // message blobs as opaque compressed strings; only this click handler ever
-  // calls GA.core.compress.b64ToText. It loads the RAW convo record, inflates
-  // each turn's blob by its "<hash>:<len>" key, hands the decoded record plus
-  // this conversation's threads to the pure Markdown builder, and delivers via
+  // Decode + self-heal live in GA.convoRepair.loadDecoded (the system's sole
+  // decompress site); this click handler only hands the decoded record plus
+  // this conversation's threads to the pure Markdown builder and delivers via
   // a blob: download and a best-effort clipboard copy.
 
   // Download filename: "<sanitized title|provider>-YYYYMMDD.md". Keep only
@@ -65,100 +64,15 @@ GA.panel = (function () {
   // and a failed export must always surface a toast instead.
   async function exportConversation() {
     try {
-      const session = GA.getSessionId();
-      const raw = session ? await GA.store.loadConvo(session) : null;
-      const rawTurns = raw && Array.isArray(raw.turns) ? raw.turns : [];
-      if (!rawTurns.length) {
+      const decoded = await GA.convoRepair.loadDecoded(GA.getSessionId());
+      if (!decoded) {
         // Friendly degrade — never a broken or empty download. (Capture only
         // runs on annotated conversations, hence the nudge.)
         GA.toast("No transcript captured yet — it fills in as you annotate this conversation.");
         return;
       }
-      const blobs =
-        raw.blobs && typeof raw.blobs === "object" && !Array.isArray(raw.blobs) ? raw.blobs : {};
-      const corrupt = [];
-      // Heads for index entries that predate them (records captured before the
-      // stale-partial upgrade existed). Capture can't compute these — it never
-      // decompresses — but right here the plaintext is in hand, and a headless
-      // entry is exactly what keeps a legacy wedged record from ever
-      // re-anchoring. Keyed role:hash:len, the same identity capture matches by.
-      const heads = new Map();
-      const turns = [];
-      for (const t of rawTurns) {
-        const entry = t && typeof t === "object" ? t : {};
-        const key = entry.fp ? entry.fp.hash + ":" + entry.fp.len : null;
-        const blob = key != null && blobs[key] != null ? blobs[key] : null;
-        let text = ""; // a missing blob degrades to an empty turn, never a throw
-        if (blob != null) {
-          try {
-            text = await GA.core.compress.b64ToText(blob);
-          } catch (e) {
-            corrupt.push(key); // corrupt blob: degrade AND self-heal below
-          }
-        }
-        if (text && entry.role && key != null && (typeof entry.head !== "string" || !entry.head)) {
-          heads.set(entry.role + ":" + key, GA.core.turnId.indexHead(text));
-        }
-        turns.push({ role: entry.role, order: entry.order, fp: entry.fp, text: text });
-      }
-      // Fix F5 — self-heal: a blob that provably fails to inflate carries no
-      // recoverable data, and capture skips keys that EXIST, so deleting the
-      // entry is exactly what lets the next capture re-compress the message
-      // from the live DOM. Best-effort in its own catch — a heal failure must
-      // not block the export. Merely-MISSING blobs are never touched (nothing
-      // to heal). The record is RE-LOADED right before the write: the
-      // decompress loop above awaited for arbitrarily long, and a concurrent
-      // capture may have re-written the record — saving our stale snapshot
-      // would silently revert its freshly banked turns/blobs. The re-read
-      // narrows that race to microtasks (storage.local has no transactions;
-      // capture-vs-capture accepts the same residual window). A vanished or
-      // malformed fresh record means there is nothing to heal — never write
-      // the stale snapshot back.
-      if (corrupt.length || heads.size) {
-        try {
-          const fresh = await GA.store.loadConvo(session);
-          let dirty = false;
-          if (
-            corrupt.length &&
-            fresh &&
-            fresh.blobs &&
-            typeof fresh.blobs === "object" &&
-            !Array.isArray(fresh.blobs)
-          ) {
-            corrupt.forEach((k) => delete fresh.blobs[k]);
-            dirty = true;
-          }
-          // Head backfill writes into the RE-LOADED record for the same reason
-          // the heal does; an entry a concurrent capture already gave a head
-          // (or removed) is simply left alone.
-          if (heads.size && fresh && Array.isArray(fresh.turns)) {
-            for (const t of fresh.turns) {
-              if (!t || typeof t !== "object" || !t.role || !t.fp) continue;
-              if (typeof t.head === "string" && t.head) continue;
-              const h = heads.get(t.role + ":" + t.fp.hash + ":" + t.fp.len);
-              if (h) {
-                t.head = h;
-                dirty = true;
-              }
-            }
-          }
-          if (dirty) await GA.store.saveConvo(session, fresh);
-        } catch (e) {
-          GA.warn("transcript self-heal failed", e);
-        }
-      }
-      const md = GA.core.transcript.build(
-        {
-          provider: raw.provider,
-          id: raw.id,
-          title: raw.title,
-          url: raw.url,
-          capturedAt: raw.capturedAt,
-          turns: turns,
-        },
-        GA.threadController.threads(),
-      );
-      deliverDownload(md, exportFilename(raw.title, raw.provider));
+      const md = GA.core.transcript.build(decoded, GA.threadController.threads());
+      deliverDownload(md, exportFilename(decoded.title, decoded.provider));
       // Best-effort clipboard in its OWN catch — a denied clipboard must not
       // undo the already-successful download.
       let copied = false;
@@ -177,18 +91,180 @@ GA.panel = (function () {
     }
   }
 
-  function open() {
-    close();
-    // Query state is local to open() so it resets every time the panel is
-    // reopened — unlike the module-scoped, persistent `filter`.
-    let query = "";
-    overlay = GA.el("div", {
-      class: "ga-modal-overlay",
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": "All comment threads",
-    });
+  // ---- open-panel view (all helpers below read the module-level `view`) ----
 
+  // Jump to a thread: anchored ones scroll into view in the margin; orphans
+  // (and the no-gutter narrow viewport) open the modal instead.
+  function goToThread(t) {
+    close();
+    const anchor = GA.selection.anchorEl(t.id);
+    if (anchor && GA.gutter.mode() !== "hidden") {
+      anchor.scrollIntoView({ block: "center", behavior: "smooth" });
+      GA.gutter.setActive(t.id);
+    } else {
+      GA.threadController.expandThreadById(t.id);
+    }
+  }
+
+  function renderRow(t) {
+    const anchored = !!GA.selection.anchorEl(t.id);
+    const row = GA.el(
+      "div",
+      {
+        class: "ga-panel-row" + (t.resolved ? " ga-panel-row-resolved" : ""),
+        role: "button",
+        tabindex: "0",
+        "aria-label": "Thread: " + (t.selector && t.selector.exact),
+      },
+      [
+        GA.el("div", { class: "ga-panel-row-main" }, [
+          GA.el("div", {
+            class: "ga-panel-snippet",
+            text: GA.truncate(t.selector && t.selector.exact, 70),
+          }),
+          GA.el("div", {
+            class: "ga-panel-question",
+            text: GA.truncate(firstQuestion(t), 90) || "No messages yet.",
+          }),
+        ]),
+        GA.el("div", { class: "ga-panel-row-meta" }, [
+          !anchored && !t.resolved
+            ? GA.el("span", {
+                class: "ga-panel-badge ga-tag",
+                text: "detached",
+                title: "The highlighted text no longer exists on the page",
+              })
+            : null,
+          t.resolved
+            ? GA.el(
+                "button",
+                {
+                  class: "ga-iconbtn",
+                  title: "Reopen",
+                  "aria-label": "Reopen thread",
+                  onclick: function (e) {
+                    e.stopPropagation();
+                    const it = GA.gutter.get(t.id);
+                    // reopen through the box so state/highlight stay in sync
+                    if (it && it.box.setResolved) it.box.setResolved(false);
+                    renderList();
+                  },
+                },
+                GA.icons.make("reopen"),
+              )
+            : null,
+          GA.el("span", { class: "ga-panel-jump" }, GA.icons.make("jump")),
+        ]),
+      ],
+    );
+    row.addEventListener("click", () => goToThread(t));
+    row.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        goToThread(t);
+      }
+    });
+    return row;
+  }
+
+  function renderList() {
+    view.body.textContent = "";
+    const inTab = GA.threadController.threads().filter((t) => {
+      if (filter === "open") return !t.resolved;
+      if (filter === "resolved") return !!t.resolved;
+      return true;
+    });
+    const threads = inTab.filter((t) => GA.core.threadSearch.matches(t, view.query));
+    if (view.query) {
+      view.count.textContent = threads.length + " of " + inTab.length;
+      view.count.classList.add("ga-panel-count-on");
+    } else {
+      view.count.textContent = "";
+      view.count.classList.remove("ga-panel-count-on");
+    }
+    if (!threads.length) {
+      view.body.appendChild(
+        GA.el("div", {
+          class: "ga-modal-empty",
+          text: view.query ? "No threads match your search." : "No threads here.",
+        }),
+      );
+      return;
+    }
+    threads.forEach((t) => view.body.appendChild(renderRow(t)));
+  }
+
+  function clearQuery() {
+    view.query = "";
+    view.searchInput.value = "";
+    view.clearBtn.classList.remove("ga-panel-search-clear-on");
+    renderList();
+  }
+
+  function buildTabs() {
+    const tabs = GA.el("div", { class: "ga-panel-tabs" });
+    [
+      ["open", "Open"],
+      ["resolved", "Resolved"],
+      ["all", "All"],
+    ].forEach(([key, label]) => {
+      tabs.appendChild(
+        GA.el("button", {
+          class: "ga-panel-tab" + (filter === key ? " ga-panel-tab-on" : ""),
+          text: label,
+          "aria-pressed": filter === key ? "true" : "false",
+          onclick: function () {
+            filter = key;
+            renderList();
+            Array.from(tabs.children).forEach((b) => {
+              const on = b.textContent === label;
+              b.classList.toggle("ga-panel-tab-on", on);
+              b.setAttribute("aria-pressed", on ? "true" : "false");
+            });
+          },
+        }),
+      );
+    });
+    return tabs;
+  }
+
+  function buildSearch() {
+    view.searchInput = GA.el("input", {
+      class: "ga-panel-search-input",
+      type: "text",
+      placeholder: "Search threads…",
+      "aria-label": "Search threads by highlight or message text",
+      oninput: function () {
+        view.query = this.value.trim();
+        view.clearBtn.classList.toggle("ga-panel-search-clear-on", !!this.value);
+        renderList();
+      },
+    });
+    view.clearBtn = GA.el(
+      "button",
+      {
+        class: "ga-iconbtn ga-panel-search-clear",
+        type: "button",
+        title: "Clear search",
+        "aria-label": "Clear search",
+        onclick: function () {
+          clearQuery();
+          view.searchInput.focus();
+        },
+      },
+      GA.icons.make("close"),
+    );
+    view.count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
+    return GA.el("div", { class: "ga-panel-search" }, [
+      view.searchInput,
+      view.clearBtn,
+      view.count,
+    ]);
+  }
+
+  // Coordinated header order (T-006 gear, T-012 export): closeBtn stays last
+  // — it takes the dialog's initial focus.
+  function buildHeader() {
     const title = GA.el("div", { class: "ga-modal-title", text: "Comment threads" });
     const closeBtn = GA.el(
       "button",
@@ -219,212 +295,53 @@ GA.panel = (function () {
       },
       GA.icons.make("download"),
     );
-    const tabs = GA.el("div", { class: "ga-panel-tabs" });
-    [
-      ["open", "Open"],
-      ["resolved", "Resolved"],
-      ["all", "All"],
-    ].forEach(([key, label]) => {
-      tabs.appendChild(
-        GA.el("button", {
-          class: "ga-panel-tab" + (filter === key ? " ga-panel-tab-on" : ""),
-          text: label,
-          "aria-pressed": filter === key ? "true" : "false",
-          onclick: function () {
-            filter = key;
-            renderList();
-            Array.from(tabs.children).forEach((b) => {
-              const on = b.textContent === label;
-              b.classList.toggle("ga-panel-tab-on", on);
-              b.setAttribute("aria-pressed", on ? "true" : "false");
-            });
-          },
-        }),
-      );
-    });
-    const searchInput = GA.el("input", {
-      class: "ga-panel-search-input",
-      type: "text",
-      placeholder: "Search threads…",
-      "aria-label": "Search threads by highlight or message text",
-      oninput: function () {
-        query = this.value.trim();
-        clearBtn.classList.toggle("ga-panel-search-clear-on", !!this.value);
-        renderList();
-      },
-    });
-    const clearBtn = GA.el(
-      "button",
-      {
-        class: "ga-iconbtn ga-panel-search-clear",
-        type: "button",
-        title: "Clear search",
-        "aria-label": "Clear search",
-        onclick: function () {
-          clearQuery();
-          searchInput.focus();
-        },
-      },
-      GA.icons.make("close"),
-    );
-    const count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
-    const search = GA.el("div", { class: "ga-panel-search" }, [searchInput, clearBtn, count]);
-
-    function clearQuery() {
-      query = "";
-      searchInput.value = "";
-      clearBtn.classList.remove("ga-panel-search-clear-on");
-      renderList();
-    }
-
-    // Coordinated header order (T-006 gear, T-012 export): closeBtn stays last
-    // — it takes the initial focus below.
     const header = GA.el("div", { class: "ga-modal-header" }, [
       title,
-      tabs,
-      search,
+      buildTabs(),
+      buildSearch(),
       exportBtn,
       gearBtn,
       closeBtn,
     ]);
-    const body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
-
-    function renderList() {
-      body.textContent = "";
-      const inTab = GA.threadController.threads().filter((t) => {
-        if (filter === "open") return !t.resolved;
-        if (filter === "resolved") return !!t.resolved;
-        return true;
-      });
-      const threads = inTab.filter((t) => GA.core.threadSearch.matches(t, query));
-      if (query) {
-        count.textContent = threads.length + " of " + inTab.length;
-        count.classList.add("ga-panel-count-on");
-      } else {
-        count.textContent = "";
-        count.classList.remove("ga-panel-count-on");
-      }
-      if (!threads.length) {
-        body.appendChild(
-          GA.el("div", {
-            class: "ga-modal-empty",
-            text: query ? "No threads match your search." : "No threads here.",
-          }),
-        );
-        return;
-      }
-      threads.forEach((t) => {
-        const anchored = !!GA.selection.anchorEl(t.id);
-        const row = GA.el(
-          "div",
-          {
-            class: "ga-panel-row" + (t.resolved ? " ga-panel-row-resolved" : ""),
-            role: "button",
-            tabindex: "0",
-            "aria-label": "Thread: " + (t.selector && t.selector.exact),
-          },
-          [
-            GA.el("div", { class: "ga-panel-row-main" }, [
-              GA.el("div", {
-                class: "ga-panel-snippet",
-                text: GA.truncate(t.selector && t.selector.exact, 70),
-              }),
-              GA.el("div", {
-                class: "ga-panel-question",
-                text: GA.truncate(firstQuestion(t), 90) || "No messages yet.",
-              }),
-            ]),
-            GA.el("div", { class: "ga-panel-row-meta" }, [
-              !anchored && !t.resolved
-                ? GA.el("span", {
-                    class: "ga-panel-badge ga-tag",
-                    text: "detached",
-                    title: "The highlighted text no longer exists on the page",
-                  })
-                : null,
-              t.resolved
-                ? GA.el(
-                    "button",
-                    {
-                      class: "ga-iconbtn",
-                      title: "Reopen",
-                      "aria-label": "Reopen thread",
-                      onclick: function (e) {
-                        e.stopPropagation();
-                        const it = GA.gutter.get(t.id);
-                        // reopen through the box so state/highlight stay in sync
-                        if (it && it.box.setResolved) it.box.setResolved(false);
-                        renderList();
-                      },
-                    },
-                    GA.icons.make("reopen"),
-                  )
-                : null,
-              GA.el("span", { class: "ga-panel-jump" }, GA.icons.make("jump")),
-            ]),
-          ],
-        );
-        function go() {
-          close();
-          const anchor = GA.selection.anchorEl(t.id);
-          if (anchor && GA.gutter.mode() !== "hidden") {
-            anchor.scrollIntoView({ block: "center", behavior: "smooth" });
-            GA.gutter.setActive(t.id);
-          } else {
-            GA.threadController.expandThreadById(t.id);
-          }
-        }
-        row.addEventListener("click", go);
-        row.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            go();
-          }
-        });
-        body.appendChild(row);
-      });
-    }
-    renderList();
-
-    const panelEl = GA.el("div", { class: "ga-modal ga-panel" }, [header, body]);
-    overlay.appendChild(panelEl);
-    overlay.addEventListener("mousedown", function (e) {
-      if (e.target === overlay) close();
-    });
-    activeSearch = { input: searchInput, clear: clearQuery };
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    closeBtn.focus();
+    return { header: header, closeBtn: closeBtn };
   }
 
-  function onKey(e) {
-    if (e.key !== "Escape") return;
-    // Escape inside a non-empty search box clears the query and keeps the panel
-    // open; otherwise it closes the panel. This decision must live here because
-    // onKey is a capture-phase listener that fires before the input's handlers.
-    if (
-      activeSearch &&
-      document.activeElement === activeSearch.input &&
-      activeSearch.input.value.trim()
-    ) {
-      e.stopPropagation();
-      activeSearch.clear();
-      return;
-    }
-    e.stopPropagation();
+  function open() {
     close();
+    view = { query: "", body: null, count: null, searchInput: null, clearBtn: null };
+    const built = buildHeader();
+    view.body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
+    renderList();
+
+    const panelEl = GA.el("div", { class: "ga-modal ga-panel" }, [built.header, view.body]);
+    dlg = GA.dialog.open({
+      label: "All comment threads",
+      content: panelEl,
+      initialFocus: built.closeBtn,
+      // Escape inside a non-empty search box clears the query and keeps the
+      // panel open; otherwise the dialog closes as usual. The veto must live
+      // here (GA.dialog's keydown is capture-phase) so it fires before the
+      // input's own handlers.
+      onEscape: function () {
+        if (document.activeElement === view.searchInput && view.searchInput.value.trim()) {
+          clearQuery();
+          return true; // vetoed — keep the panel open
+        }
+        return false;
+      },
+      onClose: function () {
+        dlg = null;
+        view = null;
+      },
+    });
   }
 
   function close() {
-    if (!overlay) return;
-    overlay.remove();
-    overlay = null;
-    activeSearch = null;
-    document.removeEventListener("keydown", onKey, true);
+    if (dlg) dlg.close();
   }
 
   function toggle() {
-    if (overlay) close();
+    if (dlg) close();
     else open();
   }
 

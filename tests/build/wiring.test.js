@@ -103,6 +103,41 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     );
   });
 
+  it("refactor-wave modules sit at their pinned positions in both content-script lists", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    // convo-merge (pure merge policy) loads right after the turn identity it keys by.
+    expect(fxJs.indexOf("src/core/convo-merge.js")).toBe(fxJs.indexOf("src/core/turn-id.js") + 1);
+    // convo-repair (sole decompress site) loads right after the store it reads/heals.
+    expect(fxJs.indexOf("src/content/convo-repair.js")).toBe(
+      fxJs.indexOf("src/content/store.js") + 1,
+    );
+    // stream-view then dialog follow thread-turn, ahead of the surfaces built on them.
+    expect(fxJs.indexOf("src/content/stream-view.js")).toBe(
+      fxJs.indexOf("src/content/thread-turn.js") + 1,
+    );
+    expect(fxJs.indexOf("src/content/dialog.js")).toBe(
+      fxJs.indexOf("src/content/stream-view.js") + 1,
+    );
+    // the shared composer must load before the thread box that now builds on it.
+    expect(fxJs.indexOf("src/content/composer.js")).toBe(
+      fxJs.indexOf("src/content/undo-stack.js") + 1,
+    );
+    expect(fxJs.indexOf("src/content/composer.js")).toBeLessThan(
+      fxJs.indexOf("src/content/thread-ui.js"),
+    );
+    expect(crJs).toEqual(fxJs);
+    for (const rel of [
+      "src/core/convo-merge.js",
+      "src/content/convo-repair.js",
+      "src/content/stream-view.js",
+      "src/content/dialog.js",
+    ]) {
+      expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
+    }
+  });
+
   it("release metadata stays in lockstep across both manifests and package.json", () => {
     // The version is hand-copied in three places and has drifted once before
     // (a release went out as 0.3.0 instead of 0.2.2). CI's package job also

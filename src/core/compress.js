@@ -3,7 +3,8 @@
 // inverts it. Built on the platform's native CompressionStream /
 // DecompressionStream ("gzip") — no bundled deflate. This helper never touches
 // storage; the store layer (store.js) carries blobs as opaque strings and the
-// SOLE decompress site is the export path. Blobs live in a record's `blobs`
+// SOLE decompress site is convo-repair.js's loadDecoded. Blobs live in a
+// record's `blobs`
 // map keyed by fp.hash + ":" + fp.len (both fingerprint parts — hash alone
 // could collide and render the wrong text under a turn).
 var GA = (typeof GA !== "undefined" && GA) || {};

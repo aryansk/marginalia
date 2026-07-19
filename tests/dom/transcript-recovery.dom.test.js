@@ -46,6 +46,7 @@ const FILES = [
   "src/core/markdown-ast.js",
   "src/core/thread-search.js",
   "src/core/turn-id.js",
+  "src/core/convo-merge.js",
   "src/core/backup.js",
   "src/core/compress.js",
   "src/core/transcript.js",
@@ -53,6 +54,8 @@ const FILES = [
   "src/content/convo-capture.js",
   "src/content/util.js",
   "src/content/icons.js",
+  "src/content/dialog.js",
+  "src/content/convo-repair.js",
   "src/content/panel.js",
 ];
 

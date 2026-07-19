@@ -27,6 +27,8 @@ function makeGA({ session = "gemini:abc", record = null, threads = [] } = {}) {
       "src/core/transcript.js",
       "src/content/util.js",
       "src/content/icons.js",
+      "src/content/dialog.js",
+      "src/content/convo-repair.js",
       "src/content/panel.js",
     ],
     { browser: fakeBrowser() },

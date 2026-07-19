@@ -9,13 +9,17 @@
 // (fp.hash + ":" + fp.len — both fingerprint parts, always) already exists in
 // the record is never re-compressed, and nothing here ever DECOMPRESSES — the
 // capture path reads only the plaintext index and the blob keys. The sole
-// decompress site is the export path.
+// decompress site is convo-repair.js's loadDecoded.
 //
 // Turn discovery is pure reuse of GA.turns (findTurns/textOf) — this module
 // does no scraping of its own. Fingerprints are computed from the exact text
 // being captured (same fingerprint function turns.js uses) rather than read
 // from turns.js's element cache: that cache is invalidated asynchronously, and
 // a blob key must never disagree with the text stored under it.
+//
+// The merge POLICY (keys, shape guard, stale-partial upgrade, and the
+// provability rules that license a merge) lives in core/convo-merge.js — this
+// module only wires it to the live page and the store.
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.convoCapture = (function () {
@@ -24,22 +28,11 @@ GA.convoCapture = (function () {
   }
 
   function blobKey(t) {
-    return t.fp.hash + ":" + t.fp.len;
+    return GA.core.convoMerge.blobKey(t);
   }
 
-  // Same identity the interleave keys entries by (role:hash:len). Used to test
-  // whether a snapshot overlaps the stored index at all.
   function turnKey(t) {
-    return t.role + ":" + t.fp.hash + ":" + t.fp.len;
-  }
-
-  // An index entry must be fully formed before it may reach the merge:
-  // mergeTurnLists deliberately carries no shape guard, so a malformed entry
-  // would throw there — and since the stored record is merged on EVERY
-  // capture, one poisoned entry (e.g. from an imported archive) would wedge
-  // capture for that conversation forever. Applied to both sides of the merge.
-  function wellFormed(t) {
-    return !!(t && t.role && t.fp && typeof t.fp.hash === "number" && typeof t.fp.len === "number");
+    return GA.core.convoMerge.turnKey(t);
   }
 
   // A live turn is capturable once it has a role and some real (normalized)
@@ -47,7 +40,7 @@ GA.convoCapture = (function () {
   // skipped along with empty ones — but a turn whose whole text is "0" isn't.
   // Skipping degrades to "captured on a later pass", never to a bad index.
   function valid(t) {
-    return wellFormed(t) && typeof t.text === "string" && t.fp.len > 0;
+    return GA.core.convoMerge.wellFormed(t) && typeof t.text === "string" && t.fp.len > 0;
   }
 
   // snapshot() -> [{role, text, fp, head, order}] for every capturable turn
@@ -74,45 +67,6 @@ GA.convoCapture = (function () {
       });
   }
 
-  // Stale-partial upgrade. A turn indexed while it was still streaming (or
-  // before late hydration) carries a fingerprint that will NEVER appear in the
-  // DOM again, so without this pass neither anchoring condition below can ever
-  // hold again: the index wedges forever at that first window while blobs keep
-  // banking unindexed — the "export only contains the annotated turns" bug.
-  //
-  // A stored entry is a stale partial of a live turn when: same role, the live
-  // turn is strictly LONGER, and the stored head is a prefix of the live head —
-  // the signature of growth, and the same evidence the renderer's prefix-dedupe
-  // (F3) already trusts to collapse partial+full pairs. The entry is upgraded
-  // in place to the live identity. Matching is one-to-one, skips entries still
-  // mounted verbatim, and never claims a live turn that some stored entry
-  // already matches exactly (that would mint a phantom duplicate through the
-  // multiset merge). Entries with no head (legacy records) are left alone; the
-  // export path backfills their heads from the decompressed text.
-  //
-  // Returns { turns, replacedKeys }: replacedKeys are the superseded partials'
-  // blob keys, deletable once nothing in the final index references them.
-  function upgradeStale(prior, snap) {
-    const snapKeys = new Set(snap.map(turnKey));
-    const priorKeys = new Set(prior.map(turnKey));
-    const claimed = new Set();
-    const replacedKeys = [];
-    const turns = prior.map(function (s) {
-      if (typeof s.head !== "string" || !s.head) return s;
-      if (snapKeys.has(turnKey(s))) return s; // still mounted verbatim — not stale
-      for (const t of snap) {
-        if (claimed.has(t) || priorKeys.has(turnKey(t))) continue;
-        if (t.role !== s.role || t.fp.len <= s.fp.len) continue;
-        if (t.head.slice(0, s.head.length) !== s.head) continue;
-        claimed.add(t);
-        replacedKeys.push(blobKey(s));
-        return { role: s.role, fp: t.fp, order: s.order, head: t.head };
-      }
-      return s;
-    });
-    return { turns: turns, replacedKeys: replacedKeys };
-  }
-
   // One load-merge-save pass. Gated to annotated conversations (>= 1 thread)
   // with a real session id — a pre-id draft or an unannotated chat never gets
   // a convo bucket.
@@ -135,53 +89,24 @@ GA.convoCapture = (function () {
       !Array.isArray(existing.blobs)
         ? existing.blobs
         : null;
-    const prior = storedTurns.filter(wellFormed);
+    const prior = storedTurns.filter(GA.core.convoMerge.wellFormed);
     const blobs = Object.assign({}, storedBlobs); // carried as-is
     for (const t of snap) {
       const k = blobKey(t);
       if (!(k in blobs)) blobs[k] = await GA.core.compress.gzipToB64(t.text);
     }
     // Merging is licensed only when the snapshot's position against the
-    // stored index is PROVABLE — a virtualized fling can jump between
-    // disjoint windows, and a guessed merge is permanent corruption (a later
-    // bridging capture duplicates whichever side was guessed wrong). Provable
-    // means either:
-    //  (1) every stored turn is visible right now, in order (the stored index
-    //      is an ordered subsequence of the snapshot): the merge simply
-    //      re-reads the conversation — always safe; or
-    //  (2) the two sides share an ADJACENT PAIR of turns, unique on both
-    //      sides: a real window intersection. A single shared key is not
-    //      enough — a repeated identical message ("continue") looks unique
-    //      inside each of two genuinely disjoint windows.
-    // When unprovable, keep the index as-is and just bank the blobs — the
-    // next overlapping capture indexes them in order.
+    // stored index is PROVABLE (the index is an ordered subsequence of the
+    // snapshot, or the two sides share a unique adjacent pair) — see
+    // core/convo-merge.js's isMergeProvable for the full rationale. When
+    // unprovable, keep the index as-is and just bank the blobs — the next
+    // overlapping capture indexes them in order.
     //
-    // Both conditions are tested AFTER the stale-partial upgrade: a stored
+    // Provability is tested AFTER the stale-partial upgrade: a stored
     // mid-stream partial re-keyed to its completed live turn is what lets a
     // once-streaming conversation ever anchor again.
-    const up = upgradeStale(prior, snap);
-    const ka = up.turns.map(turnKey);
-    const kb = snap.map(turnKey);
-    function subsequence(a, b) {
-      let j = 0;
-      for (let i = 0; i < b.length && j < a.length; i++) if (b[i] === a[j]) j++;
-      return j === a.length;
-    }
-    function pairCounts(keys) {
-      const m = new Map();
-      for (let i = 0; i + 1 < keys.length; i++) {
-        const k = keys[i] + " " + keys[i + 1];
-        m.set(k, (m.get(k) || 0) + 1);
-      }
-      return m;
-    }
-    function sharedUniquePair(a, b) {
-      const pa = pairCounts(a);
-      const pb = pairCounts(b);
-      for (const [k, c] of pa) if (c === 1 && pb.get(k) === 1) return true;
-      return false;
-    }
-    const anchored = !up.turns.length || subsequence(ka, kb) || sharedUniquePair(ka, kb);
+    const up = GA.core.convoMerge.upgradeStale(prior, snap);
+    const anchored = GA.core.convoMerge.isMergeProvable(up.turns, snap);
     const turns = anchored
       ? GA.store.mergeTurns(
           up.turns,

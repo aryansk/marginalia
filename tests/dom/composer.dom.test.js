@@ -83,6 +83,24 @@ describe("GA.Composer undo", () => {
     expect(e.defaultPrevented).toBe(false);
   });
 
+  it("ariaLabel overrides the placeholder-derived label; placeholder remains the fallback", () => {
+    const GA = makeGA();
+    const labeled = GA.Composer({
+      placeholder: "Ask a follow-up about the highlighted text…",
+      ariaLabel: "Ask a follow-up about the highlighted text",
+      onSubmit: () => {},
+    });
+    expect(labeled.textarea.getAttribute("aria-label")).toBe(
+      "Ask a follow-up about the highlighted text",
+    );
+    expect(labeled.textarea.getAttribute("placeholder")).toBe(
+      "Ask a follow-up about the highlighted text…",
+    );
+
+    const fallback = GA.Composer({ placeholder: "Type here…", onSubmit: () => {} });
+    expect(fallback.textarea.getAttribute("aria-label")).toBe("Type here…");
+  });
+
   it("Enter still submits with the undo keydown listener attached", () => {
     const GA = makeGA();
     const sent = [];

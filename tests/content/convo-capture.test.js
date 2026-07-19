@@ -42,6 +42,7 @@ const FILES = [
   "src/shared/settings-schema.js",
   "src/shared/config.js",
   "src/core/turn-id.js",
+  "src/core/convo-merge.js",
   "src/core/backup.js",
   "src/core/compress.js",
   "src/content/store.js",

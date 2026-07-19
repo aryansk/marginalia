@@ -32,6 +32,9 @@ GA.threadController = (function () {
       onStop: (t) => stopAsk(t.id),
       onResize: (opts) => GA.gutter.scheduleLayout(opts),
       liveStream: (id) => liveStreams.get(id),
+      // Rail mode = narrow viewport, every box a chip; the box asks instead of
+      // sniffing the gutter's DOM classes from inside.
+      inRail: () => GA.gutter.mode() === "rail",
     };
   }
 
@@ -263,11 +266,11 @@ GA.threadController = (function () {
   function expandThread(thread) {
     const it = GA.gutter.get(thread.id);
     const wasCompact = !!(it && it.box.isCompact());
-    if (it && !wasCompact) it.box.setCollapsed(true, false);
+    if (it && !wasCompact) it.box.setCollapsed(true, { persist: false });
     GA.Modal.open(thread, makeHandlers(), function () {
       const cur = GA.gutter.get(thread.id);
       if (cur) {
-        if (!wasCompact) cur.box.setCollapsed(false, false);
+        if (!wasCompact) cur.box.setCollapsed(false, { persist: false });
         if (cur.box.refreshMessages) cur.box.refreshMessages();
       }
       GA.gutter.scheduleLayout();

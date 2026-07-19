@@ -1,13 +1,13 @@
 // modal.js — full-screen view of a single thread's conversation, with its own
-// composer: you can keep asking follow-ups from the maximized view. Accessible
-// dialog: focus is trapped inside, Esc closes, and focus returns to whatever
-// opened it. The docked box is refreshed by the controller's onClosed callback.
+// composer: you can keep asking follow-ups from the maximized view. The dialog
+// lifecycle (overlay, focus trap, Esc, opener-focus restore) is the shared
+// GA.dialog; this module keeps the modal-specific parts: header/body assembly,
+// the edge drag-resize with session width memory, and the live-stream
+// late-join. The docked box is refreshed by the controller's onClosed callback.
 var GA = GA || {};
 
 GA.Modal = (function () {
-  let overlay = null;
-  let opener = null;
-  let onClosedCb = null;
+  let dlg = null; // current dialog handle — module close() targets it
   let sessionWidth = 0; // drag-resized width, remembered for this page session
   let endDrag = null; // active drag teardown (also run on close)
   let detachFeed = null; // live-stream unsubscribe (open-mid-stream case)
@@ -16,17 +16,8 @@ GA.Modal = (function () {
   // composer is omitted when absent (read-only legacy behavior).
   function open(thread, handlers, onClosed) {
     close();
-    onClosedCb = onClosed || null;
-    opener = document.activeElement;
 
     const snippet = GA.truncate(thread.selector && thread.selector.exact, 120);
-    overlay = GA.el("div", {
-      class: "ga-modal-overlay",
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": "Comment thread: " + snippet,
-    });
-
     const title = GA.el("div", {
       class: "ga-modal-title",
       text: snippet,
@@ -52,12 +43,9 @@ GA.Modal = (function () {
       const el = GA.el("div", { class: "ga-msg ga-msg-" + role });
       if (role === "model") {
         if (meta && meta.error) {
-          el.appendChild(
-            GA.el("div", { class: "ga-error-card" }, [
-              GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
-              GA.el("span", { class: "ga-error-text", text: text }),
-            ]),
-          );
+          // No Retry in the modal (deliberate): retrying re-runs the docked
+          // box's turn machinery, which the modal only mirrors.
+          el.appendChild(GA.errorCard(text));
         } else {
           el.appendChild(GA.markdown.render(text));
         }
@@ -74,59 +62,42 @@ GA.Modal = (function () {
 
     const parts = [header, body];
 
-    // Composer: same turn orchestration as the docked box.
+    // Assigned once GA.dialog.open returns below; the stream hooks and the
+    // late-join closure read it lazily, so "is this modal still open?" always
+    // consults THIS open's dialog, not whichever one is current. While the
+    // modal is still being assembled (myDlg not set yet) it counts as live —
+    // the live-stream late-join seeds its bubble before the dialog exists.
+    let myDlg = null;
+    const isLive = () => !myDlg || myDlg.isOpen();
+
+    // Composer: same turn orchestration as the docked box. The streaming
+    // machine is the shared GA.StreamView; the modal deliberately passes no
+    // announce/onFinish/onEnd hooks — it has no live region, unread dot or
+    // chip count, and its error cards carry no Retry.
     let composer = null;
+    let streamView = null;
     if (handlers && handlers.ask) {
-      const stream = { pending: null, frame: 0, renderer: null, lastText: null, errored: false };
-      function flush() {
-        stream.frame = 0;
-        if (stream.pending == null) return;
-        stream.lastText = stream.pending;
-        stream.pending = null;
-        if (stream.renderer && overlay && !stream.errored) {
-          stream.renderer.update(stream.lastText);
+      streamView = GA.StreamView({
+        beginEl: () => appendMsg("model", ""),
+        isLive: isLive,
+        afterUpdate: () => {
           body.scrollTop = body.scrollHeight;
-        }
-      }
-      const ops = {
-        appendUser: (text) => appendMsg("user", text),
-        beginModel: () => {
-          const el = appendMsg("model", "");
-          el.classList.add("ga-msg-streaming");
-          stream.renderer = GA.markdown.makeStreamRenderer(el);
-          stream.lastText = null;
-          stream.errored = false;
-          return el;
         },
-        renderModel: (el, text) => {
-          stream.pending = text;
-          if (!stream.frame) stream.frame = requestAnimationFrame(flush);
+        renderFinal: (el, text) => {
+          el.textContent = "";
+          el.appendChild(GA.markdown.render(text));
         },
         renderError: (el, message) => {
-          if (stream.frame) cancelAnimationFrame(stream.frame);
-          stream.frame = 0;
-          stream.pending = null;
-          stream.errored = true;
           el.textContent = "";
-          el.appendChild(
-            GA.el("div", { class: "ga-error-card" }, [
-              GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
-              GA.el("span", { class: "ga-error-text", text: message }),
-            ]),
-          );
+          el.appendChild(GA.errorCard(message));
         },
-        endModel: (el) => {
-          if (stream.frame) cancelAnimationFrame(stream.frame);
-          stream.frame = 0;
-          const finalText = stream.pending != null ? stream.pending : stream.lastText;
-          stream.pending = null;
-          stream.renderer = null;
-          if (!stream.errored && finalText != null && overlay) {
-            el.textContent = "";
-            el.appendChild(GA.markdown.render(finalText));
-          }
-          el.classList.remove("ga-msg-streaming");
-        },
+      });
+      const ops = {
+        appendUser: (text) => appendMsg("user", text),
+        beginModel: () => streamView.beginModel(),
+        renderModel: (el, text) => streamView.renderModel(el, text),
+        renderError: (el, message) => streamView.renderError(el, message),
+        endModel: (el) => streamView.endModel(el),
         setLoading: (v) => composer && composer.setLoading(v),
         ask: handlers.ask,
         persist: handlers.persist,
@@ -155,7 +126,7 @@ GA.Modal = (function () {
           // The box's threadTurn pushes the settled message (final / stopped /
           // error) only after the feed ends — defer one tick so we can read it.
           setTimeout(() => {
-            if (!overlay) return;
+            if (!isLive()) return;
             const msgs = thread.messages || [];
             const last = msgs[msgs.length - 1];
             if (last && last.role === "model" && last.error) ops.renderError(el, last.text);
@@ -170,14 +141,22 @@ GA.Modal = (function () {
 
     const panel = GA.el("div", { class: "ga-modal" }, parts);
     if (sessionWidth) panel.style.width = sessionWidth + "px";
-    attachResize(panel);
-    overlay.appendChild(panel);
-    overlay.addEventListener("mousedown", function (e) {
-      if (e.target === overlay) close();
+    myDlg = dlg = GA.dialog.open({
+      label: "Comment thread: " + snippet,
+      content: panel,
+      initialFocus: composer ? composer.textarea : closeBtn,
+      onClose: function () {
+        if (endDrag) endDrag();
+        if (detachFeed) {
+          detachFeed();
+          detachFeed = null;
+        }
+        if (streamView) streamView.cancel();
+        if (dlg === myDlg) dlg = null;
+        if (onClosed) onClosed();
+      },
     });
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    (composer ? composer.textarea : closeBtn).focus();
+    attachResize(panel, myDlg.overlay);
   }
 
   // Edge drag handles: the modal is flex-centered, so to keep the edge under
@@ -185,7 +164,7 @@ GA.Modal = (function () {
   // capture needed, and they run in jsdom. Width clamps to
   // [MODAL_MIN_PX, MODAL_MAX_FRAC * viewport]; the result is remembered for
   // the rest of the page session only.
-  function attachResize(panel) {
+  function attachResize(panel, overlay) {
     function start(side) {
       return function (e) {
         if (e.button !== 0) return;
@@ -205,7 +184,7 @@ GA.Modal = (function () {
         function up() {
           document.removeEventListener("mousemove", move);
           document.removeEventListener("mouseup", up);
-          if (overlay) overlay.classList.remove("ga-modal-resizing");
+          overlay.classList.remove("ga-modal-resizing");
           sessionWidth = parseInt(panel.style.width, 10) || sessionWidth;
           endDrag = null;
         }
@@ -223,54 +202,8 @@ GA.Modal = (function () {
     );
   }
 
-  function focusables() {
-    return overlay
-      ? Array.from(overlay.querySelectorAll("button, textarea, a[href], [tabindex]")).filter(
-          (el) => !el.disabled && el.offsetParent !== null,
-        )
-      : [];
-  }
-
-  function onKey(e) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      close();
-    } else if (e.key === "Tab" && overlay) {
-      // focus trap: Tab cycles inside the dialog
-      const f = focusables();
-      if (!f.length) return;
-      const first = f[0];
-      const last = f[f.length - 1];
-      if (
-        e.shiftKey &&
-        (document.activeElement === first || !overlay.contains(document.activeElement))
-      ) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  }
-
   function close() {
-    if (!overlay) return;
-    if (endDrag) endDrag();
-    if (detachFeed) {
-      detachFeed();
-      detachFeed = null;
-    }
-    overlay.remove();
-    overlay = null;
-    document.removeEventListener("keydown", onKey, true);
-    if (opener && opener.focus && opener.isConnected) opener.focus();
-    opener = null;
-    if (onClosedCb) {
-      const cb = onClosedCb;
-      onClosedCb = null;
-      cb();
-    }
+    if (dlg) dlg.close();
   }
 
   return { open, close };

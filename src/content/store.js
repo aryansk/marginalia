@@ -187,7 +187,8 @@ GA.store = (function () {
   //   turns:[{role, fp:{hash,len}, order}], blobs:{ "<hash>:<len>": <gzip+b64> } }.
   // The store carries records verbatim: blobs are opaque already-compressed
   // strings here — loadConvo NEVER decompresses and saveConvo NEVER compresses
-  // (GA.core.compress owns the codec; the sole decompress site is the export).
+  // (GA.core.compress owns the codec; the sole decompress site is
+  // convo-repair.js's loadDecoded).
   // Blob keys use BOTH fingerprint parts (fp.hash + ":" + fp.len) so a hash
   // collision can't render the wrong text under a turn.
   const CONVO = GA.schema.CONVO_PREFIX;

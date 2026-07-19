@@ -15,6 +15,7 @@ function makeGA(threads) {
     "src/core/thread-search.js",
     "src/content/util.js",
     "src/content/icons.js",
+    "src/content/dialog.js",
     "src/content/panel.js",
   ]);
   GA.threadController = {

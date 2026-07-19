@@ -7,7 +7,9 @@ var GA = GA || {};
 
 // handlers: { ask(thread,{onChunk})->Promise<string>, persist(thread),
 //             onDelete(thread), onFocus(thread), onExpand(thread),
-//             onStop(thread), onResize() }
+//             onStop(thread), onResize(), inRail()->bool }
+// inRail: is the gutter in its narrow-viewport rail mode (every box a chip)?
+// Injected so the box never sniffs its ancestors for gutter classes.
 GA.ThreadBox = function (thread, handlers) {
   const state = {
     loading: false,
@@ -17,16 +19,33 @@ GA.ThreadBox = function (thread, handlers) {
     destroyed: false,
   };
 
-  // Streamed re-renders are coalesced to one per animation frame (a fast stream
-  // otherwise flickers) and applied incrementally — only the changed markdown
-  // blocks are rebuilt (markdown.makeStreamRenderer). Box-scoped so destroy()
-  // can cancel a pending frame.
-  const stream = { pending: null, frame: 0, renderer: null, lastText: null, errored: false };
-
   // Message element -> its markdown body / raw text (for copy) — kept out of
   // the DOM (no expando properties).
   const bodyOf = new WeakMap();
   const textOf = new WeakMap();
+
+  // Streaming machine (rAF coalescing, incremental markdown, final rebuild):
+  // shared with the modal via GA.StreamView. Box-scoped so destroy() can
+  // cancel a pending frame. Hooks reference function declarations below —
+  // safe, they only run once a turn is in flight.
+  const streamView = GA.StreamView({
+    beginEl: () => appendMessage("model", ""),
+    targetOf: (el) => bodyOf.get(el) || el,
+    isLive: () => !state.destroyed,
+    afterUpdate: () => {
+      invalidateHeight();
+      scrollToBottom();
+    },
+    renderFinal: (el, text) => renderModelInto(el, text),
+    renderError: (el, message) => renderErrorInto(el, message),
+    onFinish: (el) => {
+      addCopyAction(el);
+      // A reply landing in an unfocused/minimized thread gets an unread dot.
+      if (!state.destroyed && (state.collapsed || !state.active)) setUnread(true);
+    },
+    onEnd: () => updateChipCount(),
+    announce: (text) => announce(text),
+  });
 
   // naturalHeight() is read every relayout for every box; measuring live forces
   // a reflow per box. Cache it and invalidate only when this box's content
@@ -140,7 +159,7 @@ GA.ThreadBox = function (thread, handlers) {
   // in place, so the click opens the modal instead.
   header.addEventListener("click", function (e) {
     if (e.target.closest(".ga-iconbtn")) return;
-    if (root.closest(".ga-gutter.ga-rail")) {
+    if (handlers.inRail && handlers.inRail()) {
       handlers.onExpand && handlers.onExpand(thread);
       return;
     }
@@ -162,34 +181,24 @@ GA.ThreadBox = function (thread, handlers) {
       messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < STICK_SLACK_PX;
   });
 
-  // ---- composer ----
-  const textarea = GA.el("textarea", {
-    class: "ga-input",
-    rows: "1",
+  // ---- composer (shared GA.Composer: Enter-to-send, Ask↔Stop swap, local
+  // undo with clear-on-send snapshot) ----
+  const composer = GA.Composer({
     placeholder: "Ask a follow-up about the highlighted text…",
-    "aria-label": "Ask a follow-up about the highlighted text",
-  });
-  textarea.addEventListener("input", autosize);
-  textarea.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
-  });
-  // Composer-local undo: restore text lost to a select-all-delete or the
-  // clear-on-send in submit(); re-fit the box after any restore.
-  const undo = GA.attachComposerUndo(textarea, { onRestore: autosize });
-  // One button, two jobs: Ask normally; Stop while a reply is streaming.
-  const sendBtn = GA.el("button", {
-    class: "ga-send",
-    text: "Ask",
-    "aria-label": "Send question",
-    onclick: function () {
-      if (state.loading) handlers.onStop && handlers.onStop(thread);
-      else submit();
+    ariaLabel: "Ask a follow-up about the highlighted text",
+    onSubmit: submit,
+    onStop: () => handlers.onStop && handlers.onStop(thread),
+    onResize: () => {
+      if (state.destroyed) return;
+      // Relayout measures every box — GA.Composer only fires this when the
+      // textarea height actually changed.
+      invalidateHeight();
+      handlers.onResize && handlers.onResize();
     },
   });
-  const composer = GA.el("div", { class: "ga-composer" }, [textarea, sendBtn]);
+  // The raw textarea keeps a local name: the Del/Backspace-to-delete guard and
+  // focusInput() below key off it.
+  const textarea = composer.textarea;
 
   // ---- resolved footer (replaces the composer while resolved) ----
   const reopenBar = GA.el("div", { class: "ga-reopen-bar" }, [
@@ -235,7 +244,7 @@ GA.ThreadBox = function (thread, handlers) {
   root.appendChild(liveRegion);
   root.appendChild(header);
   root.appendChild(messagesEl);
-  root.appendChild(composer);
+  root.appendChild(composer.el);
   root.appendChild(reopenBar);
   root.appendChild(confirmEl);
 
@@ -264,21 +273,9 @@ GA.ThreadBox = function (thread, handlers) {
   updateChipCount();
 
   // restore persisted view state (don't persist — nothing changed)
-  if (thread.collapsed) setCollapsed(true, false);
-  if (thread.resolved) setResolved(true, false);
-  if (thread.unread) setUnread(true, false);
-
-  function autosize() {
-    if (state.destroyed) return;
-    const prev = textarea.style.height;
-    const next = GA.fitTextarea(textarea);
-    textarea.style.height = next;
-    // Relayout measures every box — only ask for one when the height changed.
-    if (next !== prev) {
-      invalidateHeight();
-      handlers.onResize && handlers.onResize();
-    }
-  }
+  if (thread.collapsed) setCollapsed(true, { persist: false });
+  if (thread.resolved) setResolved(true, { persist: false });
+  if (thread.unread) setUnread(true, { persist: false });
 
   function updateChipCount() {
     const n = (thread.messages || []).length;
@@ -322,30 +319,12 @@ GA.ThreadBox = function (thread, handlers) {
   }
 
   // Failure card: message + Retry (the question stays in the thread, so retry
-  // never means retyping).
+  // never means retyping). Card DOM comes from the shared GA.errorCard.
   function renderErrorInto(el, message) {
     if (state.destroyed) return;
     const body = bodyOf.get(el) || el;
     body.textContent = "";
-    const retryBtn = GA.el(
-      "button",
-      {
-        class: "ga-retry-btn",
-        "aria-label": "Retry question",
-        onclick: function (e) {
-          e.stopPropagation();
-          retryTurn(el);
-        },
-      },
-      [GA.icons.make("retry"), "Retry"],
-    );
-    body.appendChild(
-      GA.el("div", { class: "ga-error-card" }, [
-        GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
-        GA.el("span", { class: "ga-error-text", text: message }),
-        retryBtn,
-      ]),
-    );
+    body.appendChild(GA.errorCard(message, { onRetry: () => retryTurn(el) }));
     invalidateHeight();
     scrollToBottom();
   }
@@ -380,32 +359,26 @@ GA.ThreadBox = function (thread, handlers) {
     if (state.destroyed) return;
     state.loading = v;
     root.classList.toggle("ga-loading", v);
-    textarea.disabled = v;
-    // While streaming the send button becomes Stop (never disabled).
-    sendBtn.classList.toggle("ga-stop", v);
-    sendBtn.textContent = "";
-    if (v) {
-      sendBtn.appendChild(GA.icons.make("stop"));
-      sendBtn.appendChild(document.createTextNode("Stop"));
-      sendBtn.setAttribute("aria-label", "Stop generating");
-    } else {
-      sendBtn.appendChild(document.createTextNode("Ask"));
-      sendBtn.setAttribute("aria-label", "Send question");
-    }
+    // Input disabling and the Ask↔Stop button swap live in GA.Composer.
+    composer.setLoading(v);
   }
 
-  function setUnread(v, persist) {
+  // The view-state setters below share one options shape: { persist = true }.
+  // Pass { persist: false } when mirroring already-stored state (initial
+  // restore, the controller's transient modal minimize) so nothing writes back
+  // unchanged.
+  function setUnread(v, { persist = true } = {}) {
     const on = !!v;
-    if (!!thread.unread === on && persist !== false) return;
+    if (!!thread.unread === on && persist) return;
     thread.unread = on;
     root.classList.toggle("ga-unread", on);
-    if (persist !== false) handlers.persist && handlers.persist(thread);
+    if (persist) handlers.persist && handlers.persist(thread);
   }
 
   // Minimized = a compact chip (icon-ish pill with snippet + count); the box
-  // restores on click. `persist` is optional so the initial restore doesn't
-  // write back unchanged.
-  function setCollapsed(v, persist) {
+  // restores on click.
+  function setCollapsed(v, opts) {
+    const { persist = true } = opts || {};
     state.collapsed = !!v;
     root.classList.toggle("ga-collapsed", state.collapsed);
     GA.icons.swap(minimizeBtn, state.collapsed ? "restore" : "minimize");
@@ -413,16 +386,16 @@ GA.ThreadBox = function (thread, handlers) {
     minimizeBtn.setAttribute("aria-label", state.collapsed ? "Restore thread" : "Minimize thread");
     minimizeBtn.setAttribute("aria-pressed", state.collapsed ? "true" : "false");
     thread.collapsed = state.collapsed;
-    if (!state.collapsed) setUnread(false, persist);
+    if (!state.collapsed) setUnread(false, opts);
     invalidateHeight();
-    if (persist !== false) handlers.persist && handlers.persist(thread);
+    if (persist) handlers.persist && handlers.persist(thread);
     // A collapse/restore is a discrete jump — worth easing the reflow.
     handlers.onResize && handlers.onResize({ animate: true });
   }
 
   // Resolved = archived-but-restorable: collapses to a muted chip, fades the
   // highlight, swaps the composer for a Reopen bar. Distinct from delete.
-  function setResolved(v, persist) {
+  function setResolved(v, opts) {
     state.resolved = !!v;
     root.classList.toggle("ga-resolved", state.resolved);
     thread.resolved = state.resolved;
@@ -433,7 +406,7 @@ GA.ThreadBox = function (thread, handlers) {
       state.resolved ? "resolved" : state.active ? "active" : null,
     );
     // Resolving tucks the thread away; reopening brings it back expanded.
-    setCollapsed(state.resolved, persist);
+    setCollapsed(state.resolved, opts);
   }
 
   function askDelete() {
@@ -445,78 +418,22 @@ GA.ThreadBox = function (thread, handlers) {
 
   // ---- turn wiring (orchestration lives in thread-turn.js) ----
 
-  function flush() {
-    stream.frame = 0;
-    if (stream.pending == null) return;
-    stream.lastText = stream.pending;
-    stream.pending = null;
-    if (stream.renderer && !state.destroyed && !stream.errored) {
-      stream.renderer.update(stream.lastText);
-      invalidateHeight();
-      scrollToBottom();
-    }
-  }
-
   function makeTurnOps() {
     return {
       appendUser: (text) => appendMessage("user", text),
-      beginModel: () => {
-        const el = appendMessage("model", "");
-        el.classList.add("ga-msg-streaming");
-        el.setAttribute("aria-busy", "true");
-        stream.renderer = GA.markdown.makeStreamRenderer(bodyOf.get(el) || el);
-        stream.lastText = null;
-        stream.errored = false;
-        announce("Reply started");
-        return el;
-      },
-      renderModel: (el, text) => {
-        stream.pending = text;
-        if (!stream.frame) stream.frame = requestAnimationFrame(flush);
-      },
-      renderError: (el, message) => {
-        if (stream.frame) cancelAnimationFrame(stream.frame);
-        stream.frame = 0;
-        stream.pending = null;
-        stream.errored = true;
-        renderErrorInto(el, message);
-        announce("Reply failed: " + message);
-      },
-      endModel: (el) => {
-        if (stream.frame) cancelAnimationFrame(stream.frame);
-        stream.frame = 0;
-        const finalText = stream.pending != null ? stream.pending : stream.lastText;
-        stream.pending = null;
-        stream.renderer = null;
-        // One clean full rebuild so the displayed result is exactly the
-        // one-shot render of the final text (skipped when an error card took
-        // over the message).
-        if (!stream.errored) {
-          if (finalText != null) renderModelInto(el, finalText);
-          if (finalText) {
-            addCopyAction(el);
-            announce("Reply finished");
-          }
-        }
-        el.classList.remove("ga-msg-streaming");
-        el.removeAttribute("aria-busy");
-        updateChipCount();
-        // A reply landing in an unfocused/minimized thread gets an unread dot.
-        if (!state.destroyed && !stream.errored && finalText && (state.collapsed || !state.active))
-          setUnread(true);
-      },
+      beginModel: () => streamView.beginModel(),
+      renderModel: (el, text) => streamView.renderModel(el, text),
+      renderError: (el, message) => streamView.renderError(el, message),
+      endModel: (el) => streamView.endModel(el),
       setLoading: setLoading,
       ask: handlers.ask,
       persist: handlers.persist,
     };
   }
 
-  function submit() {
-    const q = textarea.value.trim();
-    if (!q || state.loading) return;
-    undo.snapshot(); // remember the sent text so focus + Ctrl+Z brings it back
-    textarea.value = "";
-    autosize();
+  // GA.Composer already trimmed the text, gated on loading, snapshotted the
+  // undo stack and cleared the box — only the turn itself lives here.
+  function submit(q) {
     GA.threadTurn
       .run(thread, q, makeTurnOps())
       .then(() => !state.destroyed && handlers.onResize && handlers.onResize());
@@ -550,8 +467,8 @@ GA.ThreadBox = function (thread, handlers) {
     isCompact() {
       return state.collapsed;
     },
-    setCollapsed(v, persist) {
-      setCollapsed(v, persist);
+    setCollapsed(v, opts) {
+      setCollapsed(v, opts);
     },
     setResolved(v) {
       setResolved(v);
@@ -597,12 +514,7 @@ GA.ThreadBox = function (thread, handlers) {
     },
     destroy() {
       state.destroyed = true;
-      if (stream.frame) {
-        cancelAnimationFrame(stream.frame);
-        stream.frame = 0;
-      }
-      stream.pending = null;
-      stream.renderer = null;
+      streamView.cancel();
       root.remove();
     },
   };

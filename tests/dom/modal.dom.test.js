@@ -16,6 +16,8 @@ function makeGA() {
       "src/content/icons.js",
       "src/content/markdown.js",
       "src/content/thread-turn.js",
+      "src/content/stream-view.js",
+      "src/content/dialog.js",
       "src/content/undo-stack.js",
       "src/content/composer.js",
       "src/content/modal.js",
