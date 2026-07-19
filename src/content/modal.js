@@ -40,7 +40,7 @@ GA.Modal = (function () {
         "aria-label": "Close",
         onclick: close,
       },
-      GA.icons.make("close")
+      GA.icons.make("close"),
     );
     const header = GA.el("div", { class: "ga-modal-header" }, [title, closeBtn]);
 
@@ -56,7 +56,7 @@ GA.Modal = (function () {
             GA.el("div", { class: "ga-error-card" }, [
               GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
               GA.el("span", { class: "ga-error-text", text: text }),
-            ])
+            ]),
           );
         } else {
           el.appendChild(GA.markdown.render(text));
@@ -112,7 +112,7 @@ GA.Modal = (function () {
             GA.el("div", { class: "ga-error-card" }, [
               GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
               GA.el("span", { class: "ga-error-text", text: message }),
-            ])
+            ]),
           );
         },
         endModel: (el) => {
@@ -198,7 +198,7 @@ GA.Modal = (function () {
           const dx = ev.clientX - startX;
           const w = Math.max(
             GA.config.MODAL_MIN_PX,
-            Math.min(max, Math.round(startW + side * 2 * dx))
+            Math.min(max, Math.round(startW + side * 2 * dx)),
           );
           panel.style.width = w + "px";
         }
@@ -216,17 +216,17 @@ GA.Modal = (function () {
       };
     }
     panel.appendChild(
-      GA.el("div", { class: "ga-modal-resize ga-modal-resize-left", onmousedown: start(-1) })
+      GA.el("div", { class: "ga-modal-resize ga-modal-resize-left", onmousedown: start(-1) }),
     );
     panel.appendChild(
-      GA.el("div", { class: "ga-modal-resize ga-modal-resize-right", onmousedown: start(1) })
+      GA.el("div", { class: "ga-modal-resize ga-modal-resize-right", onmousedown: start(1) }),
     );
   }
 
   function focusables() {
     return overlay
       ? Array.from(overlay.querySelectorAll("button, textarea, a[href], [tabindex]")).filter(
-          (el) => !el.disabled && el.offsetParent !== null
+          (el) => !el.disabled && el.offsetParent !== null,
         )
       : [];
   }
@@ -241,7 +241,10 @@ GA.Modal = (function () {
       if (!f.length) return;
       const first = f[0];
       const last = f[f.length - 1];
-      if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+      if (
+        e.shiftKey &&
+        (document.activeElement === first || !overlay.contains(document.activeElement))
+      ) {
         e.preventDefault();
         last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {

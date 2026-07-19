@@ -1,8 +1,6 @@
 # Marginalia
 
-
 > Just here to learn how to install and use Marginalia? See [`usage instructions`](ops/using.md)
-
 
 A browser extension (**Firefox + Chrome**) that adds **Google-Docs-style margin
 comment threads** to the major AI chat sites — [Gemini](https://gemini.google.com),
@@ -67,10 +65,10 @@ Two ways, chosen per site by whether you've set an API key (in Settings):
 One source tree builds **both** browsers; everything in `src/` is shared. The only
 per-browser differences are the manifest and the background entry:
 
-| Target  | Manifest               | Background                | Icons       | Package output |
-|---------|------------------------|---------------------------|-------------|----------------|
-| Firefox | `manifest.json`        | `background.scripts`      | `icon.svg`  | `web-ext-artifacts/firefox/marginalia-<version>.zip` |
-| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/marginalia-<version>.zip` |
+| Target  | Manifest               | Background                 | Icons        | Package output                                       |
+| ------- | ---------------------- | -------------------------- | ------------ | ---------------------------------------------------- |
+| Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `web-ext-artifacts/firefox/marginalia-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `web-ext-artifacts/chrome/marginalia-<version>.zip`  |
 
 A tiny [`src/shared/browser-polyfill.js`](src/shared/browser-polyfill.js) aliases
 `browser` → `chrome`, so the shared code runs unchanged on both.
@@ -154,9 +152,9 @@ Click the toolbar icon (or open the extension's options page — Firefox: `about
 - **Keyboard shortcut** — rebind the trigger (default Ctrl+Shift+H).
 - **Context scope** — highlight only / highlight + section (default) / whole conversation.
 - **AI backends — optional API keys** — per-provider OpenAI / Google AI / Anthropic key
-  + model. Empty = use that site's logged-in web session; set = use the official API.
-  ChatGPT needs a key (its web session is Turnstile-blocked). Keys are stored in
-  `browser.storage.local` (this profile only, not synced) and sent only to the provider.
+  - model. Empty = use that site's logged-in web session; set = use the official API.
+    ChatGPT needs a key (its web session is Turnstile-blocked). Keys are stored in
+    `browser.storage.local` (this profile only, not synced) and sent only to the provider.
 - **Delete all saved threads.**
 - **Debug logging.**
 

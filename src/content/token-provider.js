@@ -17,8 +17,9 @@ GA.tokenProvider = (function () {
     let t = scrape();
     if (!t.at || !t.bl || !t.sid) {
       const f =
-        (await browser.runtime.sendMessage({ type: GA.protocol.MSG_READ_TOKENS }).catch(() => null)) ||
-        {};
+        (await browser.runtime
+          .sendMessage({ type: GA.protocol.MSG_READ_TOKENS })
+          .catch(() => null)) || {};
       t = { at: t.at || f.at, bl: t.bl || f.bl, sid: t.sid || f.sid };
     }
     if (!t.at) throw new Error("Couldn't read your Gemini session token. Are you logged in?");

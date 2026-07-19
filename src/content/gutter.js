@@ -52,7 +52,7 @@ GA.gutter = (function () {
         GA.el("span", { class: "ga-cluster-glyph" }, GA.icons.make("comment-plus")),
         countEl,
         GA.el("span", { class: "ga-cluster-label", text: "detached" }),
-      ]
+      ],
     );
     aboveCountEl = GA.el("span", { class: "ga-scrollcue-count" });
     aboveCue = GA.el(
@@ -65,7 +65,7 @@ GA.gutter = (function () {
           jumpTo("above");
         },
       },
-      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-up")), aboveCountEl]
+      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-up")), aboveCountEl],
     );
     belowCountEl = GA.el("span", { class: "ga-scrollcue-count" });
     belowCue = GA.el(
@@ -78,7 +78,7 @@ GA.gutter = (function () {
           jumpTo("below");
         },
       },
-      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-down")), belowCountEl]
+      [GA.el("span", { class: "ga-scrollcue-glyph" }, GA.icons.make("chevron-down")), belowCountEl],
     );
     panelBtn = GA.el(
       "button",
@@ -91,7 +91,7 @@ GA.gutter = (function () {
           GA.panel.toggle();
         },
       },
-      GA.icons.make("list")
+      GA.icons.make("list"),
     );
     container.appendChild(drawer);
     container.appendChild(badge);
@@ -112,7 +112,7 @@ GA.gutter = (function () {
           }
           scheduleLayout({ animate: true });
         },
-        true
+        true,
       );
     }
     window.addEventListener("resize", function () {

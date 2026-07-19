@@ -1,7 +1,7 @@
 # Ops — build, test locally & publish
 
 How to build the extension, load it in a browser for testing, and submit it to the
-**Chrome Web Store** and **Firefox Add-ons (AMO)**. For what the extension *is*, see
+**Chrome Web Store** and **Firefox Add-ons (AMO)**. For what the extension _is_, see
 the top-level [README](../README.md).
 
 ---
@@ -11,10 +11,10 @@ the top-level [README](../README.md).
 One source tree (`src/` + `icons/`) builds both browsers. [`build.js`](../build.js)
 copies it into `dist/<target>/` with the right manifest, then `web-ext` zips each.
 
-| Target  | Manifest               | Background                 | Icons        | Unpacked dir   | Package |
-|---------|------------------------|----------------------------|--------------|----------------|---------|
+| Target  | Manifest               | Background                 | Icons        | Unpacked dir   | Package                                              |
+| ------- | ---------------------- | -------------------------- | ------------ | -------------- | ---------------------------------------------------- |
 | Firefox | `manifest.json`        | `background.scripts`       | `icon.svg`   | `dist/firefox` | `web-ext-artifacts/firefox/marginalia-<version>.zip` |
-| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `dist/chrome`  | `web-ext-artifacts/chrome/marginalia-<version>.zip` |
+| Chrome  | `manifest.chrome.json` | `src/sw.js` service worker | `icon-*.png` | `dist/chrome`  | `web-ext-artifacts/chrome/marginalia-<version>.zip`  |
 
 ```bash
 npm install            # once: web-ext + test tooling (Node 24 via mise)
@@ -32,7 +32,9 @@ To only refresh the unpacked `dist/` folders (no zips): `node build.js` (or
 `node build.js firefox|chrome`).
 
 ### Regenerate the Chrome PNG icons (only if `icons/icon.svg` changes)
+
 Chrome doesn't render SVG toolbar icons, so PNGs are committed under `icons/`. Re-rasterize with:
+
 ```bash
 for s in 16 32 48 128; do rsvg-convert -w $s -h $s icons/icon.svg -o icons/icon-$s.png; done
 # (ImageMagick alternative: magick -background none icons/icon.svg -resize ${s}x${s} icons/icon-$s.png)
@@ -63,14 +65,16 @@ Note for Chrome: `web-ext run` loads `dist/chrome`, which is a **copy** — afte
 Build the unpacked folders first: `node build.js` (creates `dist/firefox` and `dist/chrome`).
 
 **Firefox (temporary add-on — lasts until Firefox restarts):**
+
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on…**.
 3. Pick `dist/firefox/manifest.json` (any file inside `dist/firefox` works).
 4. After code changes: rebuild (`node build.js firefox`), then click **Reload** on the
-   add-on's card. A *permanent* install of an unsigned build is not possible on release
+   add-on's card. A _permanent_ install of an unsigned build is not possible on release
    Firefox — that's what §5's signing flow is for.
 
 **Chrome / Chromium / Edge (persists across restarts):**
+
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top-right toggle).
 3. Click **Load unpacked** and pick the `dist/chrome` **folder**.
@@ -80,9 +84,9 @@ Build the unpacked folders first: `node build.js` (creates `dist/firefox` and `d
 
 **Smoke test either way:** open a conversation on gemini.google.com / chatgpt.com
 (needs an OpenAI key in the extension settings) / claude.ai, select text in an answer,
-and use the **Comment** pill (or right-click → *Ask about…*, or Ctrl+Shift+H). The
+and use the **Comment** pill (or right-click → _Ask about…_, or Ctrl+Shift+H). The
 extension's console logs are visible via the browser's extension debugging tools
-(`about:debugging` → Inspect on Firefox; `chrome://extensions` → *service worker* /
+(`about:debugging` → Inspect on Firefox; `chrome://extensions` → _service worker_ /
 page DevTools on Chrome) — enable **debug logging** in the extension's settings first.
 
 ---
@@ -100,6 +104,7 @@ page DevTools on Chrome) — enable **debug logging** in the extension's setting
    permission justification.
 
 ### Permission / data-use justification (reused by both stores)
+
 - `contextMenus` — the right-click **"Ask about …"** menu item.
 - `storage` — saves comment threads, settings, and any API keys **locally** (`storage.local`).
 - `scripting` — reads the Gemini page's session token from the MAIN world (web-session mode only).
@@ -141,6 +146,7 @@ Mozilla-signed `.xpi` you distribute yourself. Both need a (free) Firefox accoun
 **Manage API Keys** → copy the **JWT issuer** and **JWT secret**.
 
 Common setup for either option:
+
 ```bash
 export AMO_JWT_ISSUER=user:xxxxx:xxx   # from Manage API Keys
 export AMO_JWT_SECRET=xxxxxxxx
@@ -148,10 +154,12 @@ node build.js firefox                  # assemble the dist/firefox folder web-ex
 ```
 
 ### Option A — Listed on AMO (public, reviewed)
+
 ```bash
 npx web-ext sign --source-dir dist/firefox --channel=listed \
   --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET"
 ```
+
 Alternative without API keys: `npm run build:firefox`, then upload
 `web-ext-artifacts/firefox/marginalia-<version>.zip` manually via
 **Developer Hub → Submit a New Add-on → "On this site"**. Either way, AMO reviews
@@ -160,13 +168,15 @@ screenshots, categories) and note the declared data collection (the manifest alr
 declares `data_collection_permissions: websiteContent`).
 
 ### Option B — Unlisted / self-distribution (you host the signed `.xpi`)
+
 ```bash
 npx web-ext sign --source-dir dist/firefox --channel=unlisted \
   --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET" \
   --artifacts-dir web-ext-artifacts/firefox
 ```
+
 This returns a Mozilla-**signed** `.xpi` you can distribute yourself; users install it via
-`about:addons` → ⚙ → **Install Add-on From File…**. (An *unsigned* build only installs
+`about:addons` → ⚙ → **Install Add-on From File…**. (An _unsigned_ build only installs
 permanently on Developer Edition / Nightly / ESR with
 `about:config → xpinstall.signatures.required = false`; for everyday local testing use
 the temporary-add-on flow in §2 instead.)

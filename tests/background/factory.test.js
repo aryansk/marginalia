@@ -44,7 +44,7 @@ function load(provider, fetchFake) {
       `src/${provider}/payload.js`,
       `src/${provider}/client.js`,
     ],
-    { fetch: fetchFake }
+    { fetch: fetchFake },
   );
 }
 
@@ -56,13 +56,13 @@ describe("makeApiClient — OpenAI", () => {
         'data: {"choices":[{"delta":{"content":"Hel"}}]}\n',
         'data: {"choices":[{"delta":{"content":"lo"}}]}\n',
         "data: [DONE]\n",
-      ])
+      ]),
     );
     const GA = load("openai", fetchFake);
     const chunks = [];
     const out = await GA.openaiClient.ask(
       { prompt: "p", settings: { openaiApiKey: "sk-1", openaiModel: "gpt-4o-mini" } },
-      (t) => chunks.push(t)
+      (t) => chunks.push(t),
     );
     expect(out).toBe("Hello");
     expect(chunks[chunks.length - 1]).toBe("Hello");
@@ -76,29 +76,40 @@ describe("makeApiClient — OpenAI", () => {
   it("throws (without fetching) when the API key is missing", async () => {
     const fetchFake = recordingFetch(sseStream([]));
     const GA = load("openai", fetchFake);
-    await expect(GA.openaiClient.ask({ prompt: "p", settings: {} })).rejects.toThrow(/OpenAI API key/i);
+    await expect(GA.openaiClient.ask({ prompt: "p", settings: {} })).rejects.toThrow(
+      /OpenAI API key/i,
+    );
     expect(fetchFake.calls.length).toBe(0);
   });
 
   it("surfaces the API error message on a non-OK response", async () => {
     const GA = load(
       "openai",
-      recordingFetch({ ok: false, status: 429, text: async () => '{"error":{"message":"rate limited"}}' })
+      recordingFetch({
+        ok: false,
+        status: 429,
+        text: async () => '{"error":{"message":"rate limited"}}',
+      }),
     );
-    await expect(GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } })).rejects.toThrow(
-      /429.*rate limited/
-    );
+    await expect(
+      GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } }),
+    ).rejects.toThrow(/429.*rate limited/);
   });
 
   it("falls back to the raw body when the error isn't JSON", async () => {
-    const GA = load("openai", recordingFetch({ ok: false, status: 502, text: async () => "Bad Gateway" }));
-    await expect(GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } })).rejects.toThrow(
-      /Bad Gateway/
+    const GA = load(
+      "openai",
+      recordingFetch({ ok: false, status: 502, text: async () => "Bad Gateway" }),
     );
+    await expect(
+      GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } }),
+    ).rejects.toThrow(/Bad Gateway/);
   });
 
   it("uses the schema default model when the setting is blank", async () => {
-    const fetchFake = recordingFetch(sseStream(['data: {"choices":[{"delta":{"content":"x"}}]}\n', "data: [DONE]\n"]));
+    const fetchFake = recordingFetch(
+      sseStream(['data: {"choices":[{"delta":{"content":"x"}}]}\n', "data: [DONE]\n"]),
+    );
     const GA = load("openai", fetchFake);
     await GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k", openaiModel: "" } });
     expect(JSON.parse(fetchFake.calls[0].opts.body).model).toBe("gpt-4o-mini");
@@ -110,9 +121,9 @@ describe("makeApiClient — OpenAI", () => {
       e.name = "AbortError";
       throw e;
     });
-    await expect(GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } })).rejects.toThrow(
-      /timed out/i
-    );
+    await expect(
+      GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" } }),
+    ).rejects.toThrow(/timed out/i);
   });
 
   it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
@@ -128,14 +139,20 @@ describe("makeApiClient — OpenAI", () => {
       });
     });
     await expect(
-      GA.openaiClient.ask({ prompt: "p", settings: { openaiApiKey: "k" }, signal: external.signal })
+      GA.openaiClient.ask({
+        prompt: "p",
+        settings: { openaiApiKey: "k" },
+        signal: external.signal,
+      }),
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 
 describe("makeApiClient — Google AI (key hygiene)", () => {
   it("sends the key in the x-goog-api-key header, never the URL", async () => {
-    const fetchFake = recordingFetch(sseStream(['data: {"candidates":[{"content":{"parts":[{"text":"hi"}]}}]}\n']));
+    const fetchFake = recordingFetch(
+      sseStream(['data: {"candidates":[{"content":{"parts":[{"text":"hi"}]}}]}\n']),
+    );
     const GA = load("googleai", fetchFake);
     const out = await GA.googleaiClient.ask({
       prompt: "p",
@@ -152,7 +169,7 @@ describe("makeApiClient — Google AI (key hygiene)", () => {
 describe("makeApiClient — Anthropic", () => {
   it("sends x-api-key + version headers and parses content_block_delta", async () => {
     const fetchFake = recordingFetch(
-      sseStream(['data: {"type":"content_block_delta","delta":{"text":"hi"}}\n'])
+      sseStream(['data: {"type":"content_block_delta","delta":{"text":"hi"}}\n']),
     );
     const GA = load("anthropic", fetchFake);
     const out = await GA.anthropicClient.ask({

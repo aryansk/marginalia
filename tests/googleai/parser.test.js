@@ -22,9 +22,10 @@ describe("googleai parseLatest", () => {
   });
 
   it("skips malformed lines without throwing", () => {
-    const raw = ['data: {oops', 'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}'].join(
-      "\n"
-    );
+    const raw = [
+      "data: {oops",
+      'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}',
+    ].join("\n");
     expect(parseLatest(raw)).toBe("ok");
   });
 });

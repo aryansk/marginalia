@@ -33,11 +33,7 @@ GA.core.sites = (function () {
       hosts: ["chatgpt.com", "chat.openai.com"],
       // /c/<conversation-uuid> — also matches project chats /g/g-…/c/<id>.
       sessionRes: [/\/c\/([^/?#]+)/],
-      responseSelectors: [
-        '[data-message-author-role="assistant"]',
-        "div.markdown",
-        ".agent-turn",
-      ],
+      responseSelectors: ['[data-message-author-role="assistant"]', "div.markdown", ".agent-turn"],
       // Verified: every message carries data-message-author-role and a
       // data-message-id holding a server UUID. Turns do not nest.
       turns: {

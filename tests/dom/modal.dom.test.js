@@ -24,7 +24,7 @@ function makeGA() {
       // Deterministic sync animation frames for the streaming coalescer.
       requestAnimationFrame: (f) => (f(), 0),
       cancelAnimationFrame: () => {},
-    }
+    },
   );
 }
 
@@ -75,7 +75,14 @@ describe("Modal — snapshot render", () => {
   it("renders thread history and closes via onClosed", () => {
     const GA = makeGA();
     const onClosed = vi.fn();
-    GA.Modal.open(makeThread([{ role: "user", text: "why?" }, { role: "model", text: "because" }]), baseHandlers(), onClosed);
+    GA.Modal.open(
+      makeThread([
+        { role: "user", text: "why?" },
+        { role: "model", text: "because" },
+      ]),
+      baseHandlers(),
+      onClosed,
+    );
 
     const msgs = document.querySelectorAll(".ga-modal-body .ga-msg");
     expect(msgs).toHaveLength(2);
@@ -126,13 +133,19 @@ describe("Modal — drag-to-resize width", () => {
     drag(panel.querySelector(".ga-modal-resize-right"), 500, 550);
     document.dispatchEvent(new MouseEvent("mousemove", { clientX: 700 }));
     expect(panel.style.width).toBe("920px");
-    expect(document.querySelector(".ga-modal-overlay").classList.contains("ga-modal-resizing")).toBe(false);
+    expect(
+      document.querySelector(".ga-modal-overlay").classList.contains("ga-modal-resizing"),
+    ).toBe(false);
   });
 });
 
 describe("Modal — live stream late-join", () => {
   const openWithFeed = (GA, feed, thread) => {
-    const handlers = { ...baseHandlers(), onStop: vi.fn(), liveStream: (id) => (id === thread.id ? feed : null) };
+    const handlers = {
+      ...baseHandlers(),
+      onStop: vi.fn(),
+      liveStream: (id) => (id === thread.id ? feed : null),
+    };
     GA.Modal.open(thread, handlers, null);
     return handlers;
   };

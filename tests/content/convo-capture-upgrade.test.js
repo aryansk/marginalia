@@ -85,7 +85,7 @@ describe("stale-partial upgrade", () => {
     const rec = bucket(b);
     expect(rec.turns.map((t) => t.fp)).toEqual([Q1, A1].map((t) => fpOf(GA, t.text)));
     expect(rec.turns.map((t) => t.head)).toEqual(
-      [Q1, A1].map((t) => GA.core.turnId.indexHead(t.text))
+      [Q1, A1].map((t) => GA.core.turnId.indexHead(t.text)),
     );
     // the superseded partial's blob is unreachable (its fp can never be seen
     // again) — deleted; the completed turn's blob is banked
@@ -155,7 +155,10 @@ describe("stale-partial upgrade", () => {
 
   it("no upgrade when the opening differs (regenerated answer is a different turn, both texts survive)", async () => {
     const { GA, b } = setup();
-    const regen = { role: "model", text: "Different opening entirely, but much longer than the partial was." };
+    const regen = {
+      role: "model",
+      text: "Different opening entirely, but much longer than the partial was.",
+    };
 
     setLiveTurns(GA, [Q1, A1p]);
     await GA.convoCapture.capture();
@@ -210,7 +213,12 @@ describe("stale-partial upgrade", () => {
       url: "u",
       capturedAt: 1,
       turns: [
-        { role: A1p.role, fp: fpOf(GA, A1p.text), head: GA.core.turnId.indexHead(A1p.text), order: 0 },
+        {
+          role: A1p.role,
+          fp: fpOf(GA, A1p.text),
+          head: GA.core.turnId.indexHead(A1p.text),
+          order: 0,
+        },
         { role: A1.role, fp: fpOf(GA, A1.text), head: GA.core.turnId.indexHead(A1.text), order: 1 },
       ],
       blobs: {
@@ -275,7 +283,7 @@ describe("stale-partial upgrade", () => {
     const rec = bucket(b);
     expect(rec.turns.map((t) => t.fp)).toEqual([twinUser, A1].map((t) => fpOf(GA, t.text)));
     expect(await GA.core.compress.b64ToText(rec.blobs[keyOf(GA, twinUser.text)])).toBe(
-      twinUser.text
+      twinUser.text,
     );
   });
 });

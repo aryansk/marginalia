@@ -103,7 +103,8 @@ GA.core.transcript = (function () {
         var a = norm(prev.text);
         var b = norm(cur.text);
         if (a && b && a !== b) {
-          if (b.indexOf(a) === 0) kept.pop(); // prev was a stale partial of cur
+          if (b.indexOf(a) === 0)
+            kept.pop(); // prev was a stale partial of cur
           else if (a.indexOf(b) === 0) continue; // cur is a stale partial of prev
         }
       }
@@ -208,7 +209,7 @@ GA.core.transcript = (function () {
     // Framing (brief ruling): this is a CAPTURED transcript — the turns saved
     // while annotating — never a claim of full-conversation fidelity.
     out.push(
-      "*Captured transcript — the turns saved while annotating this conversation; it may not span the full exchange.*"
+      "*Captured transcript — the turns saved while annotating this conversation; it may not span the full exchange.*",
     );
     out.push("");
     var meta = [];
@@ -246,7 +247,12 @@ GA.core.transcript = (function () {
       }
     }
 
-    return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+    return (
+      out
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim() + "\n"
+    );
   }
 
   return { build: build };

@@ -38,7 +38,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("model", "Lifetimes are", 1),
         turn("model", "Lifetimes are how the borrow checker reasons about scope.", 2),
       ]),
-      []
+      [],
     );
     expect(md).toContain("Lifetimes are how the borrow checker reasons about scope.");
     // The partial does not render as its own turn: exactly one Assistant section.
@@ -51,7 +51,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("model", "The full completed answer about traits.", 0),
         turn("model", "The full completed", 1),
       ]),
-      []
+      [],
     );
     expect(md.match(/^## Assistant$/gm)).toHaveLength(1);
     expect(md).toContain("The full completed answer about traits.");
@@ -64,7 +64,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("model", "Step one and step two", 1),
         turn("model", "Step one and step two and step three", 2),
       ]),
-      []
+      [],
     );
     expect(md.match(/^## Assistant$/gm)).toHaveLength(1);
     expect(md).toContain("Step one and step two and step three");
@@ -76,7 +76,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("model", "Alpha   beta\n gamma", 0),
         turn("model", "Alpha beta gamma delta epsilon", 1),
       ]),
-      []
+      [],
     );
     expect(md.match(/^## Assistant$/gm)).toHaveLength(1);
     expect(md).toContain("delta epsilon");
@@ -88,7 +88,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("model", "First answer about apples.", 0),
         turn("model", "Second answer about oranges.", 1),
       ]),
-      []
+      [],
     );
     expect(md.match(/^## Assistant$/gm)).toHaveLength(2);
     expect(md).toContain("apples");
@@ -97,8 +97,11 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
 
   it("keeps different-role prefix pairs", () => {
     const md = build(
-      convo([turn("user", "Explain traits", 0), turn("model", "Explain traits? Sure — here is how.", 1)]),
-      []
+      convo([
+        turn("user", "Explain traits", 0),
+        turn("model", "Explain traits? Sure — here is how.", 1),
+      ]),
+      [],
     );
     expect(md.match(/^## You$/gm)).toHaveLength(1);
     expect(md.match(/^## Assistant$/gm)).toHaveLength(1);
@@ -116,7 +119,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("user", "go on", 1),
         turn("model", "Partial thought completed in full.", 2),
       ]),
-      []
+      [],
     );
     expect(md.match(/^## Assistant$/gm)).toHaveLength(2);
     expect(md.match(/^## You$/gm)).toHaveLength(1);
@@ -149,7 +152,7 @@ describe("prefix-dedupe of stale mid-stream partials (fix F3)", () => {
         turn("user", "I quote shared words here first", 0),
         turn("model", "The answer also has shared words in it.", 1),
       ]),
-      [th]
+      [th],
     );
     const at = md.indexOf("note body");
     expect(at).toBeGreaterThan(md.indexOf("The answer also has shared words"));
@@ -165,7 +168,7 @@ describe("turn layout", () => {
         turn("user", "Question text.", 0),
         turn("user", "Follow-up question.", 2),
       ]),
-      []
+      [],
     );
     const q = md.indexOf("Question text.");
     const a = md.indexOf("Answer text.");
@@ -180,7 +183,10 @@ describe("turn layout", () => {
   });
 
   it("null/unknown role gets a fallback heading instead of throwing", () => {
-    const md = build(convo([{ role: null, text: "orphan text", fp: fpOf("orphan text"), order: 0 }]), []);
+    const md = build(
+      convo([{ role: null, text: "orphan text", fp: fpOf("orphan text"), order: 0 }]),
+      [],
+    );
     expect(md).toContain("## Message");
     expect(md).toContain("orphan text");
   });
@@ -215,8 +221,12 @@ describe("thread placement", () => {
   it("a matching thread renders as a blockquote callout after its turn, with quote + full Q&A", () => {
     const turnText = "The borrow checker enforces aliasing rules.";
     const md = build(
-      convo([turn("user", "Explain the borrow checker", 0), turn("model", turnText, 1), turn("user", "thanks", 2)]),
-      [anchoredThread(turnText)]
+      convo([
+        turn("user", "Explain the borrow checker", 0),
+        turn("model", turnText, 1),
+        turn("user", "thanks", 2),
+      ]),
+      [anchoredThread(turnText)],
     );
     const turnAt = md.indexOf(turnText);
     const quoteAt = md.indexOf('> "borrow checker"');
@@ -256,7 +266,10 @@ describe("thread placement", () => {
 
   it("a thread whose fingerprint matches no turn lands under Unanchored notes", () => {
     const md = build(convo([turn("model", "present turn", 0)]), [
-      thread({ anchor: anchorTo("model", "a turn that was never captured"), selector: { exact: "ghost" } }),
+      thread({
+        anchor: anchorTo("model", "a turn that was never captured"),
+        selector: { exact: "ghost" },
+      }),
     ]);
     expect(md.indexOf('> "ghost"')).toBeGreaterThan(md.indexOf("## Unanchored notes"));
   });
@@ -277,8 +290,16 @@ describe("thread placement", () => {
 
   it("multiple threads on one turn render in createdAt order regardless of array order", () => {
     const turnText = "shared turn";
-    const late = thread({ anchor: anchorTo("model", turnText), selector: { exact: "LATE" }, createdAt: 2000 });
-    const early = thread({ anchor: anchorTo("model", turnText), selector: { exact: "EARLY" }, createdAt: 100 });
+    const late = thread({
+      anchor: anchorTo("model", turnText),
+      selector: { exact: "LATE" },
+      createdAt: 2000,
+    });
+    const early = thread({
+      anchor: anchorTo("model", turnText),
+      selector: { exact: "EARLY" },
+      createdAt: 100,
+    });
     const md = build(convo([turn("model", turnText, 0)]), [late, early]);
     expect(md.indexOf('> "EARLY"')).toBeLessThan(md.indexOf('> "LATE"'));
   });

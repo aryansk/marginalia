@@ -54,7 +54,7 @@ package:
   variables:
     GIT_DEPTH: "2" # the version guard diffs against HEAD~1
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       changes:
         paths:
           - package.json

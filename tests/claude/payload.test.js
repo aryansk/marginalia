@@ -47,10 +47,10 @@ describe("claude bodies", () => {
 describe("claude endpoints", () => {
   it("nest completion under the org's conversation", () => {
     expect(conversationsUrl("org")).toBe(
-      "https://claude.ai/api/organizations/org/chat_conversations"
+      "https://claude.ai/api/organizations/org/chat_conversations",
     );
     expect(completionUrl("org", "conv")).toBe(
-      "https://claude.ai/api/organizations/org/chat_conversations/conv/completion"
+      "https://claude.ai/api/organizations/org/chat_conversations/conv/completion",
     );
   });
 });

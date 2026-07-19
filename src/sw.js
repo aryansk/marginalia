@@ -31,5 +31,5 @@ importScripts(
   "/src/anthropic/client.js",
   "/src/background/registry.js",
   "/src/background/clients.js",
-  "/src/background.js"
+  "/src/background.js",
 );

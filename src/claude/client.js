@@ -37,7 +37,10 @@ GA.claudeClient = (function () {
       signal: signal,
     });
     if (!res.ok)
-      throw httpError("Couldn't reach Claude (HTTP " + res.status + "). Are you logged in?", res.status);
+      throw httpError(
+        "Couldn't reach Claude (HTTP " + res.status + "). Are you logged in?",
+        res.status,
+      );
     const orgs = await res.json().catch(() => null);
     const org = GA.claude.payload.pickOrgId(orgs);
     if (!org) throw new Error("Couldn't read your Claude account. Are you logged in to claude.ai?");
@@ -54,7 +57,11 @@ GA.claudeClient = (function () {
       body: GA.claude.payload.buildConversationBody(convUuid),
       signal: signal,
     });
-    if (!res.ok) throw httpError("Couldn't start a Claude conversation (HTTP " + res.status + ").", res.status);
+    if (!res.ok)
+      throw httpError(
+        "Couldn't start a Claude conversation (HTTP " + res.status + ").",
+        res.status,
+      );
     const json = await res.json().catch(() => null);
     return (json && json.uuid) || convUuid;
   }

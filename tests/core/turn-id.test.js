@@ -123,7 +123,8 @@ describe("similarity", () => {
     // from innerText (what thread.section was captured from). The stored snippet
     // therefore starts PART WAY INTO the live text, not at offset 0.
     const storedFromInnerText = "You've hit on two very common perceptions.";
-    const liveFromTextContent = "Gemini said You've hit on two very common perceptions. Let's break down…";
+    const liveFromTextContent =
+      "Gemini said You've hit on two very common perceptions. Let's break down…";
     expect(similarity(storedFromInnerText, liveFromTextContent)).toBeCloseTo(1, 5);
   });
 

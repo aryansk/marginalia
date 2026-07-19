@@ -156,7 +156,7 @@ GA.panel = (function () {
           capturedAt: raw.capturedAt,
           turns: turns,
         },
-        GA.threadController.threads()
+        GA.threadController.threads(),
       );
       deliverDownload(md, exportFilename(raw.title, raw.provider));
       // Best-effort clipboard in its OWN catch — a denied clipboard must not
@@ -168,7 +168,9 @@ GA.panel = (function () {
           copied = true;
         }
       } catch (e) {}
-      GA.toast(copied ? "Transcript downloaded and copied to clipboard." : "Transcript downloaded.");
+      GA.toast(
+        copied ? "Transcript downloaded and copied to clipboard." : "Transcript downloaded.",
+      );
     } catch (e) {
       GA.warn("export failed", e);
       GA.toast("Export failed — couldn't build the transcript.");
@@ -191,7 +193,7 @@ GA.panel = (function () {
     const closeBtn = GA.el(
       "button",
       { class: "ga-iconbtn", title: "Close (Esc)", "aria-label": "Close", onclick: close },
-      GA.icons.make("close")
+      GA.icons.make("close"),
     );
     // Content scripts can't call openOptionsPage directly — ask the background
     // (via MSG_OPEN_OPTIONS) to open it. Catch-guarded: a dead worker just no-ops.
@@ -205,7 +207,7 @@ GA.panel = (function () {
           browser.runtime.sendMessage({ type: GA.protocol.MSG_OPEN_OPTIONS }).catch(function () {});
         },
       },
-      GA.icons.make("gear")
+      GA.icons.make("gear"),
     );
     const exportBtn = GA.el(
       "button",
@@ -215,7 +217,7 @@ GA.panel = (function () {
         "aria-label": "Export conversation for NotebookLM",
         onclick: exportConversation,
       },
-      GA.icons.make("download")
+      GA.icons.make("download"),
     );
     const tabs = GA.el("div", { class: "ga-panel-tabs" });
     [
@@ -237,7 +239,7 @@ GA.panel = (function () {
               b.setAttribute("aria-pressed", on ? "true" : "false");
             });
           },
-        })
+        }),
       );
     });
     const searchInput = GA.el("input", {
@@ -263,7 +265,7 @@ GA.panel = (function () {
           searchInput.focus();
         },
       },
-      GA.icons.make("close")
+      GA.icons.make("close"),
     );
     const count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
     const search = GA.el("div", { class: "ga-panel-search" }, [searchInput, clearBtn, count]);
@@ -277,7 +279,14 @@ GA.panel = (function () {
 
     // Coordinated header order (T-006 gear, T-012 export): closeBtn stays last
     // — it takes the initial focus below.
-    const header = GA.el("div", { class: "ga-modal-header" }, [title, tabs, search, exportBtn, gearBtn, closeBtn]);
+    const header = GA.el("div", { class: "ga-modal-header" }, [
+      title,
+      tabs,
+      search,
+      exportBtn,
+      gearBtn,
+      closeBtn,
+    ]);
     const body = GA.el("div", { class: "ga-modal-body ga-panel-body" });
 
     function renderList() {
@@ -300,7 +309,7 @@ GA.panel = (function () {
           GA.el("div", {
             class: "ga-modal-empty",
             text: query ? "No threads match your search." : "No threads here.",
-          })
+          }),
         );
         return;
       }
@@ -348,12 +357,12 @@ GA.panel = (function () {
                         renderList();
                       },
                     },
-                    GA.icons.make("reopen")
+                    GA.icons.make("reopen"),
                   )
                 : null,
               GA.el("span", { class: "ga-panel-jump" }, GA.icons.make("jump")),
             ]),
-          ]
+          ],
         );
         function go() {
           close();
@@ -393,7 +402,11 @@ GA.panel = (function () {
     // Escape inside a non-empty search box clears the query and keeps the panel
     // open; otherwise it closes the panel. This decision must live here because
     // onKey is a capture-phase listener that fires before the input's handlers.
-    if (activeSearch && document.activeElement === activeSearch.input && activeSearch.input.value.trim()) {
+    if (
+      activeSearch &&
+      document.activeElement === activeSearch.input &&
+      activeSearch.input.value.trim()
+    ) {
       e.stopPropagation();
       activeSearch.clear();
       return;

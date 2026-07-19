@@ -89,7 +89,9 @@ describe("threadTurn.run", () => {
     expect(calls.filter((c) => c[0] === "setLoading").map((c) => c[1])).toEqual([true, false]);
     expect(calls.filter((c) => c[0] === "persist")).toHaveLength(2);
     // no ⚠️ was rendered
-    expect(calls.some((c) => c[0] === "renderModel" && String(c[1]).indexOf("⚠️") === 0)).toBe(false);
+    expect(calls.some((c) => c[0] === "renderModel" && String(c[1]).indexOf("⚠️") === 0)).toBe(
+      false,
+    );
   });
 
   it("an abort before any text arrived records no model message", async () => {
@@ -119,7 +121,9 @@ describe("threadTurn.run", () => {
     const t = thread();
     await threadTurn.run(t, "why?", ops);
     expect(calls.some((c) => c[0] === "renderError" && c[1] === "boom")).toBe(true);
-    expect(calls.some((c) => c[0] === "renderModel" && String(c[1]).indexOf("⚠️") === 0)).toBe(false);
+    expect(calls.some((c) => c[0] === "renderModel" && String(c[1]).indexOf("⚠️") === 0)).toBe(
+      false,
+    );
     expect(t.messages[1]).toMatchObject({ role: "model", text: "boom", error: true });
   });
 });

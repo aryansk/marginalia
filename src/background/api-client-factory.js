@@ -45,7 +45,8 @@ GA.makeApiClient = function (config) {
       throw new Error(await GA.apiError(config.label, res));
     }
     try {
-      const failMsg = "Couldn't parse " + config.label + "'s response — the API shape may have changed.";
+      const failMsg =
+        "Couldn't parse " + config.label + "'s response — the API shape may have changed.";
       return await GA.streamText(res, config.makeStream(), onChunk, failMsg, budget);
     } catch (e) {
       throw GA.mapBudgetError(e, budget, timeoutMsg);
@@ -56,4 +57,5 @@ GA.makeApiClient = function (config) {
   return { ask };
 };
 
-if (typeof module !== "undefined" && module.exports) module.exports = { makeApiClient: GA.makeApiClient };
+if (typeof module !== "undefined" && module.exports)
+  module.exports = { makeApiClient: GA.makeApiClient };

@@ -26,7 +26,7 @@ GA.claude.payload = (function () {
   function pickOrgId(orgs) {
     if (!Array.isArray(orgs)) return null;
     const chat = orgs.find(
-      (o) => o && o.uuid && Array.isArray(o.capabilities) && o.capabilities.indexOf("chat") !== -1
+      (o) => o && o.uuid && Array.isArray(o.capabilities) && o.capabilities.indexOf("chat") !== -1,
     );
     if (chat) return chat.uuid;
     const any = orgs.find((o) => o && o.uuid);

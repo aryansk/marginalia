@@ -103,19 +103,19 @@ describe("tex-unicode — structure", () => {
 describe("tex-unicode — real formulas from the field", () => {
   it("universal-hashing collision bound (Gemini, $$…$$ content)", () => {
     expect(conv("Pr_{h \\sim H} [h(x) = h(y)] \\le \\frac{1}{m}")).toBe(
-      "Pr_(h ∼ H) [h(x) = h(y)] ≤ 1/m"
+      "Pr_(h ∼ H) [h(x) = h(y)] ≤ 1/m",
     );
   });
 
   it("the same bound with \\text and \\mathcal", () => {
     expect(conv("\\text{Pr}_{h \\sim \\mathcal{H}} [h(x) = h[y]] \\le \\frac{1}{m}")).toBe(
-      "Pr_(h ∼ 𝓗) [h(x) = h[y]] ≤ 1/m"
+      "Pr_(h ∼ 𝓗) [h(x) = h[y]] ≤ 1/m",
     );
   });
 
   it("hash-family definition (ChatGPT, \\[…\\] content)", () => {
     expect(conv("h_{a,b}(x) =\\big((ax+b)\\bmod p\\big)\\bmod m")).toBe(
-      "h_(a,b)(x) =((ax+b) mod p) mod m"
+      "h_(a,b)(x) =((ax+b) mod p) mod m",
     );
   });
 

@@ -65,8 +65,12 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     const chrome = JSON.parse(read("manifest.chrome.json"));
     const fxJs = manifest.content_scripts[0].js;
     const crJs = chrome.content_scripts[0].js;
-    expect(fxJs.indexOf("src/core/tex-unicode.js")).toBe(fxJs.indexOf("src/core/tex-tables.js") + 1);
-    expect(fxJs.indexOf("src/core/markdown-ast.js")).toBe(fxJs.indexOf("src/core/tex-unicode.js") + 1);
+    expect(fxJs.indexOf("src/core/tex-unicode.js")).toBe(
+      fxJs.indexOf("src/core/tex-tables.js") + 1,
+    );
+    expect(fxJs.indexOf("src/core/markdown-ast.js")).toBe(
+      fxJs.indexOf("src/core/tex-unicode.js") + 1,
+    );
     expect(crJs).toEqual(fxJs);
     for (const rel of ["src/core/tex-tables.js", "src/core/tex-unicode.js"]) {
       expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
@@ -77,9 +81,11 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     const chrome = JSON.parse(read("manifest.chrome.json"));
     const fxJs = manifest.content_scripts[0].js;
     const crJs = chrome.content_scripts[0].js;
-    expect(fxJs.indexOf("src/core/live-stream.js")).toBe(fxJs.indexOf("src/core/layout-engine.js") + 1);
+    expect(fxJs.indexOf("src/core/live-stream.js")).toBe(
+      fxJs.indexOf("src/core/layout-engine.js") + 1,
+    );
     expect(fxJs.indexOf("src/core/live-stream.js")).toBeLessThan(
-      fxJs.indexOf("src/content/thread-controller.js")
+      fxJs.indexOf("src/content/thread-controller.js"),
     );
     expect(crJs).toEqual(fxJs);
     expect(fs.existsSync(path.join(ROOT, "src/core/live-stream.js"))).toBe(true);
@@ -89,8 +95,12 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     const chrome = JSON.parse(read("manifest.chrome.json"));
     const fxJs = manifest.content_scripts[0].js;
     const crJs = chrome.content_scripts[0].js;
-    expect(fxJs.indexOf("src/content/convo-capture.js")).toBe(fxJs.indexOf("src/content/turns.js") + 1);
-    expect(crJs.indexOf("src/content/convo-capture.js")).toBe(crJs.indexOf("src/content/turns.js") + 1);
+    expect(fxJs.indexOf("src/content/convo-capture.js")).toBe(
+      fxJs.indexOf("src/content/turns.js") + 1,
+    );
+    expect(crJs.indexOf("src/content/convo-capture.js")).toBe(
+      crJs.indexOf("src/content/turns.js") + 1,
+    );
   });
 
   it("release metadata stays in lockstep across both manifests and package.json", () => {
@@ -114,7 +124,9 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(at("src/shared/sse.js")).toBeLessThan(at("src/openai/parser.js"));
     expect(at("src/shared/sse.js")).toBeLessThan(at("src/anthropic/parser.js"));
     // API clients are built by the factory, which needs api-util
-    expect(at("src/background/api-util.js")).toBeLessThan(at("src/background/api-client-factory.js"));
+    expect(at("src/background/api-util.js")).toBeLessThan(
+      at("src/background/api-client-factory.js"),
+    );
     expect(at("src/background/api-client-factory.js")).toBeLessThan(at("src/openai/client.js"));
     // dispatch reads the registry
     expect(at("src/background/registry.js")).toBeLessThan(at("src/background/clients.js"));

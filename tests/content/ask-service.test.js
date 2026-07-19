@@ -22,7 +22,7 @@ function fakeBrowser(script) {
             script(
               req,
               (m) => listeners.forEach((l) => l(m)),
-              () => discons.forEach((d) => d())
+              () => discons.forEach((d) => d()),
             ),
           disconnect: () => {
             port.disconnected = true;
@@ -38,9 +38,12 @@ function fakeBrowser(script) {
 
 function service(script) {
   const browser = fakeBrowser(script);
-  const GA = loadGA(["src/shared/protocol.js", "src/shared/config.js", "src/content/ask-service.js"], {
-    browser,
-  });
+  const GA = loadGA(
+    ["src/shared/protocol.js", "src/shared/config.js", "src/content/ask-service.js"],
+    {
+      browser,
+    },
+  );
   return { svc: GA.askService, browser };
 }
 
@@ -110,7 +113,10 @@ describe("askService.ask (Facade over the ask port)", () => {
     const handle = svc.ask({ prompt: "p" });
     send({ type: "chunk", text: "partial" });
     handle.abort();
-    await expect(handle.result).rejects.toMatchObject({ name: "AbortError", partialText: "partial" });
+    await expect(handle.result).rejects.toMatchObject({
+      name: "AbortError",
+      partialText: "partial",
+    });
     expect(browser._ports[0].disconnected).toBe(true);
   });
 

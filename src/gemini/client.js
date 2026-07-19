@@ -21,8 +21,7 @@ GA.client = (function () {
     const payload = GA.gemini.payload;
     const parser = GA.gemini.parser;
     const tokens = (req && req.tokens) || {};
-    if (!tokens.at)
-      throw new Error("Missing session token (SNlM0e). Are you logged in to Gemini?");
+    if (!tokens.at) throw new Error("Missing session token (SNlM0e). Are you logged in to Gemini?");
 
     // Abort the request if it goes silent (see background/api-util.js) or when
     // the caller cancels via req.signal; bumped as stream bytes arrive so a

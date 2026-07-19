@@ -32,7 +32,7 @@ GA.store = (function () {
     const run = queue.then(op, op);
     queue = run.then(
       () => undefined,
-      () => undefined // one failed op must not poison the chain
+      () => undefined, // one failed op must not poison the chain
     );
     return run;
   }

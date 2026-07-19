@@ -47,10 +47,13 @@ GA.askService = (function () {
     function bumpWatchdog() {
       if (settled) return;
       if (watchdog) clearTimeout(watchdog);
-      watchdog = setTimeout(function () {
-        finish(false, new Error("No response from the extension — try again."));
-        disconnect();
-      }, (GA.config && GA.config.ASK_WATCHDOG_MS) || 90000);
+      watchdog = setTimeout(
+        function () {
+          finish(false, new Error("No response from the extension — try again."));
+          disconnect();
+        },
+        (GA.config && GA.config.ASK_WATCHDOG_MS) || 90000,
+      );
     }
 
     port.onMessage.addListener(function (msg) {

@@ -13,7 +13,9 @@ describe("buildBody", () => {
 
   it("round-trips a prompt with quotes, newlines and unicode through f.req", () => {
     const prompt = 'Why "8 KB"?\nLine 2 — café ☕';
-    const inner = JSON.parse(JSON.parse(new URLSearchParams(buildBody(prompt, "t")).get("f.req"))[1]);
+    const inner = JSON.parse(
+      JSON.parse(new URLSearchParams(buildBody(prompt, "t")).get("f.req"))[1],
+    );
     expect(inner[0][0]).toBe(prompt); // prompt preserved exactly
   });
 

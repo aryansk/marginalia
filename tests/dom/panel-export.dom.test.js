@@ -29,7 +29,7 @@ function makeGA({ session = "gemini:abc", record = null, threads = [] } = {}) {
       "src/content/icons.js",
       "src/content/panel.js",
     ],
-    { browser: fakeBrowser() }
+    { browser: fakeBrowser() },
   );
   GA.threadController = { threads: () => threads, expandThreadById: () => {} };
   GA.selection = { anchorEl: () => null };
@@ -64,13 +64,13 @@ async function makeRecord(GA, msgs, extra = {}) {
       turns,
       blobs,
     },
-    extra
+    extra,
   );
 }
 
 function exportBtn() {
   return document.querySelector(
-    '.ga-modal-header .ga-iconbtn[aria-label="Export conversation for NotebookLM"]'
+    '.ga-modal-header .ga-iconbtn[aria-label="Export conversation for NotebookLM"]',
   );
 }
 function header() {
@@ -336,8 +336,8 @@ describe("panel export button (T-012)", () => {
     let GA = makeGA();
     const record = await makeRecord(
       GA,
-      [{ role: "model", text: '<img src=x onerror=alert(1)> and <b>bold</b>' }],
-      { title: '<img src=x onerror=alert(1)>../../evil "name"' }
+      [{ role: "model", text: "<img src=x onerror=alert(1)> and <b>bold</b>" }],
+      { title: '<img src=x onerror=alert(1)>../../evil "name"' },
     );
     const threads = [
       {

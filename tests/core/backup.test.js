@@ -68,7 +68,7 @@ describe("GA.core.backup.mergeTurnLists", () => {
   it("MIDDLE-INSERT: a snapshot-only turn between anchors is inserted between them", () => {
     const merged = mergeTurnLists(
       [A, C],
-      [T("user", "a", 3, 0), T("model", "mid", 6, 1), T("user", "c", 5, 2)]
+      [T("user", "a", 3, 0), T("model", "mid", 6, 1), T("user", "c", 5, 2)],
     );
     expect(keys(merged)).toEqual(["user:a:3", "model:mid:6", "user:c:5"]);
   });
@@ -108,7 +108,7 @@ describe("GA.core.backup.mergeTurnLists", () => {
   it("renumbers order 0..n-1 regardless of input order values", () => {
     const merged = mergeTurnLists(
       [T("user", "a", 3, 17), T("model", "b", 4, 99)],
-      [T("user", "a", 3, 0), T("model", "b", 4, 1), T("user", "c", 5, 2)]
+      [T("user", "a", 3, 0), T("model", "b", 4, 1), T("user", "c", 5, 2)],
     );
     expect(merged.map((t) => t.order)).toEqual([0, 1, 2]);
   });
@@ -271,7 +271,10 @@ describe("GA.core.backup.mergeImport — merge mode, thread buckets", () => {
     const short = { id: "t1", messages: [{ role: "user", text: "q" }] };
     const long = {
       id: "t1",
-      messages: [{ role: "user", text: "q" }, { role: "model", text: "a" }],
+      messages: [
+        { role: "user", text: "q" },
+        { role: "model", text: "a" },
+      ],
     };
     // archive longer -> archive record's content wins
     const a = mergeImport(deepFreeze({ [K]: [short] }), archiveWith([long]));
@@ -302,7 +305,10 @@ describe("GA.core.backup.mergeImport — merge mode, thread buckets", () => {
     };
     const archived = {
       id: "t1",
-      messages: [{ role: "user", text: "q" }, { role: "model", text: "a" }],
+      messages: [
+        { role: "user", text: "q" },
+        { role: "model", text: "a" },
+      ],
       resolved: false,
       unread: true,
     };
@@ -329,7 +335,10 @@ describe("GA.core.backup.mergeImport — merge mode, thread buckets", () => {
     };
     const archived = {
       id: "t1",
-      messages: [{ role: "user", text: "q" }, { role: "model", text: "a" }],
+      messages: [
+        { role: "user", text: "q" },
+        { role: "model", text: "a" },
+      ],
       selector: { exact: "ARCHIVE stale phrase" },
       anchor: { turnId: "turn-ARCHIVE" },
       section: "archive section context",
@@ -417,7 +426,7 @@ describe("GA.core.backup.mergeImport — merge mode, convo buckets", () => {
     const existing = deepFreeze({ "ga:convo:gemini:mine": localOnly });
     const next = mergeImport(
       existing,
-      archiveWith(importedOnly, {}) // K = ga:convo:gemini:conv1 holds importedOnly
+      archiveWith(importedOnly, {}), // K = ga:convo:gemini:conv1 holds importedOnly
     );
     expect(next["ga:convo:gemini:mine"]).toBe(localOnly);
     expect(next[K]).toBe(importedOnly);
@@ -450,7 +459,7 @@ describe("GA.core.backup.mergeImport — idempotency and round-trip", () => {
     expect(restored["ga:threads:gemini:s1"]).toEqual(all["ga:threads:gemini:s1"]);
     expect(restored["ga:convo:gemini:conv1"].blobs).toEqual(all["ga:convo:gemini:conv1"].blobs);
     expect(keys(restored["ga:convo:gemini:conv1"].turns)).toEqual(
-      keys(all["ga:convo:gemini:conv1"].turns)
+      keys(all["ga:convo:gemini:conv1"].turns),
     );
     expect(restored["ga:settings"]).toBeUndefined();
   });

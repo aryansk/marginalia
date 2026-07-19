@@ -25,7 +25,7 @@ function makeGA() {
       // Deterministic sync animation frames for the streaming coalescer.
       requestAnimationFrame: (f) => (f(), 0),
       cancelAnimationFrame: () => {},
-    }
+    },
   );
 }
 
@@ -89,7 +89,12 @@ describe("ThreadBox.destroy()", () => {
     box.el.querySelector(".ga-send").click(); // submit clears the box
     expect(ta.value).toBe("");
 
-    const e1 = new window.KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    const e1 = new window.KeyboardEvent("keydown", {
+      key: "z",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
     ta.dispatchEvent(e1);
     expect(ta.value).toBe("bring me back");
     expect(e1.defaultPrevented).toBe(true);
@@ -107,10 +112,18 @@ describe("ThreadBox.destroy()", () => {
 
   it("Ctrl+Z on an empty inline composer stack does not preventDefault", () => {
     const GA = makeGA();
-    const box = GA.ThreadBox({ id: "te", selector: { exact: "x" }, messages: [] }, { persist: () => {} });
+    const box = GA.ThreadBox(
+      { id: "te", selector: { exact: "x" }, messages: [] },
+      { persist: () => {} },
+    );
     document.body.appendChild(box.el);
     const ta = box.el.querySelector(".ga-input");
-    const e = new window.KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    const e = new window.KeyboardEvent("keydown", {
+      key: "z",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
     ta.dispatchEvent(e);
     expect(e.defaultPrevented).toBe(false);
   });

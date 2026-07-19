@@ -19,7 +19,10 @@ function streamResponse(textChunks, { ok = true, status = 200 } = {}) {
         return {
           read() {
             if (i < textChunks.length)
-              return Promise.resolve({ value: new TextEncoder().encode(textChunks[i++]), done: false });
+              return Promise.resolve({
+                value: new TextEncoder().encode(textChunks[i++]),
+                done: false,
+              });
             return Promise.resolve({ value: undefined, done: true });
           },
         };
@@ -32,8 +35,13 @@ function clientWith(fetchFake) {
   // api-util.js supplies GA.makeAbortBudget / GA.REQUEST_TIMEOUT_MS used by the
   // client's request-timeout guard.
   return loadGA(
-    ["src/background/api-util.js", "src/gemini/parser.js", "src/gemini/payload.js", "src/gemini/client.js"],
-    { fetch: fetchFake }
+    [
+      "src/background/api-util.js",
+      "src/gemini/parser.js",
+      "src/gemini/payload.js",
+      "src/gemini/client.js",
+    ],
+    { fetch: fetchFake },
   ).client;
 }
 
@@ -88,7 +96,9 @@ describe("client.ask (WebRpcClient transport + streaming)", () => {
         external.abort(); // cancel while the request is pending
       });
     });
-    await expect(client.ask({ prompt: "p", tokens, signal: external.signal })).rejects.toMatchObject({
+    await expect(
+      client.ask({ prompt: "p", tokens, signal: external.signal }),
+    ).rejects.toMatchObject({
       name: "AbortError",
     });
   });

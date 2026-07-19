@@ -157,7 +157,8 @@ GA.core.markdownAst = (function () {
       }
       const buf = [line];
       i++;
-      while (i < lines.length && !/^\s*$/.test(lines[i]) && !isBlockStart(lines[i])) buf.push(lines[i++]);
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !isBlockStart(lines[i]))
+        buf.push(lines[i++]);
       blocks.push({ type: "paragraph", inline: parseInlineLines(buf.join("\n")) });
     }
     return blocks;

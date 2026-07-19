@@ -10,7 +10,7 @@ function thread(over = {}) {
       section: "A B+ tree node fits in one 8 KB page because that is the OS page size.",
       messages: [{ role: "user", text: "why 8 KB and not 4 KB?" }],
     },
-    over
+    over,
   );
 }
 
@@ -53,11 +53,15 @@ describe("composePrompt — structure", () => {
         ],
       }),
       "selection",
-      {}
+      {},
     );
     expect(out).toContain('I highlighted this specific part: "8 KB page"');
-    expect(out.indexOf("Me: why 8 KB?")).toBeLessThan(out.indexOf("You: Because the OS page is 8 KB."));
-    expect(out.indexOf("You: Because the OS page is 8 KB.")).toBeLessThan(out.indexOf("Me: and 16 KB?"));
+    expect(out.indexOf("Me: why 8 KB?")).toBeLessThan(
+      out.indexOf("You: Because the OS page is 8 KB."),
+    );
+    expect(out.indexOf("You: Because the OS page is 8 KB.")).toBeLessThan(
+      out.indexOf("Me: and 16 KB?"),
+    );
   });
 
   it("is well-formed with no messages yet", () => {

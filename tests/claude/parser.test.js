@@ -20,7 +20,7 @@ describe("claude parseLatest", () => {
 
   it("concatenates content_block_delta text deltas", () => {
     const raw = [
-      'event: content_block_delta',
+      "event: content_block_delta",
       'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi "}}',
       'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"there"}}',
     ].join("\n");
@@ -28,7 +28,7 @@ describe("claude parseLatest", () => {
   });
 
   it("skips malformed lines without throwing", () => {
-    const raw = ['data: {oops}', 'data: {"completion":"ok"}'].join("\n");
+    const raw = ["data: {oops}", 'data: {"completion":"ok"}'].join("\n");
     expect(parseLatest(raw)).toBe("ok");
   });
 });

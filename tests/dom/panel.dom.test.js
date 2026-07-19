@@ -89,7 +89,7 @@ describe("panel keyword search", () => {
     GA.panel.open();
     // switch to the Resolved tab
     const resolvedTab = Array.from(document.querySelectorAll(".ga-panel-tab")).find(
-      (b) => b.textContent === "Resolved"
+      (b) => b.textContent === "Resolved",
     );
     resolvedTab.click();
     type(searchInput(), "higgs");

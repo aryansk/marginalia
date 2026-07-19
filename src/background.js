@@ -25,7 +25,7 @@ function setupMenus() {
   Promise.resolve(browser.contextMenus.removeAll()).then(function () {
     browser.contextMenus.create({
       id: P.CONTEXT_MENU_ID,
-      title: 'Ask about “%s”',
+      title: "Ask about “%s”",
       contexts: ["selection"],
       documentUrlPatterns: [
         "https://gemini.google.com/*",
@@ -132,10 +132,12 @@ browser.runtime.onConnect.addListener(function (port) {
           sent = t;
           try {
             port.postMessage(
-              d.reset ? { type: P.MSG_CHUNK, reset: true, text: d.text } : { type: P.MSG_CHUNK, delta: d.delta }
+              d.reset
+                ? { type: P.MSG_CHUNK, reset: true, text: d.text }
+                : { type: P.MSG_CHUNK, delta: d.delta },
             );
           } catch (e) {}
-        }
+        },
       );
       port.postMessage({ type: P.MSG_DONE, text });
     } catch (e) {

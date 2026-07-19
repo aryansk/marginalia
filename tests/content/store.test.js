@@ -26,7 +26,8 @@ function fakeBrowser() {
           return out;
         },
         set: async (obj) => Object.assign(data, structuredClone(obj)),
-        remove: async (keys) => (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
+        remove: async (keys) =>
+          (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
       },
     },
   };
@@ -34,7 +35,9 @@ function fakeBrowser() {
 
 let GA;
 beforeEach(() => {
-  GA = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], { browser: fakeBrowser() });
+  GA = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], {
+    browser: fakeBrowser(),
+  });
 });
 
 const thread = (id) => ({ id, selector: { exact: id }, messages: [] });
@@ -151,7 +154,9 @@ describe("draft housekeeping", () => {
   it("isStaleDraft: only provably-old buckets are stale; undatable buckets are kept", () => {
     expect(GA.store.isStaleDraft([aged("a", NOW - DAY)], NOW)).toBe(false);
     expect(GA.store.isStaleDraft([aged("a", NOW - 8 * DAY)], NOW)).toBe(true);
-    expect(GA.store.isStaleDraft([aged("old", NOW - 30 * DAY), aged("new", NOW - DAY)], NOW)).toBe(false);
+    expect(GA.store.isStaleDraft([aged("old", NOW - 30 * DAY), aged("new", NOW - DAY)], NOW)).toBe(
+      false,
+    );
     expect(GA.store.isStaleDraft([], NOW)).toBe(false); // nothing datable -> keep
     expect(GA.store.isStaleDraft([{ id: "x" }], NOW)).toBe(false); // no createdAt -> keep
   });
@@ -223,7 +228,9 @@ describe("draft housekeeping", () => {
 
   it("sweepDrafts keeps a bucket whose threads lack createdAt (undatable -> adopt, not drop)", async () => {
     const b = fakeBrowser();
-    b._data["ga:threads:__draft__:gemini:tab_old"] = [{ id: "undated", selector: { exact: "u" }, messages: [] }];
+    b._data["ga:threads:__draft__:gemini:tab_old"] = [
+      { id: "undated", selector: { exact: "u" }, messages: [] },
+    ];
     const store = storeFor(b, "tab_1");
     await store.sweepDrafts(NOW);
     const mine = await store.load(null);
@@ -246,7 +253,7 @@ describe("draft housekeeping", () => {
     const survivors = new Set(
       Object.keys(b._data)
         .filter((k) => k.indexOf("ga:threads:") === 0)
-        .flatMap((k) => b._data[k].map((t) => t.id))
+        .flatMap((k) => b._data[k].map((t) => t.id)),
     );
     seededIds.forEach((id) => expect(survivors.has(id)).toBe(true));
   });
@@ -356,7 +363,7 @@ describe("draft retention under concurrency (Siege findings)", () => {
     const survivors = new Set(
       Object.keys(b._data)
         .filter((k) => k.indexOf("ga:threads:") === 0)
-        .flatMap((k) => b._data[k].map((t) => t.id))
+        .flatMap((k) => b._data[k].map((t) => t.id)),
     );
     expect(survivors.has("a")).toBe(true);
     expect(survivors.has("b")).toBe(true);
@@ -449,7 +456,11 @@ describe("conversation transcripts (ga:convo:*)", () => {
       GA.store.saveConvo("gemini:abc", convoRecord()),
       GA.store.upsert("gemini:abc", { id: "t2", selector: { exact: "y" }, messages: [] }),
     ]);
-    expect(calls).toEqual(["ga:threads:gemini:abc", "ga:convo:gemini:abc", "ga:threads:gemini:abc"]);
+    expect(calls).toEqual([
+      "ga:threads:gemini:abc",
+      "ga:convo:gemini:abc",
+      "ga:threads:gemini:abc",
+    ]);
     expect((await GA.store.load("gemini:abc")).map((t) => t.id)).toEqual(["t1", "t2"]); // no lost update
   });
 
@@ -476,7 +487,12 @@ describe("conversation transcripts (ga:convo:*)", () => {
 
     it("via the delegate: a scroll-up prepend lands before the stored turns", () => {
       const stored = [T("user", "h3", 3, 0), T("model", "h4", 4, 1)];
-      const snapshot = [T("user", "h1", 1, 0), T("model", "h2", 2, 1), T("user", "h3", 3, 2), T("model", "h4", 4, 3)];
+      const snapshot = [
+        T("user", "h1", 1, 0),
+        T("model", "h2", 2, 1),
+        T("user", "h3", 3, 2),
+        T("model", "h4", 4, 3),
+      ];
       const merged = GA.store.mergeTurns(stored, snapshot);
       expect(merged.map((t) => t.fp.hash)).toEqual(["h1", "h2", "h3", "h4"]);
       expect(merged.map((t) => t.order)).toEqual([0, 1, 2, 3]); // renumbered
@@ -491,7 +507,9 @@ describe("conversation transcripts (ga:convo:*)", () => {
     });
 
     it("store.js contains no second interleave — only the delegation", () => {
-      const src = fs.readFileSync(path.join(ROOT, "src/content/store.js"), "utf8").replace(/\/\/.*$/gm, "");
+      const src = fs
+        .readFileSync(path.join(ROOT, "src/content/store.js"), "utf8")
+        .replace(/\/\/.*$/gm, "");
       const body = src.match(/function mergeTurns\(([^)]*)\)\s*\{([\s\S]*?)\n {2}\}/);
       expect(body, "mergeTurns should be defined in store.js").toBeTruthy();
       expect(body[2].trim()).toBe("return GA.core.backup.mergeTurnLists(existingTurns, newTurns);");

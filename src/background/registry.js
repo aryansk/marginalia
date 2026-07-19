@@ -14,7 +14,11 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.PROVIDERS = {
   gemini: { apiKeyField: "geminiApiKey", apiClient: "googleaiClient", webClient: "client" },
   chatgpt: { apiKeyField: "openaiApiKey", apiClient: "openaiClient", webClient: null },
-  claude: { apiKeyField: "anthropicApiKey", apiClient: "anthropicClient", webClient: "claudeClient" },
+  claude: {
+    apiKeyField: "anthropicApiKey",
+    apiClient: "anthropicClient",
+    webClient: "claudeClient",
+  },
 };
 
 if (typeof module !== "undefined" && module.exports) module.exports = { PROVIDERS: GA.PROVIDERS };

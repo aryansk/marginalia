@@ -141,7 +141,7 @@ describe("wedged legacy record: export backfill -> capture upgrade -> full expor
     expect(md1).not.toContain(Q2.text); // still the wedged view
     rec = b._data[key];
     expect(rec.turns.map((t) => t.head)).toEqual(
-      [Q1, A1p].map((t) => GA.core.turnId.indexHead(t.text))
+      [Q1, A1p].map((t) => GA.core.turnId.indexHead(t.text)),
     );
 
     // ---- revisit: the next settle capture can now upgrade and anchor -----
@@ -149,7 +149,7 @@ describe("wedged legacy record: export backfill -> capture upgrade -> full expor
     await GA.convoCapture.capture();
     rec = b._data[key];
     expect(rec.turns.map((t) => t.fp)).toEqual(
-      [Q1, A1, Q2, A2].map((t) => GA.core.turnId.fingerprint(t.text))
+      [Q1, A1, Q2, A2].map((t) => GA.core.turnId.fingerprint(t.text)),
     );
 
     // ---- export #2: the full conversation, annotation re-homed -----------

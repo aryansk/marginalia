@@ -129,7 +129,10 @@ GA.convoCapture = (function () {
     // throw before every save, wedging capture for this conversation forever.
     const storedTurns = existing && Array.isArray(existing.turns) ? existing.turns : [];
     const storedBlobs =
-      existing && existing.blobs && typeof existing.blobs === "object" && !Array.isArray(existing.blobs)
+      existing &&
+      existing.blobs &&
+      typeof existing.blobs === "object" &&
+      !Array.isArray(existing.blobs)
         ? existing.blobs
         : null;
     const prior = storedTurns.filter(wellFormed);
@@ -184,7 +187,7 @@ GA.convoCapture = (function () {
           up.turns,
           snap.map(function (t) {
             return { role: t.role, fp: t.fp, order: t.order, head: t.head };
-          })
+          }),
         )
       : up.turns.map(function (t, i) {
           // healed index keeps order contiguous; head carried only when real
@@ -199,7 +202,7 @@ GA.convoCapture = (function () {
     const headByKey = new Map(
       snap.map(function (t) {
         return [turnKey(t), t.head];
-      })
+      }),
     );
     for (const t of turns) {
       if ((typeof t.head !== "string" || !t.head) && headByKey.has(turnKey(t)))
@@ -238,7 +241,7 @@ GA.convoCapture = (function () {
     const run = chain.then(captureNow, captureNow);
     chain = run.then(
       () => undefined,
-      () => undefined // one failed capture must not poison the chain
+      () => undefined, // one failed capture must not poison the chain
     );
     return run;
   }

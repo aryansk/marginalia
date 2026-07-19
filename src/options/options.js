@@ -146,7 +146,7 @@ Object.keys(API_FIELDS).forEach((field) => {
 function threadCounts(threadsObj) {
   const src = threadsObj && typeof threadsObj === "object" ? threadsObj : {};
   const buckets = Object.keys(src).filter(
-    (k) => k.indexOf(THREADS_PREFIX) === 0 && Array.isArray(src[k])
+    (k) => k.indexOf(THREADS_PREFIX) === 0 && Array.isArray(src[k]),
   );
   let records = 0;
   buckets.forEach((k) => {
@@ -193,12 +193,11 @@ els.exportBtn.addEventListener("click", async () => {
     const { records, buckets } = threadCounts(env.threads);
     downloadJson(
       JSON.stringify(env, null, 2),
-      `marginalia-threads-${ymdStamp(new Date(env.exportedAt))}.json`
+      `marginalia-threads-${ymdStamp(new Date(env.exportedAt))}.json`,
     );
     els.backupStatus.textContent = `Exported ${records} thread(s) from ${buckets} conversation(s).`;
   } catch (err) {
-    els.backupStatus.textContent =
-      "Export failed: " + ((err && err.message) || String(err));
+    els.backupStatus.textContent = "Export failed: " + ((err && err.message) || String(err));
   }
 });
 
@@ -234,7 +233,7 @@ els.importFile.addEventListener("change", async () => {
       // The one destructive path: confirm BEFORE any storage access.
       const ok = confirm(
         "Replace instead of merge: your current threads for every conversation in " +
-          "this backup will be discarded and replaced by the backup's. Continue?"
+          "this backup will be discarded and replaced by the backup's. Continue?",
       );
       if (!ok) {
         els.backupStatus.textContent = "Import cancelled — nothing was changed.";
@@ -249,8 +248,7 @@ els.importFile.addEventListener("change", async () => {
     await browser.storage.local.set(next);
     const { records, buckets } = threadCounts(parsed.threads);
     const gained = Math.max(0, storedThreadCount(next) - before);
-    els.backupStatus.textContent =
-      `Imported ${records} thread(s) into ${buckets} conversation(s) (${gained} new).`;
+    els.backupStatus.textContent = `Imported ${records} thread(s) into ${buckets} conversation(s) (${gained} new).`;
   } catch (err) {
     const msg = (err && err.message) || String(err);
     els.backupStatus.textContent = /quota/i.test(msg)
@@ -263,8 +261,9 @@ els.clearBtn.addEventListener("click", async () => {
   const all = await browser.storage.local.get();
   const keys = Object.keys(all).filter((k) => k.indexOf(THREADS_PREFIX) === 0);
   if (keys.length) await browser.storage.local.remove(keys);
-  els.clearStatus.textContent =
-    keys.length ? `Deleted threads from ${keys.length} conversation(s).` : "No saved threads.";
+  els.clearStatus.textContent = keys.length
+    ? `Deleted threads from ${keys.length} conversation(s).`
+    : "No saved threads.";
 });
 
 load();

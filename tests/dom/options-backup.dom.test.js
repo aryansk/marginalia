@@ -80,7 +80,7 @@ function setup({ initial = {}, failSet = "", confirmResult = true } = {}) {
         e.preventDefault();
       }
     },
-    true
+    true,
   );
 
   const GA = loadGA(
@@ -93,7 +93,7 @@ function setup({ initial = {}, failSet = "", confirmResult = true } = {}) {
         confirms.push(msg);
         return confirmResult;
       },
-    }
+    },
   );
   const el = (id) => document.getElementById(id);
   return { GA, store, created, revoked, confirms, anchorClicks, el };
@@ -141,7 +141,10 @@ describe("options export", () => {
     expect(env.format).toBe("marginalia-threads");
     expect(env.version).toBe(1);
     expect(typeof env.exportedAt).toBe("number");
-    expect(Object.keys(env.threads).sort()).toEqual(["ga:threads:claude:s9", "ga:threads:gemini:s1"]);
+    expect(Object.keys(env.threads).sort()).toEqual([
+      "ga:threads:claude:s9",
+      "ga:threads:gemini:s1",
+    ]);
     expect(env.convos["ga:convo:gemini:conv1"].blobs["h1:5"]).toBe("Zm9vYmFy");
 
     expect(anchorClicks).toHaveLength(1);
@@ -315,7 +318,7 @@ describe("options import — failure paths (F9: every failure is visible)", () =
     const { store } = setup({ initial: SEEDED });
     await importText(JSON.stringify({ hello: "world" }));
     expect(status()).toBe(
-      "Import failed: that file isn't a Marginalia backup. Nothing was changed."
+      "Import failed: that file isn't a Marginalia backup. Nothing was changed.",
     );
     expect(store.setCalls).toHaveLength(0);
   });
@@ -323,10 +326,10 @@ describe("options import — failure paths (F9: every failure is visible)", () =
   it("unsupported archive version: mergeImport's throw surfaces in the status line", async () => {
     const { store } = setup({ initial: SEEDED });
     await importText(
-      JSON.stringify({ format: "marginalia-threads", version: 2, threads: {}, convos: {} })
+      JSON.stringify({ format: "marginalia-threads", version: 2, threads: {}, convos: {} }),
     );
     expect(status()).toBe(
-      "Import failed: backup: unsupported archive version 2 Nothing was changed."
+      "Import failed: backup: unsupported archive version 2 Nothing was changed.",
     );
     expect(store.setCalls).toHaveLength(0);
   });
@@ -343,10 +346,10 @@ describe("options import — failure paths (F9: every failure is visible)", () =
         exportedAt: 1,
         threads: { "ga:threads:new:n1": [thread("n")] },
         convos: {},
-      })
+      }),
     );
     expect(status()).toBe(
-      "Import failed: this browser's extension storage is full (quota exceeded). Nothing was changed."
+      "Import failed: this browser's extension storage is full (quota exceeded). Nothing was changed.",
     );
     expect(store.setCalls).toHaveLength(1); // it TRIED —
     expect(store.data).toEqual(SEEDED); // — but the atomic set failed; nothing changed
@@ -361,7 +364,7 @@ describe("options import — failure paths (F9: every failure is visible)", () =
         exportedAt: 1,
         threads: { "ga:threads:new:n1": [thread("n")] },
         convos: {},
-      })
+      }),
     );
     expect(status()).toBe("Import failed: disk exploded Nothing was changed.");
     expect(store.data).toEqual(SEEDED);
@@ -376,7 +379,7 @@ describe("options import — failure paths (F9: every failure is visible)", () =
         exportedAt: 1,
         threads: { "ga:settings": [thread("evil")] },
         convos: {},
-      })
+      }),
     );
     expect(store.data["ga:settings"]).toEqual(SEEDED["ga:settings"]);
     // The status must count what was ACCEPTED, not what the file claimed.

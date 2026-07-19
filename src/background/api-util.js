@@ -80,7 +80,8 @@ GA.abortError = function () {
 // clients.
 GA.mapBudgetError = function (e, budget, timeoutMsg) {
   if (budget.cancelled()) return GA.abortError();
-  if (budget.aborted() || (e && e.name === "AbortError")) return new Error(timeoutMsg, { cause: e });
+  if (budget.aborted() || (e && e.name === "AbortError"))
+    return new Error(timeoutMsg, { cause: e });
   return e;
 };
 
@@ -133,5 +134,7 @@ GA.apiError = async function (name, res) {
     }
   } catch (e) {}
   detail = detail ? String(detail).trim() : "";
-  return name + " API error (HTTP " + res.status + ")" + (detail ? ": " + detail.slice(0, 200) : ".");
+  return (
+    name + " API error (HTTP " + res.status + ")" + (detail ? ": " + detail.slice(0, 200) : ".")
+  );
 };

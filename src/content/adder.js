@@ -20,7 +20,7 @@ GA.adder = (function () {
         class: "ga-adder",
         "aria-label": "Comment on or ask about the selected text",
       },
-      [GA.icons.make("comment-plus"), "Comment / Ask"]
+      [GA.icons.make("comment-plus"), "Comment / Ask"],
     );
     // mousedown (not click) + preventDefault: the page selection must survive
     // until createFromSelection() reads it.
@@ -63,7 +63,7 @@ GA.adder = (function () {
     const pos = GA.core.adderPosition.position(
       rect,
       { width: el.offsetWidth || 110, height: el.offsetHeight || 32 },
-      { width: window.innerWidth, height: window.innerHeight }
+      { width: window.innerWidth, height: window.innerHeight },
     );
     el.style.left = pos.x + "px";
     el.style.top = pos.y + "px";

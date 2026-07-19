@@ -33,7 +33,7 @@ GA.core.prompt = (function () {
     lines.push("");
     lines.push(
       "Answer my latest question concisely, focused only on the highlighted part. " +
-        "Don't repeat the whole original explanation."
+        "Don't repeat the whole original explanation.",
     );
     return lines.join("\n");
   }

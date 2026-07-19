@@ -191,11 +191,15 @@
   overflow: hidden;
 }
 .ga-gutter.ga-animate .ga-box {
-  transition: transform 0.18s ease, opacity 0.15s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.15s ease;
 }
 .ga-box.ga-active {
   border-color: var(--ga-accent);
-  box-shadow: 0 0 0 2px var(--ga-ring), var(--ga-shadow-md);
+  box-shadow:
+    0 0 0 2px var(--ga-ring),
+    var(--ga-shadow-md);
 }
 /* hovering the box's highlight in the page raises the box (hover linking) */
 .ga-box.ga-hover {
@@ -276,7 +280,9 @@
   box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .ga-cluster:hover {
   border-color: var(--ga-accent);
@@ -324,7 +330,9 @@
   box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .ga-scrollcue:hover {
   border-color: var(--ga-accent);
@@ -389,7 +397,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
 }
 .ga-iconbtn svg {
   width: 16px;
@@ -799,7 +809,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: filter 0.12s ease, background-color 0.12s ease;
+  transition:
+    filter 0.12s ease,
+    background-color 0.12s ease;
 }
 .ga-send svg {
   width: 14px;
@@ -961,7 +973,9 @@
   box-shadow: var(--ga-shadow-md);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 .ga-toast.ga-toast-show {
   opacity: 1;
@@ -1015,7 +1029,10 @@
   box-shadow: var(--ga-shadow-sm);
   pointer-events: auto;
   z-index: 2147483006;
-  transition: color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .ga-panel-btn svg {
   width: 16px;
@@ -1043,7 +1060,10 @@
   padding: 4px 10px;
   border-radius: 999px;
   cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 .ga-panel-tab:hover {
   background: var(--ga-hover);
@@ -1110,7 +1130,9 @@
   border: 1px solid var(--ga-border);
   border-radius: var(--ga-r-md);
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
 }
 .ga-panel-row:hover {
   border-color: var(--ga-accent);
@@ -1176,7 +1198,10 @@
   font-weight: 600;
   background: var(--ga-accent-strong);
   box-shadow: var(--ga-shadow-sm);
-  transition: filter 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  transition:
+    filter 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
 }
 .ga-adder.ga-adder-show {
   display: inline-flex;

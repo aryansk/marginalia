@@ -62,7 +62,9 @@ GA.attachComposerUndo = function (textarea, opts) {
   let idleTimer = 0;
 
   function caret() {
-    return typeof textarea.selectionStart === "number" ? textarea.selectionStart : (textarea.value || "").length;
+    return typeof textarea.selectionStart === "number"
+      ? textarea.selectionStart
+      : (textarea.value || "").length;
   }
   function capture() {
     return { value: textarea.value, caret: caret() };

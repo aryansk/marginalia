@@ -10,7 +10,11 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.keyboardNav = (function () {
   function isTyping(e) {
     const t = e.target;
-    return t && t.closest && !!t.closest("input, textarea, [contenteditable='true'], [contenteditable='']");
+    return (
+      t &&
+      t.closest &&
+      !!t.closest("input, textarea, [contenteditable='true'], [contenteditable='']")
+    );
   }
 
   function cycle(dir) {

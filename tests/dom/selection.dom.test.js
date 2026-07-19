@@ -100,7 +100,9 @@ describe("selection.reanchorAll (batch re-anchor)", () => {
 
     // sequential (the previous per-thread path)
     fixtureAnswer();
-    const seq = threads.map((t) => GA.selection.highlightSelector(t.selector, t.id).map((s) => s.textContent));
+    const seq = threads.map((t) =>
+      GA.selection.highlightSelector(t.selector, t.id).map((s) => s.textContent),
+    );
     threads.forEach((t) => GA.selection.unhighlight(t.id));
     document.body.innerHTML = "";
 

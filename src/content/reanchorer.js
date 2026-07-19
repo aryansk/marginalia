@@ -54,7 +54,7 @@ GA.reanchorer = (function () {
       function () {
         GA.frame.schedule("reanchor", onFrame);
       },
-      true
+      true,
     );
   }
 

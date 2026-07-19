@@ -207,7 +207,7 @@ describe("convoCapture.capture — progressive reveal", () => {
     expect(rec.turns.map((t) => t.fp)).toEqual([C, D].map((t) => fpOf(GA, t.text)));
     // …but the disjoint turns' blobs are already banked.
     expect(Object.keys(rec.blobs).sort()).toEqual(
-      [A, B, C, D].map((t) => keyOf(GA, t.text)).sort()
+      [A, B, C, D].map((t) => keyOf(GA, t.text)).sort(),
     );
 
     // A bridging capture that overlaps both windows indexes everything, in
@@ -266,9 +266,7 @@ describe("convoCapture.capture — progressive reveal", () => {
 
     // Stored C is not visible, so the snapshot doesn't supersede the index —
     // but the windows share the adjacent run A,B, which anchors the merge.
-    expect(bucket(b).turns.map((t) => t.fp)).toEqual(
-      [X, Y, A, B, C].map((t) => fpOf(GA, t.text))
-    );
+    expect(bucket(b).turns.map((t) => t.fp)).toEqual([X, Y, A, B, C].map((t) => fpOf(GA, t.text)));
   });
 
   it("a duplicate message shared across DISJOINT windows is a false anchor — it must not license a merge", async () => {
@@ -295,7 +293,7 @@ describe("convoCapture.capture — progressive reveal", () => {
 
     const rec = bucket(b);
     expect(rec.turns.map((t) => t.fp)).toEqual(
-      [Xa, cont, Ya, Da, cont, Za].map((t) => fpOf(GA, t.text))
+      [Xa, cont, Ya, Da, cont, Za].map((t) => fpOf(GA, t.text)),
     );
     expect(rec.turns).toHaveLength(6); // no phantom duplicates
   });
@@ -314,7 +312,7 @@ describe("convoCapture.capture — progressive reveal", () => {
     const rec = bucket(b);
     expect(rec.turns.map((t) => t.fp)).toEqual([A, B].map((t) => fpOf(GA, t.text)));
     expect(Object.keys(rec.blobs).sort()).toEqual(
-      [A, B].map((t) => keyOf(GA, t.text)).sort() // no "0"/"1"/"2" char keys
+      [A, B].map((t) => keyOf(GA, t.text)).sort(), // no "0"/"1"/"2" char keys
     );
   });
 
@@ -491,7 +489,12 @@ function makeController() {
     remove: vi.fn(async () => {}),
   };
   GA.selection = {
-    capture: vi.fn(() => ({ selector: {}, anchor: { role: "model" }, sectionText: "s", range: {} })),
+    capture: vi.fn(() => ({
+      selector: {},
+      anchor: { role: "model" },
+      sectionText: "s",
+      range: {},
+    })),
     highlightRange: vi.fn(),
     highlightThread: vi.fn(),
     anchorEl: vi.fn(() => ({})),
@@ -595,7 +598,7 @@ describe("trigger wiring — content.js seam", () => {
     const ctxBlock = src.match(/GA\.reanchorer\.observe\(\{([\s\S]*?)\}\)/);
     expect(ctxBlock, "reanchorer.observe ctx not found").toBeTruthy();
     expect(ctxBlock[1]).toMatch(
-      /onSettled:\s*\(\)\s*=>\s*GA\.convoCapture\s*&&\s*GA\.convoCapture\.schedule\(\)/
+      /onSettled:\s*\(\)\s*=>\s*GA\.convoCapture\s*&&\s*GA\.convoCapture\.schedule\(\)/,
     );
   });
 });

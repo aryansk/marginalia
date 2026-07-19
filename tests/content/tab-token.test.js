@@ -57,4 +57,3 @@ describe("GA.tabToken", () => {
     expect(tab1).not.toBe(tab2);
   });
 });
-

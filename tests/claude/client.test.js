@@ -51,7 +51,7 @@ function client(fetchFake) {
       "src/claude/payload.js",
       "src/claude/client.js",
     ],
-    { fetch: fetchFake }
+    { fetch: fetchFake },
   ).claudeClient;
 }
 
@@ -60,10 +60,13 @@ const OK_ORGS = [{ uuid: "org-1", capabilities: ["chat"] }];
 describe("claudeClient.ask (web session)", () => {
   it("walks org -> conversation -> completion and streams the answer", async () => {
     const fetchFake = routedFetch([
-      ["/completion", sseStream([
-        'data: {"type":"content_block_delta","delta":{"text":"Hel"}}\n',
-        'data: {"type":"content_block_delta","delta":{"text":"lo"}}\n',
-      ])],
+      [
+        "/completion",
+        sseStream([
+          'data: {"type":"content_block_delta","delta":{"text":"Hel"}}\n',
+          'data: {"type":"content_block_delta","delta":{"text":"lo"}}\n',
+        ]),
+      ],
       ["/chat_conversations", jsonRes({ uuid: "conv-1" })],
       ["/api/organizations", jsonRes(OK_ORGS)],
     ]);
@@ -77,7 +80,10 @@ describe("claudeClient.ask (web session)", () => {
 
   it("caches the org id across asks (one /api/organizations fetch)", async () => {
     const fetchFake = routedFetch([
-      ["/completion", () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n'])],
+      [
+        "/completion",
+        () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n']),
+      ],
       ["/chat_conversations", () => jsonRes({ uuid: "conv-1" })],
       ["/api/organizations", () => jsonRes(OK_ORGS)],
     ]);
@@ -93,8 +99,17 @@ describe("claudeClient.ask (web session)", () => {
   it("drops the cached org id after an auth error", async () => {
     let convStatus = 403;
     const fetchFake = routedFetch([
-      ["/completion", () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n'])],
-      ["/chat_conversations", () => (convStatus === 200 ? jsonRes({ uuid: "c" }) : jsonRes({}, { ok: false, status: convStatus }))],
+      [
+        "/completion",
+        () => sseStream(['data: {"type":"content_block_delta","delta":{"text":"ok"}}\n']),
+      ],
+      [
+        "/chat_conversations",
+        () =>
+          convStatus === 200
+            ? jsonRes({ uuid: "c" })
+            : jsonRes({}, { ok: false, status: convStatus }),
+      ],
       ["/api/organizations", () => jsonRes(OK_ORGS)],
     ]);
     const c = client(fetchFake);
@@ -106,7 +121,9 @@ describe("claudeClient.ask (web session)", () => {
   });
 
   it("errors when the account can't be reached", async () => {
-    const fetchFake = routedFetch([["/api/organizations", jsonRes({}, { ok: false, status: 403 })]]);
+    const fetchFake = routedFetch([
+      ["/api/organizations", jsonRes({}, { ok: false, status: 403 })],
+    ]);
     await expect(client(fetchFake).ask({ prompt: "p" })).rejects.toThrow(/403/);
   });
 
@@ -121,16 +138,21 @@ describe("claudeClient.ask (web session)", () => {
       ["/chat_conversations", jsonRes({ uuid: "conv-1" })],
       ["/api/organizations", jsonRes(OK_ORGS)],
     ]);
-    await expect(client(fetchFake).ask({ prompt: "p" })).rejects.toThrow(/Claude request failed.*500/);
+    await expect(client(fetchFake).ask({ prompt: "p" })).rejects.toThrow(
+      /Claude request failed.*500/,
+    );
   });
 
   it("reports a timeout when a request aborts", async () => {
     const fetchFake = routedFetch([
-      ["/api/organizations", () => {
-        const e = new Error("aborted");
-        e.name = "AbortError";
-        throw e;
-      }],
+      [
+        "/api/organizations",
+        () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          throw e;
+        },
+      ],
     ]);
     await expect(client(fetchFake).ask({ prompt: "p" })).rejects.toThrow(/timed out/i);
   });
@@ -138,16 +160,19 @@ describe("claudeClient.ask (web session)", () => {
   it("an external cancel (req.signal) surfaces as AbortError, not a timeout", async () => {
     const external = new AbortController();
     const fetchFake = routedFetch([
-      ["/api/organizations", () => {
-        // simulate the fetch being killed by the chained abort signal
-        external.abort();
-        const e = new Error("aborted");
-        e.name = "AbortError";
-        throw e;
-      }],
+      [
+        "/api/organizations",
+        () => {
+          // simulate the fetch being killed by the chained abort signal
+          external.abort();
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          throw e;
+        },
+      ],
     ]);
     await expect(
-      client(fetchFake).ask({ prompt: "p", signal: external.signal })
+      client(fetchFake).ask({ prompt: "p", signal: external.signal }),
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
@@ -155,20 +180,23 @@ describe("claudeClient.ask (web session)", () => {
     let seenSignal = null;
     const external = new AbortController();
     const fetchFake = routedFetch([
-      ["/api/organizations", (url, opts) => {
-        seenSignal = opts.signal;
-        return new Promise((resolve, reject) => {
-          opts.signal.addEventListener("abort", () => {
-            const e = new Error("aborted");
-            e.name = "AbortError";
-            reject(e);
+      [
+        "/api/organizations",
+        (url, opts) => {
+          seenSignal = opts.signal;
+          return new Promise((resolve, reject) => {
+            opts.signal.addEventListener("abort", () => {
+              const e = new Error("aborted");
+              e.name = "AbortError";
+              reject(e);
+            });
+            external.abort(); // cancel while the fetch is pending
           });
-          external.abort(); // cancel while the fetch is pending
-        });
-      }],
+        },
+      ],
     ]);
     await expect(
-      client(fetchFake).ask({ prompt: "p", signal: external.signal })
+      client(fetchFake).ask({ prompt: "p", signal: external.signal }),
     ).rejects.toMatchObject({ name: "AbortError" });
     expect(seenSignal.aborted).toBe(true);
   });

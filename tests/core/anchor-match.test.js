@@ -65,7 +65,9 @@ describe("evaluate — context that was recorded must reappear", () => {
     // This is the guard the old `count > 1` check was missing.
     const ev = evaluate("the page rots", { exact: "page", prefix: "cacheX", suffix: "Yreuse" });
     expect(ev).toBeNull();
-    expect(bestMatch("the page rots", { exact: "page", prefix: "cacheX", suffix: "Yreuse" })).toBe(-1);
+    expect(bestMatch("the page rots", { exact: "page", prefix: "cacheX", suffix: "Yreuse" })).toBe(
+      -1,
+    );
   });
 
   it("still accepts a unique occurrence when NO context was recorded", () => {
@@ -77,7 +79,9 @@ describe("evaluate — context that was recorded must reappear", () => {
 
   it("refuses a tie between equally-corroborated repeats instead of taking the earliest", () => {
     // Old behavior: strict `>` kept the first. Earliest means the turn above.
-    expect(evaluate("a page z and a page z", { exact: "page", prefix: "a ", suffix: " z" })).toBeNull();
+    expect(
+      evaluate("a page z and a page z", { exact: "page", prefix: "a ", suffix: " z" }),
+    ).toBeNull();
   });
 
   it("reports occurrence count", () => {

@@ -20,7 +20,7 @@ describe("openai parseLatest", () => {
   });
 
   it("skips malformed lines without throwing", () => {
-    const raw = ['data: {bad}', 'data: {"choices":[{"delta":{"content":"ok"}}]}'].join("\n");
+    const raw = ["data: {bad}", 'data: {"choices":[{"delta":{"content":"ok"}}]}'].join("\n");
     expect(parseLatest(raw)).toBe("ok");
   });
 });

@@ -57,9 +57,7 @@ GA.selection = (function () {
       selector,
       // Who spoke, and which message. Null on a site with no turn adapter —
       // an unavailable signal, which the cascade degrades around.
-      anchor: turn
-        ? { v: 2, role: turn.role, turn: GA.turns.fingerprintOf(turn.el) }
-        : null,
+      anchor: turn ? { v: 2, role: turn.role, turn: GA.turns.fingerprintOf(turn.el) } : null,
     };
   }
 
@@ -193,9 +191,7 @@ GA.selection = (function () {
     // Role is a hard gate: a thread born in an answer is never offered a
     // question. A turn whose role we cannot read stays eligible (unavailable).
     const wantRole = thread.anchor && thread.anchor.role;
-    const eligible = wantRole
-      ? turns.filter((t) => t.role === null || t.role === wantRole)
-      : turns;
+    const eligible = wantRole ? turns.filter((t) => t.role === null || t.role === wantRole) : turns;
     if (!eligible.length) return null;
 
     // Rung 1 — we know the message.
@@ -303,8 +299,7 @@ GA.selection = (function () {
   // must count as orphaned rather than anchoring a box to nowhere.
   let rectsWork = null;
   function hasRects(el) {
-    if (rectsWork === null)
-      rectsWork = document.documentElement.getClientRects().length > 0;
+    if (rectsWork === null) rectsWork = document.documentElement.getClientRects().length > 0;
     return !rectsWork || el.getClientRects().length > 0;
   }
 

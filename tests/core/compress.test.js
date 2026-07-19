@@ -10,7 +10,8 @@ const GA = loadGA(["src/core/compress.js"]);
 const { gzipToB64, b64ToText } = GA.core.compress;
 
 const hasStreams =
-  typeof globalThis.CompressionStream === "function" && typeof globalThis.DecompressionStream === "function";
+  typeof globalThis.CompressionStream === "function" &&
+  typeof globalThis.DecompressionStream === "function";
 
 const roundTrip = async (s) => b64ToText(await gzipToB64(s));
 

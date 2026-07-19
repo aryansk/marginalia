@@ -11,10 +11,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { loadGA } from "../helpers/loadGA.js";
 
-const HTML = readFileSync(
-  resolve(__dirname, "../fixtures/gemini-conversation.html"),
-  "utf8",
-);
+const HTML = readFileSync(resolve(__dirname, "../fixtures/gemini-conversation.html"), "utf8");
 
 const MODULES = [
   "src/core/sites.js",
@@ -121,7 +118,10 @@ describe("the reported bug", () => {
 
     // And it is genuinely a different spot from the first occurrence.
     const first = rangeOverWord(modelTurns()[2].el, "replication", 0);
-    expect(hit.range.startOffset === first.startOffset && hit.range.startContainer === first.startContainer).toBe(false);
+    expect(
+      hit.range.startOffset === first.startOffset &&
+        hit.range.startContainer === first.startContainer,
+    ).toBe(false);
   });
 });
 

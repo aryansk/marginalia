@@ -32,7 +32,7 @@ function makeGA(browser) {
       "src/content/icons.js",
       "src/content/panel.js",
     ],
-    { browser }
+    { browser },
   );
   GA.threadController = { threads: () => [], expandThreadById: () => {} };
   GA.selection = { anchorEl: () => null };

@@ -46,8 +46,10 @@ GA.core.texUnicode = (function () {
   };
   // TeX operator names render as themselves (upright in real TeX): \log x -> log x.
   const FUNC_CMDS = {};
-  ("log ln lg exp sin cos tan cot sec csc arcsin arccos arctan sinh cosh tanh " +
-    "max min sup inf lim liminf limsup det gcd dim deg arg ker hom Pr mod")
+  (
+    "log ln lg exp sin cos tan cot sec csc arcsin arccos arctan sinh cosh tanh " +
+    "max min sup inf lim liminf limsup det gcd dim deg arg ker hom Pr mod"
+  )
     .split(" ")
     .forEach((f) => (FUNC_CMDS[f] = 1));
   // Sizing/fencing commands: strip to the delimiter that follows them.
@@ -69,7 +71,16 @@ GA.core.texUnicode = (function () {
   };
   // Control symbols: \, \; \: are thin spaces, \! is negative space (dropped).
   const SPACE_SYMBOLS = { ",": " ", ";": " ", ":": " ", " ": " " };
-  const LITERAL_SYMBOLS = { "{": "{", "}": "}", "|": "‖", $: "$", "%": "%", "&": "&", "#": "#", _: "_" };
+  const LITERAL_SYMBOLS = {
+    "{": "{",
+    "}": "}",
+    "|": "‖",
+    $: "$",
+    "%": "%",
+    "&": "&",
+    "#": "#",
+    _: "_",
+  };
   const MAX_DEPTH = 40; // beyond this, `{` is literal — guards the recursion
 
   function toInline(tex) {
@@ -91,7 +102,8 @@ GA.core.texUnicode = (function () {
       }
       if (ch === "{") {
         cur.pos++;
-        if (depth < MAX_DEPTH) pushAll(out, parseRun(cur, depth + 1, true)); // transparent group
+        if (depth < MAX_DEPTH)
+          pushAll(out, parseRun(cur, depth + 1, true)); // transparent group
         else pushText(out, "{");
         continue;
       }
@@ -139,8 +151,10 @@ GA.core.texUnicode = (function () {
       if (c === undefined) pushText(out, "\\");
       else if (LITERAL_SYMBOLS[c] !== undefined) pushText(out, LITERAL_SYMBOLS[c]);
       else if (SPACE_SYMBOLS[c] !== undefined) pushText(out, SPACE_SYMBOLS[c]);
-      else if (c === "!") pushText(out, ""); // negative thin space — drop
-      else if (c === "\\") pushText(out, " "); // row break
+      else if (c === "!")
+        pushText(out, ""); // negative thin space — drop
+      else if (c === "\\")
+        pushText(out, " "); // row break
       else pushText(out, "\\" + c); // unknown — keep literal
       return;
     }
@@ -154,7 +168,7 @@ GA.core.texUnicode = (function () {
         out,
         Array.from(arg)
           .map((c) => table[c] || c)
-          .join("")
+          .join(""),
       );
       return;
     }

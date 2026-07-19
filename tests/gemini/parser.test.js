@@ -43,18 +43,25 @@ describe("parseLatest", () => {
   });
 
   it("ignores non-JSON wrb.fr lines and non-wrb.fr noise", () => {
-    const raw = PREFIX + '54\n[["di",123]]\n' + 'garbage\n' + frame(answer("Hi"));
+    const raw = PREFIX + '54\n[["di",123]]\n' + "garbage\n" + frame(answer("Hi"));
     expect(parseLatest(raw)).toBe("Hi");
   });
 
   it("picks the answer (longest) when an answer and a short title RPC both appear", () => {
     const title = [null, ["c_x", "r_x"], null, null, [["rc_t", ["Re: pages"]]]];
-    const raw = PREFIX + frame(title) + frame(answer("Pages are 8 KB because of the OS page size."));
+    const raw =
+      PREFIX + frame(title) + frame(answer("Pages are 8 KB because of the OS page size."));
     expect(parseLatest(raw)).toBe("Pages are 8 KB because of the OS page size.");
   });
 
   it("falls back to a nested answer when the precise path is absent", () => {
-    const weird = [null, null, null, null, [["x", null, null, ["A reasonably long fallback answer."]]]];
+    const weird = [
+      null,
+      null,
+      null,
+      null,
+      [["x", null, null, ["A reasonably long fallback answer."]]],
+    ];
     expect(parseLatest(PREFIX + frame(weird))).toBe("A reasonably long fallback answer.");
   });
 

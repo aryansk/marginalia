@@ -81,7 +81,10 @@ describe("markdown-ast — inline", () => {
   });
 
   it("keeps http(s) links but drops dangerous schemes (href = null)", () => {
-    expect(inlineOf("[ok](https://x.com)")[0]).toMatchObject({ type: "link", href: "https://x.com" });
+    expect(inlineOf("[ok](https://x.com)")[0]).toMatchObject({
+      type: "link",
+      href: "https://x.com",
+    });
     expect(inlineOf("[x](javascript:alert(1))")[0]).toMatchObject({ type: "link", href: null });
   });
 
@@ -166,7 +169,10 @@ describe("markdown-ast — math", () => {
       display: false,
       tex: "O(N)",
     });
-    expect(inlineOf("bound \\(p > |U|\\) holds")[1]).toMatchObject({ type: "math", display: false });
+    expect(inlineOf("bound \\(p > |U|\\) holds")[1]).toMatchObject({
+      type: "math",
+      display: false,
+    });
     expect(inlineOf("so $$x \\le y$$ holds")[1]).toMatchObject({ type: "math", display: true });
     expect(inlineOf("so \\[x \\le y\\] holds")[1]).toMatchObject({ type: "math", display: true });
   });

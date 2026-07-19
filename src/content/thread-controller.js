@@ -68,8 +68,7 @@ GA.threadController = (function () {
     // annotates must survive even if the tab closes seconds later. (A
     // mid-stream partial captured here is cleaned up at render time by the
     // transcript builder's prefix-dedupe.)
-    if (GA.convoCapture)
-      GA.convoCapture.capture().catch((e) => GA.warn("convo capture failed", e));
+    if (GA.convoCapture) GA.convoCapture.capture().catch((e) => GA.warn("convo capture failed", e));
     // Focus the newly-created thread: collapse the others to chips, then let the
     // single relayout below settle everyone. focusThread runs AFTER addThread
     // (box registered → excluded from the collapse sweep, marked active) and

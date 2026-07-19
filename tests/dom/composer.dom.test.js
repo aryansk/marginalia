@@ -23,7 +23,12 @@ afterEach(() => {
 });
 
 function key(target, k, mods = {}) {
-  const e = new window.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...mods });
+  const e = new window.KeyboardEvent("keydown", {
+    key: k,
+    bubbles: true,
+    cancelable: true,
+    ...mods,
+  });
   target.dispatchEvent(e);
   return e;
 }

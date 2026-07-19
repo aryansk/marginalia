@@ -130,7 +130,8 @@ describe("computeLayout — height sharing on overflow", () => {
       { id: "a", order: 0, anchorTop: 50, naturalHeight: 700 },
       { id: "b", order: 1, anchorTop: 400, naturalHeight: 700 },
     ]);
-    const total = placements.reduce((s, p) => s + p.height, 0) + DEFAULTS.GAP * (placements.length + 1);
+    const total =
+      placements.reduce((s, p) => s + p.height, 0) + DEFAULTS.GAP * (placements.length + 1);
     expect(total).toBeLessThanOrEqual(VP.height);
     placements.forEach((p) => expect(p.height).toBeGreaterThanOrEqual(DEFAULTS.MIN_BOX_HEIGHT));
   });
@@ -141,7 +142,7 @@ describe("computeLayout — height sharing on overflow", () => {
         { id: "a", order: 0, anchorTop: 50, naturalHeight: 700 },
         { id: "b", order: 1, anchorTop: 400, naturalHeight: 700 },
       ],
-      { activeId: "a" }
+      { activeId: "a" },
     );
     const a = placements.find((p) => p.id === "a");
     const b = placements.find((p) => p.id === "b");
@@ -160,7 +161,7 @@ describe("computeLayout — orphans", () => {
     expect(res.placements.map((p) => p.id).sort()).toEqual(["o1", "t"]);
     // the orphan parks at the bottom
     expect(res.placements.find((p) => p.id === "o1").top).toBeGreaterThan(
-      res.placements.find((p) => p.id === "t").top
+      res.placements.find((p) => p.id === "t").top,
     );
   });
 
@@ -198,7 +199,7 @@ describe("inputsEqual (relayout skip)", () => {
         activeId: null,
         expanded: false,
       },
-      over || {}
+      over || {},
     );
 
   it("equal inputs match; null never matches", () => {
@@ -269,12 +270,13 @@ describe("computeLayout — collapsed chips", () => {
         { id: "a", order: 1, anchorTop: 200, naturalHeight: 700 },
         { id: "b", order: 2, anchorTop: 400, naturalHeight: 700 },
       ],
-      { activeId: null }
+      { activeId: null },
     );
     const chip = placements.find((p) => p.id === "chip");
     expect(chip.height).toBe(CHIP); // not inflated to MIN_BOX_HEIGHT
     expect(chip.maxHeight).toBeNull(); // no message-area cap for a chip
-    const total = placements.reduce((s, p) => s + p.height, 0) + DEFAULTS.GAP * (placements.length + 1);
+    const total =
+      placements.reduce((s, p) => s + p.height, 0) + DEFAULTS.GAP * (placements.length + 1);
     expect(total).toBeLessThanOrEqual(VP.height);
   });
 
@@ -285,7 +287,7 @@ describe("computeLayout — collapsed chips", () => {
         { id: "a", order: 1, anchorTop: 200, naturalHeight: 700 },
         { id: "b", order: 2, anchorTop: 400, naturalHeight: 700 },
       ],
-      { activeId: "chip" }
+      { activeId: "chip" },
     );
     expect(placements.find((p) => p.id === "chip").height).toBe(32);
   });

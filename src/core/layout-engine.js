@@ -56,7 +56,10 @@ GA.core.layout = (function () {
     if (viewportWidth < c.NARROW_BREAKPOINT) {
       return { left: viewportWidth - c.RAIL_WIDTH - c.MARGIN, width: c.RAIL_WIDTH, mode: "rail" };
     }
-    const width = Math.max(c.MIN_WIDTH, Math.min(c.MAX_WIDTH, Math.floor(viewportWidth * c.WIDTH_FRACTION)));
+    const width = Math.max(
+      c.MIN_WIDTH,
+      Math.min(c.MAX_WIDTH, Math.floor(viewportWidth * c.WIDTH_FRACTION)),
+    );
     return { left: viewportWidth - width - c.MARGIN, width, mode: "full" };
   }
 
@@ -92,13 +95,20 @@ GA.core.layout = (function () {
     const offAbove = [];
     const offBelow = [];
     for (const it of layoutItems) {
-      if (it.anchorTop == null) visible.push(it); // lone orphan: parks low, stays put
+      if (it.anchorTop == null)
+        visible.push(it); // lone orphan: parks low, stays put
       else if (it.anchorTop < 0) offAbove.push(it.id);
       else if (it.anchorTop > H) offBelow.push(it.id);
       else visible.push(it);
     }
 
-    return { placements: place(visible, H, activeId, c), drawered, clusterCount, offAbove, offBelow };
+    return {
+      placements: place(visible, H, activeId, c),
+      drawered,
+      clusterCount,
+      offAbove,
+      offBelow,
+    };
   }
 
   function place(items, H, activeId, c) {
@@ -140,7 +150,8 @@ GA.core.layout = (function () {
         const boxH = heights[it.id];
         const lowest = H - boxH - c.BOTTOM_GAP;
         let top = it.orphan ? Math.max(y, lowest) : Math.max(y, Math.min(it.desiredTop, lowest));
-        if (i > idx && idx >= 0) top = Math.max(y, top); // never above the pinned box
+        if (i > idx && idx >= 0)
+          top = Math.max(y, top); // never above the pinned box
         else top = Math.max(c.GAP, Math.min(top, lowest));
         tops[it.id] = top;
         y = top + boxH + c.GAP;

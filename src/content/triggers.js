@@ -28,7 +28,7 @@ GA.triggers = (function () {
           }
         }
       },
-      true
+      true,
     );
   }
 

@@ -8,8 +8,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { loadGA } from "../helpers/loadGA.js";
 
-const fixture = (name) =>
-  readFileSync(resolve(__dirname, "../fixtures", name), "utf8");
+const fixture = (name) => readFileSync(resolve(__dirname, "../fixtures", name), "utf8");
 
 const FIXTURES = {
   gemini: "gemini-conversation.html",
@@ -33,11 +32,24 @@ describe("findTurns — real markup, all three sites", () => {
     const GA = mount("gemini");
     const turns = GA.turns.findTurns();
     expect(turns.map((t) => t.role)).toEqual([
-      "user", "model", "user", "model", "user", "model", "user", "model",
+      "user",
+      "model",
+      "user",
+      "model",
+      "user",
+      "model",
+      "user",
+      "model",
     ]);
     expect(turns.map((t) => t.el.tagName.toLowerCase())).toEqual([
-      "user-query", "model-response", "user-query", "model-response",
-      "user-query", "model-response", "user-query", "model-response",
+      "user-query",
+      "model-response",
+      "user-query",
+      "model-response",
+      "user-query",
+      "model-response",
+      "user-query",
+      "model-response",
     ]);
   });
 
@@ -45,9 +57,9 @@ describe("findTurns — real markup, all three sites", () => {
     const GA = mount("gemini");
     // The legacy response selectors match ~20 elements across 4 answers.
     const legacy = new Set();
-    GA.core.sites.responseSelectors("gemini").forEach((s) =>
-      document.querySelectorAll(s).forEach((e) => legacy.add(e)),
-    );
+    GA.core.sites
+      .responseSelectors("gemini")
+      .forEach((s) => document.querySelectorAll(s).forEach((e) => legacy.add(e)));
     expect(legacy.size).toBeGreaterThan(10);
     // Turn discovery sees 4 answers, not 20 candidates.
     expect(GA.turns.findTurns().filter((t) => t.role === "model")).toHaveLength(4);

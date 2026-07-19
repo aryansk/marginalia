@@ -9,7 +9,13 @@ var GA = GA || {};
 //             onDelete(thread), onFocus(thread), onExpand(thread),
 //             onStop(thread), onResize() }
 GA.ThreadBox = function (thread, handlers) {
-  const state = { loading: false, collapsed: false, resolved: false, active: false, destroyed: false };
+  const state = {
+    loading: false,
+    collapsed: false,
+    resolved: false,
+    active: false,
+    destroyed: false,
+  };
 
   // Streamed re-renders are coalesced to one per animation frame (a fast stream
   // otherwise flickers) and applied incrementally — only the changed markdown
@@ -30,7 +36,10 @@ GA.ThreadBox = function (thread, handlers) {
     cachedNaturalHeight = null;
   }
 
-  const snippetText = GA.truncate(thread.selector && thread.selector.exact, GA.config.SNIPPET_CHARS);
+  const snippetText = GA.truncate(
+    thread.selector && thread.selector.exact,
+    GA.config.SNIPPET_CHARS,
+  );
   const root = GA.el("div", {
     class: "ga-box",
     tabindex: "0",
@@ -73,7 +82,7 @@ GA.ThreadBox = function (thread, handlers) {
         setCollapsed(!state.collapsed);
       },
     },
-    GA.icons.make("minimize")
+    GA.icons.make("minimize"),
   );
   const expandBtn = GA.el(
     "button",
@@ -86,7 +95,7 @@ GA.ThreadBox = function (thread, handlers) {
         handlers.onExpand && handlers.onExpand(thread);
       },
     },
-    GA.icons.make("expand")
+    GA.icons.make("expand"),
   );
   const resolveBtn = GA.el(
     "button",
@@ -99,7 +108,7 @@ GA.ThreadBox = function (thread, handlers) {
         setResolved(true);
       },
     },
-    GA.icons.make("resolve")
+    GA.icons.make("resolve"),
   );
   const delBtn = GA.el(
     "button",
@@ -112,13 +121,19 @@ GA.ThreadBox = function (thread, handlers) {
         askDelete();
       },
     },
-    GA.icons.make("trash")
+    GA.icons.make("trash"),
   );
   const header = GA.el("div", { class: "ga-box-header" }, [
     unreadDot,
     snippet,
     chipCount,
-    GA.el("div", { class: "ga-box-actions" }, [spinner, minimizeBtn, expandBtn, resolveBtn, delBtn]),
+    GA.el("div", { class: "ga-box-actions" }, [
+      spinner,
+      minimizeBtn,
+      expandBtn,
+      resolveBtn,
+      delBtn,
+    ]),
   ]);
   // A collapsed box is a chip — clicking it (not its buttons) restores it.
   // In the narrow-viewport rail every box is a chip; there's no room to expand
@@ -143,7 +158,8 @@ GA.ThreadBox = function (thread, handlers) {
   const STICK_SLACK_PX = 32;
   let stick = true;
   messagesEl.addEventListener("scroll", function () {
-    stick = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < STICK_SLACK_PX;
+    stick =
+      messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < STICK_SLACK_PX;
   });
 
   // ---- composer ----
@@ -189,7 +205,7 @@ GA.ThreadBox = function (thread, handlers) {
           setResolved(false);
         },
       },
-      GA.icons.make("reopen")
+      GA.icons.make("reopen"),
     ),
   ]);
 
@@ -321,14 +337,14 @@ GA.ThreadBox = function (thread, handlers) {
           retryTurn(el);
         },
       },
-      [GA.icons.make("retry"), "Retry"]
+      [GA.icons.make("retry"), "Retry"],
     );
     body.appendChild(
       GA.el("div", { class: "ga-error-card" }, [
         GA.el("span", { class: "ga-error-icon" }, GA.icons.make("alert")),
         GA.el("span", { class: "ga-error-text", text: message }),
         retryBtn,
-      ])
+      ]),
     );
     invalidateHeight();
     scrollToBottom();
@@ -350,7 +366,7 @@ GA.ThreadBox = function (thread, handlers) {
           setTimeout(() => !state.destroyed && GA.icons.swap(copyBtn, "copy"), 1500);
         },
       },
-      GA.icons.make("copy")
+      GA.icons.make("copy"),
     );
     el.appendChild(GA.el("div", { class: "ga-msg-actions" }, copyBtn));
   }
@@ -412,7 +428,10 @@ GA.ThreadBox = function (thread, handlers) {
     thread.resolved = state.resolved;
     if (state.resolved) thread.resolvedAt = Date.now();
     else delete thread.resolvedAt;
-    GA.selection.setHighlightState(thread.id, state.resolved ? "resolved" : state.active ? "active" : null);
+    GA.selection.setHighlightState(
+      thread.id,
+      state.resolved ? "resolved" : state.active ? "active" : null,
+    );
     // Resolving tucks the thread away; reopening brings it back expanded.
     setCollapsed(state.resolved, persist);
   }

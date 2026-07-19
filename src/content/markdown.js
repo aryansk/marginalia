@@ -60,7 +60,7 @@ GA.markdown = (function () {
               setTimeout(() => copyBtn.isConnected && GA.icons.swap(copyBtn, "copy"), 1500);
             },
           },
-          GA.icons.make("copy")
+          GA.icons.make("copy"),
         );
         const head = GA.el("div", { class: "ga-codeblock-head" }, [label, copyBtn]);
         return GA.el("div", { class: "ga-codeblock" }, [head, pre]);
