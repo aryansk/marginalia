@@ -9,7 +9,11 @@ import { loadGA } from "../helpers/loadGA.js";
 // record throws from GA.selection.highlightThread (the first thing
 // restoreThread does), like a malformed/legacy selector would.
 function makeController({ throwOnIds = [] } = {}) {
-  const GA = loadGA(["src/core/session-bindings.js", "src/content/thread-controller.js"]);
+  const GA = loadGA([
+    "src/core/live-stream.js",
+    "src/core/session-bindings.js",
+    "src/content/thread-controller.js",
+  ]);
 
   GA.warn = vi.fn();
   // Empty retry schedule: no post-restore reanchor timers fire against fakes.

@@ -8,6 +8,9 @@ GA.Modal = (function () {
   let overlay = null;
   let opener = null;
   let onClosedCb = null;
+  let sessionWidth = 0; // drag-resized width, remembered for this page session
+  let endDrag = null; // active drag teardown (also run on close)
+  let detachFeed = null; // live-stream unsubscribe (open-mid-stream case)
 
   // handlers: the thread's box handlers (ask/persist/onStop) — optional; the
   // composer is omitted when absent (read-only legacy behavior).
@@ -134,9 +137,40 @@ GA.Modal = (function () {
         onStop: () => handlers.onStop && handlers.onStop(thread),
       });
       parts.push(composer.el);
+
+      // Late-join an answer already streaming in the docked box (controller's
+      // live-stream registry): seed a bubble with the text so far, follow the
+      // feed, and finalize once the box's turn settles. Stop needs no special
+      // casing — onStop targets the thread's in-flight ask by id, whichever
+      // surface started it.
+      const feed = handlers.liveStream ? handlers.liveStream(thread.id) : null;
+      if (feed) {
+        const el = ops.beginModel();
+        ops.setLoading(true);
+        ops.renderModel(el, feed.text);
+        const onFeed = (text, done) => {
+          ops.renderModel(el, text);
+          if (!done) return;
+          detachFeed = null;
+          // The box's threadTurn pushes the settled message (final / stopped /
+          // error) only after the feed ends — defer one tick so we can read it.
+          setTimeout(() => {
+            if (!overlay) return;
+            const msgs = thread.messages || [];
+            const last = msgs[msgs.length - 1];
+            if (last && last.role === "model" && last.error) ops.renderError(el, last.text);
+            ops.endModel(el);
+            ops.setLoading(false);
+          }, 0);
+        };
+        feed.subscribe(onFeed);
+        detachFeed = () => feed.unsubscribe(onFeed);
+      }
     }
 
     const panel = GA.el("div", { class: "ga-modal" }, parts);
+    if (sessionWidth) panel.style.width = sessionWidth + "px";
+    attachResize(panel);
     overlay.appendChild(panel);
     overlay.addEventListener("mousedown", function (e) {
       if (e.target === overlay) close();
@@ -144,6 +178,49 @@ GA.Modal = (function () {
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     (composer ? composer.textarea : closeBtn).focus();
+  }
+
+  // Edge drag handles: the modal is flex-centered, so to keep the edge under
+  // the cursor the width changes by 2*dx. Mouse events (not pointer) — no
+  // capture needed, and they run in jsdom. Width clamps to
+  // [MODAL_MIN_PX, MODAL_MAX_FRAC * viewport]; the result is remembered for
+  // the rest of the page session only.
+  function attachResize(panel) {
+    function start(side) {
+      return function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const startX = e.clientX;
+        const startW =
+          parseInt(panel.style.width, 10) || panel.getBoundingClientRect().width || 820;
+        const max = Math.round(window.innerWidth * GA.config.MODAL_MAX_FRAC);
+        function move(ev) {
+          const dx = ev.clientX - startX;
+          const w = Math.max(
+            GA.config.MODAL_MIN_PX,
+            Math.min(max, Math.round(startW + side * 2 * dx))
+          );
+          panel.style.width = w + "px";
+        }
+        function up() {
+          document.removeEventListener("mousemove", move);
+          document.removeEventListener("mouseup", up);
+          if (overlay) overlay.classList.remove("ga-modal-resizing");
+          sessionWidth = parseInt(panel.style.width, 10) || sessionWidth;
+          endDrag = null;
+        }
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", up);
+        overlay.classList.add("ga-modal-resizing");
+        endDrag = up;
+      };
+    }
+    panel.appendChild(
+      GA.el("div", { class: "ga-modal-resize ga-modal-resize-left", onmousedown: start(-1) })
+    );
+    panel.appendChild(
+      GA.el("div", { class: "ga-modal-resize ga-modal-resize-right", onmousedown: start(1) })
+    );
   }
 
   function focusables() {
@@ -176,6 +253,11 @@ GA.Modal = (function () {
 
   function close() {
     if (!overlay) return;
+    if (endDrag) endDrag();
+    if (detachFeed) {
+      detachFeed();
+      detachFeed = null;
+    }
     overlay.remove();
     overlay = null;
     document.removeEventListener("keydown", onKey, true);

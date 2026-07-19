@@ -15,6 +15,8 @@ GA.config = {
   SNIPPET_CHARS: 60, // highlighted-text snippet length in a box header
   CONVO_CAPTURE_DEBOUNCE_MS: 1200, // transcript capture runs this long after the last settle ping
   TEXTAREA_MAX_PX: 120, // composer auto-grow cap
+  MODAL_MIN_PX: 420, // drag-resize floor for the thread modal
+  MODAL_MAX_FRAC: 0.95, // drag-resize ceiling as a fraction of the viewport width
 };
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.config;

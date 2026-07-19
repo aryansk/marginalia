@@ -73,6 +73,18 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     }
   });
 
+  it("live-stream registry loads before the controller that owns it", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    expect(fxJs.indexOf("src/core/live-stream.js")).toBe(fxJs.indexOf("src/core/layout-engine.js") + 1);
+    expect(fxJs.indexOf("src/core/live-stream.js")).toBeLessThan(
+      fxJs.indexOf("src/content/thread-controller.js")
+    );
+    expect(crJs).toEqual(fxJs);
+    expect(fs.existsSync(path.join(ROOT, "src/core/live-stream.js"))).toBe(true);
+  });
+
   it("convo capture is registered in both content-script lists, right after the turns module it reads", () => {
     const chrome = JSON.parse(read("manifest.chrome.json"));
     const fxJs = manifest.content_scripts[0].js;

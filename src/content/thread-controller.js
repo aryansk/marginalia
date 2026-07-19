@@ -13,6 +13,10 @@ GA.threadController = (function () {
   // conversation's bucket. Unbound (deleted) threads drop their writes.
   const bindings = GA.core.sessionBindings.create();
 
+  // In-flight answer feeds by thread id (core/live-stream.js): askThread pushes
+  // every chunk so a surface opened mid-stream (the modal) can late-join.
+  const liveStreams = GA.core.liveStream.makeRegistry();
+
   function persistThread(thread) {
     if (!bindings.has(thread.id)) return Promise.resolve(); // deleted mid-flight
     return GA.store.upsert(bindings.sessionFor(thread.id), thread);
@@ -27,6 +31,7 @@ GA.threadController = (function () {
       onExpand: (t) => expandThread(t),
       onStop: (t) => stopAsk(t.id),
       onResize: (opts) => GA.gutter.scheduleLayout(opts),
+      liveStream: (id) => liveStreams.get(id),
     };
   }
 
@@ -209,12 +214,18 @@ GA.threadController = (function () {
     const needsGeminiWebTokens = GA.provider === "gemini" && !GA.settings.geminiApiKey;
     const prompt = composePrompt(thread);
 
+    // Feed the live registry alongside the caller's renderer, so the modal can
+    // late-join this stream (see makeHandlers.liveStream). Ended in the outer
+    // finally: the auth retry below reuses the same feed.
+    const feed = liveStreams.begin(thread.id);
+    const onChunk = (t) => {
+      feed.push(t);
+      if (opts && opts.onChunk) opts.onChunk(t);
+    };
+
     async function once() {
       const tokens = needsGeminiWebTokens ? await GA.tokenProvider.get() : undefined;
-      const handle = GA.askService.ask(
-        { provider: GA.provider, prompt, tokens },
-        opts && opts.onChunk
-      );
+      const handle = GA.askService.ask({ provider: GA.provider, prompt, tokens }, onChunk);
       bindings.trackAsk(thread.id, handle);
       try {
         return await handle.result;
@@ -232,6 +243,8 @@ GA.threadController = (function () {
         return once();
       }
       throw e;
+    } finally {
+      liveStreams.end(thread.id);
     }
   }
 
@@ -244,12 +257,20 @@ GA.threadController = (function () {
     });
   }
 
-  // Maximize a thread into the modal (with a live composer). When it closes,
-  // the docked box re-renders whatever the modal conversation added.
+  // Maximize a thread into the modal (with a live composer). While it is open
+  // the docked box minimizes to its chip (transient — never persisted) so the
+  // modal is the single live view; closing restores the prior state and
+  // re-renders whatever the modal conversation added.
   function expandThread(thread) {
+    const it = GA.gutter.get(thread.id);
+    const wasCompact = !!(it && it.box.isCompact());
+    if (it && !wasCompact) it.box.setCollapsed(true, false);
     GA.Modal.open(thread, makeHandlers(thread), function () {
-      const it = GA.gutter.get(thread.id);
-      if (it && it.box.refreshMessages) it.box.refreshMessages();
+      const cur = GA.gutter.get(thread.id);
+      if (cur) {
+        if (!wasCompact) cur.box.setCollapsed(false, false);
+        if (cur.box.refreshMessages) cur.box.refreshMessages();
+      }
       GA.gutter.scheduleLayout();
     });
   }

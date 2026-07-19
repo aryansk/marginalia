@@ -474,7 +474,11 @@ describe("convoCapture.schedule — debounce", () => {
 // thread-controller with recording fakes for everything it touches (same
 // pattern as thread-controller-restore.test.js), plus a spied convoCapture.
 function makeController() {
-  const GA = loadGA(["src/core/session-bindings.js", "src/content/thread-controller.js"]);
+  const GA = loadGA([
+    "src/core/live-stream.js",
+    "src/core/session-bindings.js",
+    "src/content/thread-controller.js",
+  ]);
   GA.warn = vi.fn();
   GA.uid = () => "t1";
   GA.truncate = (s) => s;

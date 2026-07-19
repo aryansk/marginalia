@@ -531,8 +531,8 @@ GA.ThreadBox = function (thread, handlers) {
     isCompact() {
       return state.collapsed;
     },
-    setCollapsed(v) {
-      setCollapsed(v);
+    setCollapsed(v, persist) {
+      setCollapsed(v, persist);
     },
     setResolved(v) {
       setResolved(v);
