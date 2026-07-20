@@ -15,6 +15,9 @@ async function getSettings() {
     const obj = await browser.storage.local.get(GA.schema.SETTINGS_KEY);
     return Object.assign({}, defaults, obj[GA.schema.SETTINGS_KEY] || {});
   } catch (e) {
+    // Defaults keep the ask alive, but a silent fallback would masquerade as
+    // "no API key configured" — leave a trace for diagnosis.
+    console.warn("[marginalia] settings read failed, using defaults", e);
     return Object.assign({}, defaults);
   }
 }
@@ -27,12 +30,9 @@ function setupMenus() {
       id: P.CONTEXT_MENU_ID,
       title: "Ask about “%s”",
       contexts: ["selection"],
-      documentUrlPatterns: [
-        "https://gemini.google.com/*",
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://claude.ai/*",
-      ],
+      // Shared host list (src/shared/hosts.js) — the same four content sites
+      // the manifests' content_scripts run on.
+      documentUrlPatterns: GA.hosts.CONTENT_SITE_PATTERNS,
     });
   });
 }
@@ -90,11 +90,10 @@ browser.runtime.onMessage.addListener(function (msg) {
   Promise.resolve(browser.runtime.openOptionsPage()).catch(function () {});
 });
 
-// Heartbeat cadence while an ask is streaming. Any port message resets Chrome's
-// MV3 service-worker idle timer (30s), so 20s keeps the worker alive through
-// long silent "thinking" periods; the content side uses the same pings to feed
-// its dead-worker watchdog.
-const PING_INTERVAL_MS = 20000;
+// Heartbeat cadence while an ask is streaming — from shared/config.js, which
+// also holds the content side's ASK_WATCHDOG_MS and the invariant tying the
+// two together.
+const PING_INTERVAL_MS = GA.config.PING_INTERVAL_MS;
 
 browser.runtime.onConnect.addListener(function (port) {
   if (port.name !== P.PORT_ASK) return;

@@ -50,6 +50,10 @@ GA.store = (function () {
   // carries a numeric createdAt (threads without one are otherwise undatable,
   // which the draft housekeeping must then conservatively keep forever).
   // Stamps in place so the caller's object matches what storage holds.
+  // NOTE on versioning: a ga:threads:* bucket is intentionally an UNVERSIONED
+  // bare array (unlike ga:convo:* records, which carry a `v` stamp). Changing
+  // the stored shape here would be a migration; any future versioned shape
+  // must be detected by sniffing (Array = legacy v1, envelope object = newer).
   async function saveAllRaw(sessionId, threads) {
     threads = (threads || []).filter(Boolean); // never persist null slots
     threads.forEach((t) => {
@@ -169,8 +173,11 @@ GA.store = (function () {
   }
 
   // ---- conversation transcripts (ga:convo:*) -------------------------------
-  // One record per session: { provider, id, title, url, capturedAt,
+  // One record per session: { v, provider, id, title, url, capturedAt,
   //   turns:[{role, fp:{hash,len}, order}], blobs:{ "<hash>:<len>": <gzip+b64> } }.
+  // `v` is the record schema version (currently 1), stamped by the writer
+  // (convo-capture.js). Records written before the stamp existed lack it —
+  // readers MUST treat a missing `v` as v1.
   // The store carries records verbatim: blobs are opaque already-compressed
   // strings here — loadConvo NEVER decompresses and saveConvo NEVER compresses
   // (GA.core.compress owns the codec; the sole decompress site is

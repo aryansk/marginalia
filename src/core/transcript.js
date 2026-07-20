@@ -24,7 +24,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
 GA.core.transcript = (function () {
-  var ROLE_HEADING = { user: "You", model: "Assistant" };
+  const ROLE_HEADING = { user: "You", model: "Assistant" };
 
   function norm(text) {
     return GA.core.turnId.normalize(text);
@@ -54,9 +54,7 @@ GA.core.transcript = (function () {
   function quote(text) {
     return text
       .split("\n")
-      .map(function (l) {
-        return l ? "> " + l : ">";
-      })
+      .map((l) => (l ? "> " + l : ">"))
       .join("\n");
   }
 
@@ -64,29 +62,23 @@ GA.core.transcript = (function () {
   // the same record renders identically everywhere.
   function formatDate(ts) {
     if (ts == null) return null;
-    var d = new Date(ts);
+    const d = new Date(ts);
     if (isNaN(d.getTime())) return null;
     return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
   }
 
   // ---- turns ------------------------------------------------------------
   function sortedTurns(convo) {
-    var raw = convo && Array.isArray(convo.turns) ? convo.turns : [];
+    const raw = convo && Array.isArray(convo.turns) ? convo.turns : [];
     return raw
-      .filter(function (t) {
-        return !!t && typeof t === "object";
-      })
-      .map(function (t, i) {
-        return { t: t, i: i };
-      })
-      .sort(function (a, b) {
-        var ao = typeof a.t.order === "number" ? a.t.order : Infinity;
-        var bo = typeof b.t.order === "number" ? b.t.order : Infinity;
+      .filter((t) => !!t && typeof t === "object")
+      .map((t, i) => ({ t, i }))
+      .sort((a, b) => {
+        const ao = typeof a.t.order === "number" ? a.t.order : Infinity;
+        const bo = typeof b.t.order === "number" ? b.t.order : Infinity;
         return ao - bo || a.i - b.i;
       })
-      .map(function (e) {
-        return e.t;
-      });
+      .map((e) => e.t);
   }
 
   // Fix F3. Compare each turn against the LAST KEPT one so a chain of
@@ -95,13 +87,12 @@ GA.core.transcript = (function () {
   // no deduping across gaps, identical texts both survive (repeated identical
   // messages are legitimate and survive capture's multiset merge).
   function dedupeTurns(turns) {
-    var kept = [];
-    for (var i = 0; i < turns.length; i++) {
-      var cur = turns[i];
-      var prev = kept[kept.length - 1];
+    const kept = [];
+    for (const cur of turns) {
+      const prev = kept[kept.length - 1];
       if (prev && prev.role && prev.role === cur.role) {
-        var a = norm(prev.text);
-        var b = norm(cur.text);
+        const a = norm(prev.text);
+        const b = norm(cur.text);
         if (a && b && a !== b) {
           if (b.indexOf(a) === 0)
             kept.pop(); // prev was a stale partial of cur
@@ -123,12 +114,12 @@ GA.core.transcript = (function () {
   }
 
   function calloutFor(thread) {
-    var parts = [];
-    var exact = thread && thread.selector ? thread.selector.exact : null;
+    const parts = [];
+    const exact = thread && thread.selector ? thread.selector.exact : null;
     parts.push(norm(exact) ? '"' + mdInline(exact) + '"' : "_(no highlighted text recorded)_");
-    var msgs = thread && Array.isArray(thread.messages) ? thread.messages : [];
-    for (var i = 0; i < msgs.length; i++) {
-      var m = msgs[i] && typeof msgs[i] === "object" ? msgs[i] : {};
+    const msgs = thread && Array.isArray(thread.messages) ? thread.messages : [];
+    for (const raw of msgs) {
+      const m = raw && typeof raw === "object" ? raw : {};
       parts.push("**" + speakerFor(m.role) + ":** " + mdBlock(m.text));
     }
     return quote("[!note] Annotation\n" + parts.join("\n\n"));
@@ -144,10 +135,10 @@ GA.core.transcript = (function () {
   // Containment of the exact quote is strong evidence; anything weaker keeps
   // falling through to Unanchored notes.
   function quoteFallback(thread, turns) {
-    var exact = norm(thread && thread.selector ? thread.selector.exact : "");
+    const exact = norm(thread && thread.selector ? thread.selector.exact : "");
     if (!exact) return -1;
-    var role = thread.anchor && thread.anchor.role;
-    for (var i = 0; i < turns.length; i++) {
+    const role = thread.anchor && thread.anchor.role;
+    for (let i = 0; i < turns.length; i++) {
       if (role && turns[i].role !== role) continue;
       if (norm(turns[i].text).indexOf(exact) !== -1) return i;
     }
@@ -157,37 +148,32 @@ GA.core.transcript = (function () {
   // Deterministic order for threads sharing a turn and for the unanchored
   // list: createdAt, then original array position for ties/missing stamps.
   function orderedThreads(threads) {
-    var list = Array.isArray(threads) ? threads.filter(Boolean) : [];
+    const list = Array.isArray(threads) ? threads.filter(Boolean) : [];
     return list
-      .map(function (th, i) {
-        return { th: th, i: i };
-      })
-      .sort(function (a, b) {
-        var ca = typeof a.th.createdAt === "number" ? a.th.createdAt : Infinity;
-        var cb = typeof b.th.createdAt === "number" ? b.th.createdAt : Infinity;
+      .map((th, i) => ({ th, i }))
+      .sort((a, b) => {
+        const ca = typeof a.th.createdAt === "number" ? a.th.createdAt : Infinity;
+        const cb = typeof b.th.createdAt === "number" ? b.th.createdAt : Infinity;
         return ca - cb || a.i - b.i;
       })
-      .map(function (e) {
-        return e.th;
-      });
+      .map((e) => e.th);
   }
 
   // ---- document -----------------------------------------------------------
   function build(convo, threads) {
-    var record = convo && typeof convo === "object" ? convo : {};
-    var turns = dedupeTurns(sortedTurns(record));
-    var ordered = orderedThreads(threads);
+    const record = convo && typeof convo === "object" ? convo : {};
+    const turns = dedupeTurns(sortedTurns(record));
+    const ordered = orderedThreads(threads);
 
     // Attach each thread to the FIRST surviving turn whose fp matches its
     // recorded anchor fingerprint; everything else trails as unanchored.
-    var byTurn = new Map();
-    var unanchored = [];
-    for (var i = 0; i < ordered.length; i++) {
-      var th = ordered[i];
-      var fp = th.anchor && th.anchor.turn;
-      var at = -1;
+    const byTurn = new Map();
+    const unanchored = [];
+    for (const th of ordered) {
+      const fp = th.anchor && th.anchor.turn;
+      let at = -1;
       if (fp) {
-        for (var j = 0; j < turns.length; j++) {
+        for (let j = 0; j < turns.length; j++) {
           if (GA.core.turnId.sameFingerprint(fp, turns[j].fp)) {
             at = j;
             break;
@@ -203,7 +189,7 @@ GA.core.transcript = (function () {
       }
     }
 
-    var out = [];
+    const out = [];
     out.push("# " + (mdInline(record.title) || "Captured conversation"));
     out.push("");
     // Framing (brief ruling): this is a CAPTURED transcript — the turns saved
@@ -212,9 +198,9 @@ GA.core.transcript = (function () {
       "*Captured transcript — the turns saved while annotating this conversation; it may not span the full exchange.*",
     );
     out.push("");
-    var meta = [];
+    const meta = [];
     if (norm(record.provider)) meta.push("- Provider: " + mdInline(record.provider));
-    var when = formatDate(record.capturedAt);
+    const when = formatDate(record.capturedAt);
     if (when) meta.push("- Captured: " + when);
     if (norm(record.url)) meta.push("- Source: " + mdInline(record.url));
     if (meta.length) {
@@ -224,16 +210,16 @@ GA.core.transcript = (function () {
     out.push("---");
     out.push("");
 
-    for (var k = 0; k < turns.length; k++) {
+    for (let k = 0; k < turns.length; k++) {
       out.push("## " + headingFor(turns[k].role));
       out.push("");
       if (norm(turns[k].text)) {
         out.push(mdBlock(turns[k].text));
         out.push("");
       }
-      var anns = byTurn.get(k) || [];
-      for (var a = 0; a < anns.length; a++) {
-        out.push(calloutFor(anns[a]));
+      const anns = byTurn.get(k) || [];
+      for (const ann of anns) {
+        out.push(calloutFor(ann));
         out.push("");
       }
     }
@@ -241,8 +227,8 @@ GA.core.transcript = (function () {
     if (unanchored.length) {
       out.push("## Unanchored notes");
       out.push("");
-      for (var u = 0; u < unanchored.length; u++) {
-        out.push(calloutFor(unanchored[u]));
+      for (const un of unanchored) {
+        out.push(calloutFor(un));
         out.push("");
       }
     }
@@ -255,7 +241,7 @@ GA.core.transcript = (function () {
     );
   }
 
-  return { build: build };
+  return { build };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.transcript;

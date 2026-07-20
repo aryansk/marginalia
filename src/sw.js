@@ -9,7 +9,9 @@
 importScripts(
   "/src/shared/browser-polyfill.js",
   "/src/shared/protocol.js",
+  "/src/shared/hosts.js",
   "/src/shared/settings-schema.js",
+  "/src/shared/config.js",
   "/src/shared/sse.js",
   "/src/shared/stream-delta.js",
   "/src/background/api-util.js",

@@ -8,47 +8,14 @@
 // empty) or null/undefined when the event carries no text. The frame-based
 // gemini web parser is a different format and stays separate (gemini/parser.js).
 var GA = (typeof GA !== "undefined" && GA) || {};
-GA.sse = GA.sse || {};
 
-GA.sse.makeParser = function (extract) {
-  return function parseLatest(raw) {
-    let text = "";
-    let sawAny = false;
-    const lines = String(raw == null ? "" : raw).split("\n");
-    for (const line of lines) {
-      const t = line.trim();
-      if (t.indexOf("data:") !== 0) continue; // ignore `event:` / comments / blanks
-      const payload = t.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      let obj;
-      try {
-        obj = JSON.parse(payload);
-      } catch (e) {
-        continue;
-      }
-      const frag = extract(obj);
-      if (typeof frag === "string") {
-        text += frag;
-        sawAny = true;
-      }
-    }
-    return sawAny ? text : null;
-  };
-};
-
-// Incremental cursor over the same grammar: feed decoded chunks as they arrive
-// and only NEW complete lines are parsed (the whole-buffer parseLatest above
-// re-scans everything per chunk — O(n²) over a long answer). `push(chunk)`
-// returns the answer so far (or null); `end()` flushes a trailing line without
-// a final newline and returns the final answer (or null). Output is identical
-// to parseLatest over the concatenated input — tests/shared/sse-stream.test.js
-// holds the two equivalent.
-GA.sse.makeStream = function (extract) {
-  let tail = ""; // undelivered partial line
-  let acc = "";
-  let sawAny = false;
-
-  function takeLine(line) {
+GA.sse = (function () {
+  // The ONE data-line grammar step, shared by makeParser and makeStream (they
+  // used to implement it twice; the stream tests hold them equivalent). Parse
+  // `line`; when it is a well-formed `data: {json}` event whose extract()
+  // yields a string fragment, hand the fragment to `emit`. Everything else
+  // (`event:` lines, comments, blanks, [DONE], malformed JSON) is ignored.
+  function takeDataLine(line, extract, emit) {
     const t = line.trim();
     if (t.indexOf("data:") !== 0) return;
     const payload = t.slice(5).trim();
@@ -60,28 +27,73 @@ GA.sse.makeStream = function (extract) {
       return;
     }
     const frag = extract(obj);
-    if (typeof frag === "string") {
+    if (typeof frag === "string") emit(frag);
+  }
+
+  function makeParser(extract) {
+    return function parseLatest(raw) {
+      let text = "";
+      let sawAny = false;
+      for (const line of String(raw == null ? "" : raw).split("\n")) {
+        takeDataLine(line, extract, (frag) => {
+          text += frag;
+          sawAny = true;
+        });
+      }
+      return sawAny ? text : null;
+    };
+  }
+
+  // Incremental cursor over the same grammar: feed decoded chunks as they arrive
+  // and only NEW complete lines are parsed (the whole-buffer parseLatest above
+  // re-scans everything per chunk — O(n²) over a long answer). `push(chunk)`
+  // returns the answer so far (or null); `end()` flushes a trailing line without
+  // a final newline and returns the final answer (or null). Output is identical
+  // to parseLatest over the concatenated input — tests/shared/sse-stream.test.js
+  // holds the two equivalent.
+  function makeStream(extract) {
+    let tail = ""; // undelivered partial line
+    let acc = "";
+    let sawAny = false;
+
+    function emit(frag) {
       acc += frag;
       sawAny = true;
     }
+
+    return {
+      push(chunk) {
+        tail += String(chunk == null ? "" : chunk);
+        const lines = tail.split("\n");
+        tail = lines.pop(); // keep the incomplete remainder for the next push
+        for (const line of lines) takeDataLine(line, extract, emit);
+        return sawAny ? acc : null;
+      },
+      end() {
+        if (tail) {
+          takeDataLine(tail, extract, emit);
+          tail = "";
+        }
+        return sawAny ? acc : null;
+      },
+    };
   }
 
-  return {
-    push(chunk) {
-      tail += String(chunk == null ? "" : chunk);
-      const lines = tail.split("\n");
-      tail = lines.pop(); // keep the incomplete remainder for the next push
-      for (const line of lines) takeLine(line);
-      return sawAny ? acc : null;
-    },
-    end() {
-      if (tail) {
-        takeLine(tail);
-        tail = "";
-      }
-      return sawAny ? acc : null;
-    },
-  };
-};
+  // Delta-text extractor shared by the two Claude-flavored parsers
+  // (claude/parser.js for the claude.ai web stream, anthropic/parser.js for the
+  // official Messages API): both streams carry either
+  //   { "delta": { "text": "…" } }   (messages-API content_block_delta)
+  //   { "completion": "…" }          (legacy bare completion)
+  // It lives HERE because sse.js loads before both parsers in every script
+  // list (the wiring test enforces it), so sharing costs no load-order coupling.
+  function extractDeltaText(obj) {
+    if (!obj || typeof obj !== "object") return null;
+    if (obj.delta && typeof obj.delta.text === "string") return obj.delta.text;
+    if (typeof obj.completion === "string") return obj.completion;
+    return null;
+  }
+
+  return { makeParser, makeStream, extractDeltaText };
+})();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.sse;

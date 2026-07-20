@@ -1,5 +1,6 @@
-// prompt.js — pure: compose the single prompt sent to Gemini for a follow-up.
-// The amount of surrounding context is chosen by a Strategy keyed on `scope`.
+// prompt.js — pure: compose the single prompt sent to the active provider
+// (Gemini, ChatGPT, Claude, …) for a follow-up. The amount of surrounding
+// context is chosen by a Strategy keyed on `scope`.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
@@ -13,11 +14,14 @@ GA.core.prompt = (function () {
       (deps && deps.conversationText) || thread.section || thread.selector.exact,
   };
 
-  function composePrompt(thread, scope, deps) {
+  // `providerLabel` is the display name of the model being addressed (from the
+  // core/sites.js registry, e.g. "Gemini"); omitted → neutral wording.
+  function composePrompt(thread, scope, deps, providerLabel) {
     const pick = SCOPE[scope] || SCOPE.section;
     const context = pick(thread, deps);
+    const who = providerLabel ? "you (" + providerLabel + ")" : "you";
     const lines = [];
-    lines.push("I'm reading an answer you (Gemini) gave me. Relevant context:");
+    lines.push("I'm reading an answer " + who + " gave me. Relevant context:");
     lines.push('"""');
     lines.push(context);
     lines.push('"""');

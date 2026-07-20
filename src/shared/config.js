@@ -5,8 +5,14 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.config = {
   TOKEN_CACHE_TTL_MS: 60000, // re-scrape session tokens at most this often
-  ASK_WATCHDOG_MS: 90000, // content-side ask abandoned if the port stays silent this long
-  // (background pings every ~20s while streaming, so only a dead worker trips this)
+  // Heartbeat/watchdog contract (both halves live here so they can't drift):
+  // background.js posts a port ping every PING_INTERVAL_MS while an ask
+  // streams (any port message resets Chrome's 30s MV3 service-worker idle
+  // timer), and the content side abandons the ask if the port stays silent
+  // for ASK_WATCHDOG_MS. INVARIANT: ASK_WATCHDOG_MS must comfortably exceed
+  // PING_INTERVAL_MS (several missed pings), so only a dead worker trips it.
+  PING_INTERVAL_MS: 20000, // background heartbeat cadence while streaming
+  ASK_WATCHDOG_MS: 90000, // content-side ask abandoned after this much port silence
   REANCHOR_RETRY_MS: [400, 1000, 2200, 4000, 6500], // post-load re-anchor attempts (lazy hydration)
   SECTION_CHARS: 4000, // max chars of answer-section context sent to Gemini
   CONVERSATION_CHARS: 12000, // max chars of whole-conversation context

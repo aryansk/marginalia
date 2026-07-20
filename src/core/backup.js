@@ -9,13 +9,19 @@
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
+// Storage-key prefixes come from the shared schema — never re-stated here.
+// Browser: shared/settings-schema.js loaded earlier set GA.schema. Node/tests:
+// require it so this module stays importable on its own (the one test-env
+// fallback in this file).
+var gaSchema =
+  GA.schema ||
+  (typeof require !== "undefined" ? require("../shared/settings-schema.js") : undefined);
+
 GA.core.backup = (function () {
-  var FORMAT = "marginalia-threads";
-  var VERSION = 1;
-  var THREADS_PREFIX = (GA.schema && GA.schema.THREADS_PREFIX) || "ga:threads:";
-  // CONVO_PREFIX joins the schema when transcript capture lands; fall back so
-  // this module works (and round-trips convo buckets) either way.
-  var CONVO_PREFIX = (GA.schema && GA.schema.CONVO_PREFIX) || "ga:convo:";
+  const FORMAT = "marginalia-threads";
+  const VERSION = 1;
+  const THREADS_PREFIX = gaSchema.THREADS_PREFIX;
+  const CONVO_PREFIX = gaSchema.CONVO_PREFIX;
 
   // Archives are arbitrary user-supplied JSON; a bucket value with the wrong
   // shape is skipped rather than persisted (a restore must never poison storage).
@@ -37,19 +43,19 @@ GA.core.backup = (function () {
   // existing-only entries then snapshot-only entries; renumber order 0..n-1.
   // Pure: never mutates inputs; idempotent: re-merging the same snapshot is a no-op.
   function mergeTurnLists(existing, snapshot) {
-    var a = existing || [];
-    var b = snapshot || [];
-    var n = a.length;
-    var m = b.length;
-    var ka = a.map(turnKey);
-    var kb = b.map(turnKey);
+    const a = existing || [];
+    const b = snapshot || [];
+    const n = a.length;
+    const m = b.length;
+    const ka = a.map(turnKey);
+    const kb = b.map(turnKey);
 
     // Classic LCS suffix table: dp[i][j] = LCS length of a[i:] vs b[j:].
     // Lists are at most a few hundred turns, so O(n*m) is fine.
-    var dp = [];
-    for (var i = n; i >= 0; i--) {
+    const dp = [];
+    for (let i = n; i >= 0; i--) {
       dp[i] = [];
-      for (var j = m; j >= 0; j--) {
+      for (let j = m; j >= 0; j--) {
         if (i === n || j === m) dp[i][j] = 0;
         else if (ka[i] === kb[j]) dp[i][j] = dp[i + 1][j + 1] + 1;
         else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
@@ -57,9 +63,9 @@ GA.core.backup = (function () {
     }
 
     // Walk the table once to collect the matched anchor pairs.
-    var pairs = [];
-    var x = 0;
-    var y = 0;
+    const pairs = [];
+    let x = 0;
+    let y = 0;
     while (x < n && y < m) {
       if (ka[x] === kb[y] && dp[x][y] === dp[x + 1][y + 1] + 1) {
         pairs.push([x, y]);
@@ -74,15 +80,15 @@ GA.core.backup = (function () {
 
     // Emit segments: before each anchor, existing-only entries first, then
     // snapshot-only entries; the anchor itself is taken from `existing`.
-    var out = [];
-    var ai = 0;
-    var bi = 0;
+    const out = [];
+    let ai = 0;
+    let bi = 0;
     function emitGap(aEnd, bEnd) {
       while (ai < aEnd) out.push(a[ai++]);
       while (bi < bEnd) out.push(b[bi++]);
     }
-    for (var p = 0; p < pairs.length; p++) {
-      emitGap(pairs[p][0], pairs[p][1]);
+    for (const [pa, pb] of pairs) {
+      emitGap(pa, pb);
       out.push(a[ai]);
       ai++;
       bi++;
@@ -90,8 +96,8 @@ GA.core.backup = (function () {
     emitGap(n, m);
 
     // Renumber on shallow clones so neither input entry is ever written to.
-    return out.map(function (t, idx) {
-      var copy = Object.assign({}, t);
+    return out.map((t, idx) => {
+      const copy = Object.assign({}, t);
       copy.order = idx;
       return copy;
     });
@@ -103,12 +109,10 @@ GA.core.backup = (function () {
   // record and any API key can never leak into an export by construction.
   // Convo record objects are carried verbatim — blobs stay compressed.
   function buildExport(all, exportedAt) {
-    var src = all || {};
-    var threads = {};
-    var convos = {};
-    var keys = Object.keys(src);
-    for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
+    const src = all || {};
+    const threads = {};
+    const convos = {};
+    for (const key of Object.keys(src)) {
       if (key.indexOf(THREADS_PREFIX) === 0) threads[key] = src[key];
       else if (key.indexOf(CONVO_PREFIX) === 0) convos[key] = src[key];
     }
@@ -130,32 +134,31 @@ GA.core.backup = (function () {
   // and never relocates a working highlight (selector/anchor/section) or
   // re-stamps the local createdAt TTL clock (siege finding).
   function mergeThreadBucket(localArr, importedArr) {
-    var local = Array.isArray(localArr) ? localArr : [];
-    var imported = Array.isArray(importedArr) ? importedArr : [];
-    var out = local.slice();
+    const local = Array.isArray(localArr) ? localArr : [];
+    const imported = Array.isArray(importedArr) ? importedArr : [];
+    const out = local.slice();
     // Null-prototype: record ids come from user JSON, so inherited names like
     // "__proto__" or "toString" must not read as phantom collisions (`in` on a
     // plain object would hit Object.prototype and corrupt the bucket array).
-    var indexById = Object.create(null);
-    for (var i = 0; i < out.length; i++) {
+    const indexById = Object.create(null);
+    for (let i = 0; i < out.length; i++) {
       if (out[i] && out[i].id != null) indexById[out[i].id] = i;
     }
-    for (var j = 0; j < imported.length; j++) {
-      var rec = imported[j];
-      var id = rec && rec.id;
+    for (const rec of imported) {
+      const id = rec && rec.id;
       if (id == null || !(id in indexById)) {
         out.push(rec);
         if (id != null) indexById[id] = out.length - 1;
         continue;
       }
-      var at = indexById[id];
-      var cur = out[at];
-      var curLen = (cur && cur.messages ? cur.messages : []).length;
-      var impLen = (rec.messages || []).length;
+      const at = indexById[id];
+      const cur = out[at];
+      const curLen = (cur && cur.messages ? cur.messages : []).length;
+      const impLen = (rec.messages || []).length;
       if (impLen > curLen) {
         // Archive base (so archive-only fields arrive), local fields on top
         // (so no local data is ever lost), archive's fuller messages last.
-        var winner = Object.assign({}, rec, cur);
+        const winner = Object.assign({}, rec, cur);
         winner.messages = rec.messages;
         out[at] = winner;
       }
@@ -171,9 +174,9 @@ GA.core.backup = (function () {
   function mergeConvoRecord(localRec, importedRec) {
     if (!localRec) return importedRec;
     if (!importedRec) return localRec;
-    var newerImported = (importedRec.capturedAt || 0) > (localRec.capturedAt || 0);
-    var meta = newerImported ? importedRec : localRec;
-    var merged = Object.assign({}, meta);
+    const newerImported = (importedRec.capturedAt || 0) > (localRec.capturedAt || 0);
+    const meta = newerImported ? importedRec : localRec;
+    const merged = Object.assign({}, meta);
     merged.turns = mergeTurnLists(localRec.turns || [], importedRec.turns || []);
     // assign imported first so identical keys resolve to the existing blob.
     merged.blobs = Object.assign({}, importedRec.blobs || {}, localRec.blobs || {});
@@ -186,7 +189,7 @@ GA.core.backup = (function () {
   // bucket the archive doesn't name intact. Throws on an unrecognized or
   // newer-than-supported envelope so a bad file can't silently corrupt storage.
   function mergeImport(existing, imported, opts) {
-    var mode = (opts && opts.mode) || "merge";
+    const mode = (opts && opts.mode) || "merge";
     if (!imported || imported.format !== FORMAT) {
       throw new Error("backup: not a " + FORMAT + " archive");
     }
@@ -194,10 +197,9 @@ GA.core.backup = (function () {
     if (typeof imported.version !== "number" || !(imported.version <= VERSION)) {
       throw new Error("backup: unsupported archive version " + imported.version);
     }
-    var threads = imported.threads || {};
-    var convos = imported.convos || {};
-    var next = Object.assign({}, existing || {});
-    var key;
+    const threads = imported.threads || {};
+    const convos = imported.convos || {};
+    const next = Object.assign({}, existing || {});
     // Bucket keys come from user-supplied JSON: only correctly-prefixed keys may
     // be written, so a crafted archive can never reach the settings/API-key
     // record (or any other non-thread key) through an import.
@@ -208,20 +210,20 @@ GA.core.backup = (function () {
       return k.indexOf(CONVO_PREFIX) === 0;
     }
     if (mode === "replace") {
-      for (key in threads) {
+      for (const key in threads) {
         if (threadKeyOk(key) && Array.isArray(threads[key])) next[key] = threads[key];
       }
-      for (key in convos) {
+      for (const key in convos) {
         if (convoKeyOk(key) && isRecord(convos[key])) next[key] = convos[key];
       }
       return next;
     }
-    for (key in threads) {
+    for (const key in threads) {
       if (threadKeyOk(key) && Array.isArray(threads[key])) {
         next[key] = mergeThreadBucket(next[key], threads[key]);
       }
     }
-    for (key in convos) {
+    for (const key in convos) {
       if (convoKeyOk(key) && isRecord(convos[key])) {
         next[key] = mergeConvoRecord(next[key], convos[key]);
       }
@@ -230,11 +232,11 @@ GA.core.backup = (function () {
   }
 
   return {
-    FORMAT: FORMAT,
-    VERSION: VERSION,
-    buildExport: buildExport,
-    mergeImport: mergeImport,
-    mergeTurnLists: mergeTurnLists,
+    FORMAT,
+    VERSION,
+    buildExport,
+    mergeImport,
+    mergeTurnLists,
   };
 })();
 

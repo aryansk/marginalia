@@ -4,13 +4,21 @@
 // shared by the content script. Subsumes the old core/session.js (Gemini-only).
 //
 // Adding a site = add an entry here + its selectors, then a backend client under
-// src/<provider>/ (see src/gemini, src/chatgpt, src/claude) and a manifest match.
+// src/<provider>/ and a manifest match. Provider id -> backend directories:
+//   chatgpt -> src/openai (API)
+//   gemini  -> src/gemini (web session) + src/googleai (API)
+//   claude  -> src/claude (web session) + src/anthropic (API)
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
 GA.core.sites = (function () {
+  // NOTE: each provider's `hosts` are bare hostnames for providerForHost();
+  // the corresponding "https://<host>/*" match patterns live in
+  // src/shared/hosts.js (context menu) and, hand-synced, in both manifests'
+  // content_scripts matches + host_permissions. Keep all of them in step.
   const PROVIDERS = {
     gemini: {
+      label: "Gemini",
       hosts: ["gemini.google.com"],
       // /app/<id> — matches anywhere so /u/0/app/<id> works; query/hash excluded.
       // /gem/<gemId>/<chatId> — a conversation inside a Gem; the bare Gem lobby
@@ -30,6 +38,7 @@ GA.core.sites = (function () {
       turns: { user: ["user-query"], model: ["model-response"] },
     },
     chatgpt: {
+      label: "ChatGPT",
       hosts: ["chatgpt.com", "chat.openai.com"],
       // /c/<conversation-uuid> — also matches project chats /g/g-…/c/<id>.
       sessionRes: [/\/c\/([^/?#]+)/],
@@ -42,27 +51,29 @@ GA.core.sites = (function () {
       },
     },
     claude: {
+      label: "Claude",
       hosts: ["claude.ai"],
       // /chat/<conversation-uuid> — unanchored, so project-scoped chats
       // (/project/<projectId>/chat/<id>) resolve to the same chat id.
       sessionRes: [/\/chat\/([^/?#]+)/],
-      // `.font-claude-response` is the live class. The three selectors that
-      // used to be here — .font-claude-message, [data-testid=assistant-message]
-      // and div.prose — matched NOTHING on a captured conversation, so every
-      // restore fell through to a whole-page text search. Kept as trailing
-      // fallbacks in case an older build still renders them.
-      responseSelectors: [
-        ".font-claude-response",
-        ".font-claude-message",
-        '[data-testid="assistant-message"]',
-        "div.prose",
-      ],
+      // `.font-claude-response` is the live class. Three former trailing
+      // fallbacks (.font-claude-message, [data-testid=assistant-message],
+      // div.prose) were removed: they matched NOTHING on a captured
+      // conversation, so they only ever cost a wasted query pass.
+      responseSelectors: [".font-claude-response"],
       turns: {
         user: ['[data-testid="user-message"]'],
         model: [".font-claude-response"],
       },
     },
   };
+
+  // Human-readable display name for a provider ("Gemini", "ChatGPT", "Claude"),
+  // used e.g. when addressing the model in a composed prompt. Null when unknown.
+  function providerLabel(provider) {
+    const def = PROVIDERS[provider];
+    return (def && def.label) || null;
+  }
 
   // Map a hostname to a provider id. Matches the host exactly or as a subdomain
   // suffix (so www./ accounts subdomains still resolve). Returns null off-site.
@@ -115,6 +126,7 @@ GA.core.sites = (function () {
   }
 
   return {
+    providerLabel,
     providerForHost,
     sessionIdFromPath,
     responseSelectors,

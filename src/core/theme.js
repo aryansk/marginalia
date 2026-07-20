@@ -5,6 +5,14 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
 GA.core.theme = (function () {
+  // A sampled background with alpha below this is treated as transparent — it
+  // isn't the page's real background, so the caller must sample elsewhere.
+  const MIN_OPAQUE_ALPHA = 0.5;
+  // Relative luminance below this reads as a dark theme. 0.4 (not 0.5) because
+  // mid-gray backgrounds around the midpoint look light to the eye — WCAG
+  // luminance is nonlinear and 0.4 tracks perception better than the midpoint.
+  const DARK_LUMINANCE_THRESHOLD = 0.4;
+
   // "rgb(r, g, b)" | "rgba(r, g, b, a)" | "#rgb" | "#rrggbb" -> {r,g,b,a} or null.
   function parseCssColor(str) {
     const s = String(str == null ? "" : str).trim();
@@ -42,8 +50,8 @@ GA.core.theme = (function () {
   // transparent/unparseable (caller falls back to another sample).
   function themeForBackground(colorString) {
     const c = parseCssColor(colorString);
-    if (!c || c.a < 0.5) return null; // transparent — not a real page background
-    return relativeLuminance(c) < 0.4 ? "dark" : "light";
+    if (!c || c.a < MIN_OPAQUE_ALPHA) return null; // not a real page background
+    return relativeLuminance(c) < DARK_LUMINANCE_THRESHOLD ? "dark" : "light";
   }
 
   return { parseCssColor, relativeLuminance, themeForBackground };

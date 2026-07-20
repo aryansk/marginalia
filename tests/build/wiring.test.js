@@ -138,6 +138,24 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     }
   });
 
+  it("shared/hosts.js is the manifests' content-site pattern list, loaded everywhere it's read", async () => {
+    const hosts = (await import("../../src/shared/hosts.js")).default;
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    // The four content-site match patterns must agree with both manifests
+    // (manual sync — manifests can't read JS).
+    expect(manifest.content_scripts[0].matches).toEqual(hosts.CONTENT_SITE_PATTERNS);
+    expect(chrome.content_scripts[0].matches).toEqual(hosts.CONTENT_SITE_PATTERNS);
+    // Loaded in the background lists before background.js (context menu reads it)…
+    expect(fxScripts.indexOf("src/shared/hosts.js")).toBeGreaterThanOrEqual(0);
+    expect(fxScripts.indexOf("src/shared/hosts.js")).toBeLessThan(
+      fxScripts.indexOf("src/background.js"),
+    );
+    // …and registered in both content-script lists near the other shared/ files.
+    const fxJs = manifest.content_scripts[0].js;
+    expect(fxJs.indexOf("src/shared/hosts.js")).toBe(fxJs.indexOf("src/shared/protocol.js") + 1);
+    expect(chrome.content_scripts[0].js).toEqual(fxJs);
+  });
+
   it("release metadata stays in lockstep across both manifests and package.json", () => {
     // The version is hand-copied in three places and has drifted once before
     // (a release went out as 0.3.0 instead of 0.2.2). CI's package job also

@@ -75,6 +75,25 @@ describe("composePrompt — structure", () => {
   });
 });
 
+describe("composePrompt — provider label", () => {
+  it("addresses the model by the given display name", () => {
+    const out = composePrompt(thread(), "selection", {}, "Gemini");
+    expect(out).toContain("I'm reading an answer you (Gemini) gave me.");
+  });
+
+  it("works for non-Gemini providers", () => {
+    const out = composePrompt(thread(), "selection", {}, "ChatGPT");
+    expect(out).toContain("I'm reading an answer you (ChatGPT) gave me.");
+    expect(out).not.toContain("Gemini");
+  });
+
+  it("falls back to neutral wording when no label is given", () => {
+    const out = composePrompt(thread(), "selection", {});
+    expect(out).toContain("I'm reading an answer you gave me.");
+    expect(out).not.toContain("(Gemini)");
+  });
+});
+
 describe("composePrompt — error messages", () => {
   const prompt = require("../../src/core/prompt.js");
   it("skips stored error notices in the replayed discussion", () => {

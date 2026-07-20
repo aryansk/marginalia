@@ -94,6 +94,7 @@ describe("convoCapture.capture — basic bucket shape", () => {
 
     const rec = bucket(b);
     expect(rec).toBeTruthy();
+    expect(rec.v).toBe(1); // schema version stamp; readers treat missing v as v1
     expect(rec.provider).toBe("gemini");
     expect(rec.id).toBe("c1");
     expect(rec.title).toBe("Monads — Gemini");

@@ -7,6 +7,7 @@ import { loadGA } from "../helpers/loadGA.js";
 
 function makeController() {
   const GA = loadGA([
+    "src/core/sites.js",
     "src/core/prompt.js",
     "src/core/live-stream.js",
     "src/core/session-bindings.js",

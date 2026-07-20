@@ -42,7 +42,7 @@ function clientWith(fetchFake) {
       "src/gemini/client.js",
     ],
     { fetch: fetchFake },
-  ).client;
+  ).geminiWebClient;
 }
 
 const tokens = { at: "AT", bl: "boq", sid: "99" };

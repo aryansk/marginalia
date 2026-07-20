@@ -118,6 +118,8 @@ GA.core.anchorMatch = (function () {
     return i;
   }
 
+  // commonPrefixLen / commonSuffixLen are exported for tests only — no
+  // production caller uses them outside this module.
   return { evaluate, bestMatch, bestMatchInTurn, commonPrefixLen, commonSuffixLen };
 })();
 

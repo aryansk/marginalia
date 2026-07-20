@@ -12,7 +12,7 @@
 // or gemini/parser.js (response). Everything fragile is isolated in those two.
 var GA = (typeof GA !== "undefined" && GA) || {};
 
-GA.client = (function () {
+GA.geminiWebClient = (function () {
   function parseFailMsg() {
     return "Couldn't parse Gemini's response — the internal API shape may have changed (see gemini/parser.js).";
   }
@@ -67,4 +67,4 @@ GA.client = (function () {
   return { ask };
 })();
 
-if (typeof module !== "undefined" && module.exports) module.exports = GA.client;
+if (typeof module !== "undefined" && module.exports) module.exports = GA.geminiWebClient;

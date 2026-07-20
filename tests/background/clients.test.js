@@ -5,7 +5,7 @@ import { loadGA } from "../helpers/loadGA.js";
 // shared GA after loading the registry + dispatch.
 function dispatch() {
   const GA = loadGA(["src/background/registry.js", "src/background/clients.js"]);
-  GA.client = { id: "gemini-web" };
+  GA.geminiWebClient = { id: "gemini-web" };
   GA.googleaiClient = { id: "googleai-api" };
   GA.openaiClient = { id: "openai-api" };
   GA.claudeClient = { id: "claude-web" };
@@ -23,7 +23,7 @@ describe("clientFor (registry dispatch)", () => {
 
   it("falls back to the web-session client when no key is set", () => {
     const GA = dispatch();
-    expect(GA.clientFor("gemini", {})).toBe(GA.client);
+    expect(GA.clientFor("gemini", {})).toBe(GA.geminiWebClient);
     expect(GA.clientFor("claude", {})).toBe(GA.claudeClient);
   });
 
@@ -34,17 +34,17 @@ describe("clientFor (registry dispatch)", () => {
 
   it("treats an empty-string key as unset", () => {
     const GA = dispatch();
-    expect(GA.clientFor("gemini", { geminiApiKey: "" })).toBe(GA.client);
+    expect(GA.clientFor("gemini", { geminiApiKey: "" })).toBe(GA.geminiWebClient);
   });
 
-  it("falls back to the Gemini web client for an unknown provider", () => {
+  it("throws for an unknown provider (background surfaces it via MSG_ERROR)", () => {
     const GA = dispatch();
-    expect(GA.clientFor("mystery", {})).toBe(GA.client);
-    expect(GA.clientFor(undefined, {})).toBe(GA.client);
+    expect(() => GA.clientFor("mystery", {})).toThrow("Unknown provider: mystery");
+    expect(() => GA.clientFor(undefined, {})).toThrow("Unknown provider: undefined");
   });
 
   it("tolerates missing settings", () => {
     const GA = dispatch();
-    expect(GA.clientFor("gemini")).toBe(GA.client);
+    expect(GA.clientFor("gemini")).toBe(GA.geminiWebClient);
   });
 });

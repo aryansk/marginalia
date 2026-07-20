@@ -123,6 +123,10 @@ GA.gemini.parser = (function () {
     return false;
   }
 
+  // parseLatest is a test oracle: production streaming goes through makeStream
+  // (gemini/client.js); specs whole-buffer-parse transcripts and hold the two
+  // equivalent. preciseText / deepFindAnswer / looksLikeId are likewise
+  // exported for tests only — production reaches them via takeLine.
   return { parseLatest, makeStream, preciseText, deepFindAnswer, looksLikeId };
 })();
 

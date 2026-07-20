@@ -143,23 +143,29 @@ GA.core.layout = (function () {
     const tops = {};
     const idx = activeId == null ? -1 : work.findIndex((it) => it.id === activeId && !it.orphan);
 
-    function flowDown(from, startY) {
+    // Flow boxes downward from `startY`. `clampToViewport` picks the regime,
+    // hoisted here because it is constant per call:
+    //  - true  (no pinned box): each top is clamped into [GAP, lowest] so the
+    //    whole stack stays on screen;
+    //  - false (boxes BELOW the pinned/focused box): the viewport clamp is
+    //    intentionally DROPPED — a later box must never slide up past the
+    //    pinned box, so when crowded it overflows the bottom edge instead
+    //    (it scrolls away with its anchor, Docs-style).
+    function flowDown(from, startY, clampToViewport) {
       let y = startY;
       for (let i = from; i < work.length; i++) {
         const it = work[i];
         const boxH = heights[it.id];
         const lowest = H - boxH - c.BOTTOM_GAP;
         let top = it.orphan ? Math.max(y, lowest) : Math.max(y, Math.min(it.desiredTop, lowest));
-        if (i > idx && idx >= 0)
-          top = Math.max(y, top); // never above the pinned box
-        else top = Math.max(c.GAP, Math.min(top, lowest));
+        if (clampToViewport) top = Math.max(c.GAP, Math.min(top, lowest));
         tops[it.id] = top;
         y = top + boxH + c.GAP;
       }
     }
 
     if (idx < 0) {
-      flowDown(0, c.GAP);
+      flowDown(0, c.GAP, true);
       return tops;
     }
 
@@ -177,7 +183,7 @@ GA.core.layout = (function () {
       ceiling = top;
     }
 
-    flowDown(idx + 1, activeTop + ah + c.GAP);
+    flowDown(idx + 1, activeTop + ah + c.GAP, false);
     return tops;
   }
 
@@ -185,6 +191,12 @@ GA.core.layout = (function () {
   // available height (small boxes keep natural size, large ones shrink), with the
   // focused box getting a reserved budget first. Collapsed chips always keep
   // their natural height — no MIN_BOX_HEIGHT floor, no active budget.
+  //
+  // Overflow policy: the MIN_BOX_HEIGHT floor is unconditional, so with enough
+  // boxes the floors alone can exceed the budget (`avail` goes negative and
+  // every remaining box still gets the floor). The summed heights then overflow
+  // the viewport, which is ACCEPTED — computeTops lets the stack run past the
+  // bottom edge rather than shrink boxes below usability.
   function distribute(work, H, activeId, c) {
     const n = work.length;
     const totalGaps = c.GAP * n + c.BOTTOM_GAP; // top gap + (n-1) inner gaps + bottom clearance
@@ -219,11 +231,15 @@ GA.core.layout = (function () {
     return heights;
   }
 
-  // Whether two relayout inputs would produce the same output — the gutter
-  // skips the compute+write phases entirely when nothing moved (scroll frames
-  // where every anchor stayed put, mutation frames that didn't touch anchors).
-  // Signature: { items: [{id, order, anchorTop, naturalHeight}], height, left,
-  // width, activeId, expanded }.
+  // Relayout-skip guard: the gutter skips the compute+write phases entirely
+  // when nothing changed (scroll frames where every anchor stayed put, mutation
+  // frames that didn't touch anchors).
+  // Signature: { items: [{id, order, anchorTop, naturalHeight, collapsed}],
+  // height, left, width, activeId, expanded }. Note this is a SUPERSET of
+  // computeLayout's input: `left`, `width` and `expanded` are not consumed by
+  // the layout math, but they DO change what the gutter writes to the DOM
+  // (column position/width, which box is expanded), so a skip is only correct
+  // when they too are unchanged.
   function inputsEqual(a, b) {
     if (!a || !b) return false;
     if (

@@ -37,8 +37,18 @@ GA.core.markdownAst = (function () {
   // math is next so _ and * inside formulas are inert too. Single-$ math uses
   // the Pandoc currency guard: content can't start/end with whitespace and the
   // closing $ can't be followed by a digit, so "$5 and $10" stays plain text.
+  //
+  // Named group → AST node (dispatched in pushInline):
+  //   tick / code           `…`        {type:'code'}    (tick backrefs the fence)
+  //   mathDollars           $$…$$      {type:'math', display:true}
+  //   mathBracket           \[…\]      {type:'math', display:true}
+  //   mathParen             \(…\)      {type:'math', display:false}
+  //   mathDollar            $…$        {type:'math', display:false}
+  //   boldStars / boldUnder **…**/__…__ {type:'strong'}
+  //   emStar / emUnder      *…* / _…_  {type:'em'}
+  //   linkText + linkHref   [t](h)     {type:'link'}
   const INLINE =
-    /(`+)([^`]+?)\1|\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$(?!\s)([^$\n]+?)(?<!\s)\$(?!\d)|\*\*([\s\S]+?)\*\*|__([\s\S]+?)__|\*([^*]+?)\*|_([^_]+?)_|\[([^\]]+?)\]\(([^)\s]+)\)/;
+    /(?<tick>`+)(?<code>[^`]+?)\k<tick>|\$\$(?<mathDollars>[\s\S]+?)\$\$|\\\[(?<mathBracket>[\s\S]+?)\\\]|\\\((?<mathParen>[\s\S]+?)\\\)|\$(?!\s)(?<mathDollar>[^$\n]+?)(?<!\s)\$(?!\d)|\*\*(?<boldStars>[\s\S]+?)\*\*|__(?<boldUnder>[\s\S]+?)__|\*(?<emStar>[^*]+?)\*|_(?<emUnder>[^_]+?)_|\[(?<linkText>[^\]]+?)\]\((?<linkHref>[^)\s]+)\)/;
 
   function parse(md) {
     const text = String(md == null ? "" : md).replace(/\r\n/g, "\n");
@@ -234,14 +244,21 @@ GA.core.markdownAst = (function () {
         break;
       }
       if (m.index > 0) out.push({ type: "text", value: rest.slice(0, m.index) });
-      if (m[2] != null) out.push({ type: "code", value: m[2] });
-      else if (m[3] != null || m[4] != null) out.push(mathNode(m[3] != null ? m[3] : m[4], true));
-      else if (m[5] != null || m[6] != null) out.push(mathNode(m[5] != null ? m[5] : m[6], false));
-      else if (m[7] != null || m[8] != null)
-        out.push({ type: "strong", children: inlineChildren(m[7] != null ? m[7] : m[8]) });
-      else if (m[9] != null || m[10] != null)
-        out.push({ type: "em", children: inlineChildren(m[9] != null ? m[9] : m[10]) });
-      else if (m[11] != null) out.push({ type: "link", text: m[11], href: safeHref(m[12]) });
+      const g = m.groups;
+      if (g.code != null) out.push({ type: "code", value: g.code });
+      else if (g.mathDollars != null || g.mathBracket != null)
+        out.push(mathNode(g.mathDollars != null ? g.mathDollars : g.mathBracket, true));
+      else if (g.mathParen != null || g.mathDollar != null)
+        out.push(mathNode(g.mathParen != null ? g.mathParen : g.mathDollar, false));
+      else if (g.boldStars != null || g.boldUnder != null)
+        out.push({
+          type: "strong",
+          children: inlineChildren(g.boldStars != null ? g.boldStars : g.boldUnder),
+        });
+      else if (g.emStar != null || g.emUnder != null)
+        out.push({ type: "em", children: inlineChildren(g.emStar != null ? g.emStar : g.emUnder) });
+      else if (g.linkText != null)
+        out.push({ type: "link", text: g.linkText, href: safeHref(g.linkHref) });
       rest = rest.slice(m.index + m[0].length);
     }
   }

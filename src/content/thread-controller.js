@@ -196,7 +196,10 @@ GA.threadController = (function () {
   function composePrompt(thread) {
     const scope = GA.settings.scope;
     const deps = scope === "conversation" ? { conversationText: conversationText() } : {};
-    return GA.core.prompt.composePrompt(thread, scope, deps);
+    // Address the model by the active site's display name ("Gemini", "ChatGPT",
+    // "Claude") so the persona line matches the provider being asked.
+    const label = GA.core.sites.providerLabel(GA.provider);
+    return GA.core.prompt.composePrompt(thread, scope, deps, label);
   }
 
   function conversationText() {

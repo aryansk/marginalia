@@ -75,7 +75,7 @@ describe("responseSelectors", () => {
   it("returns a non-empty selector list per provider", () => {
     expect(responseSelectors("gemini").length).toBeGreaterThan(0);
     expect(responseSelectors("chatgpt")).toContain('[data-message-author-role="assistant"]');
-    expect(responseSelectors("claude")).toContain(".font-claude-message");
+    expect(responseSelectors("claude")).toContain(".font-claude-response");
   });
 
   it("returns a copy (callers can't mutate the registry)", () => {

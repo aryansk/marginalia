@@ -40,7 +40,10 @@ function loadBackground() {
     },
     storage: { local: { get: () => Promise.resolve({}) } },
   };
-  const GA = loadGA(["src/shared/protocol.js", "src/background.js"], { browser });
+  const GA = loadGA(
+    ["src/shared/protocol.js", "src/shared/hosts.js", "src/shared/config.js", "src/background.js"],
+    { browser },
+  );
   // deliver like the browser would: every onMessage listener sees the message
   const dispatch = (msg, sender) => onMessage.map((fn) => fn(msg, sender));
   return { GA, browser, calls, onMessage, dispatch };

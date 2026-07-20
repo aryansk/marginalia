@@ -12,7 +12,11 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 //   null = no web fallback (ChatGPT: chatgpt.com is Turnstile-blocked, so it
 //   always needs an API key).
 GA.PROVIDERS = {
-  gemini: { apiKeyField: "geminiApiKey", apiClient: "googleaiClient", webClient: "client" },
+  gemini: {
+    apiKeyField: "geminiApiKey",
+    apiClient: "googleaiClient",
+    webClient: "geminiWebClient",
+  },
   chatgpt: { apiKeyField: "openaiApiKey", apiClient: "openaiClient", webClient: null },
   claude: {
     apiKeyField: "anthropicApiKey",

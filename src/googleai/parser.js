@@ -24,6 +24,9 @@ GA.googleai.parser = (function () {
     return found ? s : null;
   }
   return {
+    // Test oracle: production streaming goes through makeStream (googleai/client.js
+    // via the api-client factory); parseLatest exists so specs can whole-buffer-
+    // parse a transcript and hold the two equivalent.
     parseLatest: sse.makeParser(extract),
     makeStream: function () {
       return sse.makeStream(extract);

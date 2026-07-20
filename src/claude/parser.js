@@ -5,8 +5,9 @@
 // deltas that we concatenate in order. Two shapes appear across versions:
 //   1. { "type":"completion", "completion":"…" }              (legacy)
 //   2. { "type":"content_block_delta", "delta":{"text":"…"} } (messages API style)
-// We append every text fragment we recognize. All fragility lives here; see
-// payload.js for the request side.
+// Both shapes are recognized by the shared extractor in shared/sse.js
+// (also used by anthropic/parser.js — the official API streams the same two);
+// see payload.js for the request side.
 var GA = (typeof GA !== "undefined" && GA) || {};
 GA.claude = GA.claude || {};
 // Browser: shared/sse.js loaded earlier set GA.sse. Node/tests: require it so
@@ -14,17 +15,13 @@ GA.claude = GA.claude || {};
 var sse = GA.sse || (typeof require !== "undefined" ? require("../shared/sse.js") : null);
 
 GA.claude.parser = (function () {
-  function fragmentText(obj) {
-    if (!obj || typeof obj !== "object") return null;
-    if (typeof obj.completion === "string") return obj.completion;
-    if (obj.delta && typeof obj.delta.text === "string") return obj.delta.text;
-    return null;
-  }
-
   return {
-    parseLatest: sse.makeParser(fragmentText),
+    // Test oracle: production streaming goes through makeStream (claude/client.js);
+    // parseLatest exists so specs can whole-buffer-parse a transcript and hold
+    // the two equivalent.
+    parseLatest: sse.makeParser(sse.extractDeltaText),
     makeStream: function () {
-      return sse.makeStream(fragmentText);
+      return sse.makeStream(sse.extractDeltaText);
     },
   };
 })();

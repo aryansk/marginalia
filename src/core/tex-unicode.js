@@ -17,8 +17,12 @@ var texTables =
   GA.core.texTables || (typeof require !== "undefined" ? require("./tex-tables.js") : null);
 
 GA.core.texUnicode = (function () {
-  const SYMBOLS = texTables.symbols;
-  const ALPHABETS = texTables.alphabets;
+  // Degrade gracefully when the generated tables are absent (the same policy
+  // markdown-ast.js applies to THIS module): instead of throwing at load time
+  // and taking every later-loading script down with us, toInline returns the
+  // raw TeX as a single text node — worst case the user reads the original.
+  const SYMBOLS = texTables ? texTables.symbols : null;
+  const ALPHABETS = texTables ? texTables.alphabets : null;
 
   // Font commands -> alphabet table key (\mathcal{H} -> script H, …).
   const FONT_CMDS = {
@@ -84,7 +88,9 @@ GA.core.texUnicode = (function () {
   const MAX_DEPTH = 40; // beyond this, `{` is literal — guards the recursion
 
   function toInline(tex) {
-    const cur = { s: String(tex == null ? "" : tex), pos: 0 };
+    const s = String(tex == null ? "" : tex);
+    if (!texTables) return [{ type: "text", value: s }]; // tables missing — passthrough
+    const cur = { s: s, pos: 0 };
     return parseRun(cur, 0, false);
   }
 

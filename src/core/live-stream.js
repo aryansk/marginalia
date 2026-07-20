@@ -38,7 +38,11 @@ GA.core.liveStream = (function () {
         listeners.forEach((fn) => {
           try {
             fn(feed.text, done);
-          } catch (e) {}
+          } catch (e) {
+            // Policy (see header): a broken observer must never break the ask
+            // loop feeding it — but a fully silent drop is undiagnosable.
+            console.debug("[marginalia] live-stream listener threw", e);
+          }
         });
         if (done) listeners.clear();
       }

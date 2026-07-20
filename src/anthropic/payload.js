@@ -9,10 +9,12 @@ GA.anthropic.payload = (function () {
   const VERSION = "2023-06-01"; // anthropic-version header
 
   // `prompt` already carries the full thread context (composed by core/prompt.js).
-  function buildBody(model, prompt, maxTokens) {
+  function buildBody(model, prompt) {
     return JSON.stringify({
       model: model,
-      max_tokens: maxTokens || 4096,
+      // Fixed cap: no user-facing setting exists for this yet. Plenty for a
+      // focused follow-up answer; make it a setting if that ever changes.
+      max_tokens: 4096,
       messages: [{ role: "user", content: prompt || "" }],
       stream: true,
     });

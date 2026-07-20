@@ -146,6 +146,10 @@ GA.convoCapture = (function () {
         delete blobs[k];
     }
     await GA.store.saveConvo(session, {
+      // Schema version stamp. Readers must treat a record WITHOUT `v` as v1
+      // (records written before the stamp existed); see the record-shape
+      // comment in store.js.
+      v: 1,
       provider: GA.provider,
       id: session.slice(session.indexOf(":") + 1),
       title: document.title,
