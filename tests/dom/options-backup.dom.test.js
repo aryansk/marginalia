@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
+import { makeStorageFake } from "../helpers/storage-mock.js";
+import { makeInjectedDownloadStub } from "../helpers/download-stub.js";
 
 // Options-page Export / Import UI (T-008): drives the REAL options.js handlers
 // against a fake `browser.storage.local`, fake URL object-URL registry, and a
@@ -16,29 +18,10 @@ const thread = (id, msgCount = 1) => ({
   resolved: false,
 });
 
-function fakeStorage(initial = {}, { failSet = "" } = {}) {
-  const data = clone(initial);
-  const setCalls = [];
-  let getAllCount = 0;
-  const local = {
-    async get(key) {
-      if (key == null) {
-        getAllCount++;
-        return clone(data);
-      }
-      return data[key] === undefined ? {} : { [key]: clone(data[key]) };
-    },
-    async set(obj) {
-      setCalls.push(clone(obj));
-      if (failSet) throw new Error(failSet);
-      Object.assign(data, clone(obj));
-    },
-    async remove(keys) {
-      (Array.isArray(keys) ? keys : [keys]).forEach((k) => delete data[k]);
-    },
-  };
-  return { browser: { storage: { local } }, data, setCalls, getAllCount: () => getAllCount };
-}
+// Shared storage fake, JSON-clone flavor: every byte that passes through
+// set/get must survive JSON serialization, like a real backup archive.
+const fakeStorage = (initial, opts = {}) =>
+  makeStorageFake({ initial, clone: "json", failSet: opts.failSet });
 
 function setup({ initial = {}, failSet = "", confirmResult = true } = {}) {
   // Every element options.js's `els` map resolves at eval time.
@@ -58,30 +41,8 @@ function setup({ initial = {}, failSet = "", confirmResult = true } = {}) {
     <p id="backup-status"></p>`;
 
   const store = fakeStorage(initial, { failSet });
-  const created = [];
-  const revoked = [];
-  const fakeURL = {
-    createObjectURL(blob) {
-      created.push(blob);
-      return "blob:fake-" + created.length;
-    },
-    revokeObjectURL(u) {
-      revoked.push(u);
-    },
-  };
+  const { fakeURL, created, revoked, anchorClicks } = makeInjectedDownloadStub();
   const confirms = [];
-  const anchorClicks = [];
-  // jsdom would try to "navigate" on the download-anchor click; observe + cancel.
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.target.tagName === "A") {
-        anchorClicks.push({ download: e.target.download, href: e.target.href });
-        e.preventDefault();
-      }
-    },
-    true,
-  );
 
   const GA = loadGA(
     ["src/shared/settings-schema.js", "src/core/backup.js", "src/options/options.js"],
@@ -387,17 +348,67 @@ describe("options import — failure paths (F9: every failure is visible)", () =
   });
 });
 
-describe("import handler safety (source-level)", () => {
-  it("options.js never calls storage.local.remove/clear or uses innerHTML in the backup handlers", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const url = await import("node:url");
-    const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
-    const src = fs.readFileSync(path.join(ROOT, "src/options/options.js"), "utf8");
-    // The only sanctioned destructive storage call is the pre-existing clear-btn handler.
-    const backupPart = src.slice(src.indexOf("Backup: export / import"));
-    const importExportPart = backupPart.slice(0, backupPart.indexOf("els.clearBtn"));
-    expect(importExportPart).not.toMatch(/storage\.local\.(remove|clear)/);
-    expect(importExportPart).not.toMatch(/innerHTML/);
+describe("import handler safety (behavioral)", () => {
+  const ARCHIVE = JSON.stringify({
+    format: "marginalia-threads",
+    version: 1,
+    exportedAt: 5,
+    threads: { "ga:threads:gemini:s1": [thread("only")] },
+    convos: {},
+  });
+
+  it("merge import lands as ONE atomic set — storage.local.remove/clear never invoked", async () => {
+    const { store } = setup({ initial: SEEDED });
+    await importText(ARCHIVE);
+    expect(store.setCalls).toHaveLength(1);
+    expect(store.removeCalls).toEqual([]);
+    expect(store.clearCount()).toBe(0);
+  });
+
+  it("replace import discards old threads via that same atomic set — never remove/clear", async () => {
+    const { store, el } = setup({ initial: SEEDED, confirmResult: true });
+    el("import-replace").checked = true;
+    await importText(ARCHIVE);
+    expect(store.setCalls).toHaveLength(1);
+    expect(store.data["ga:threads:gemini:s1"].map((t) => t.id)).toEqual(["only"]); // replaced…
+    expect(store.removeCalls).toEqual([]); // …without a destructive call
+    expect(store.clearCount()).toBe(0);
+  });
+
+  it("export touches storage read-only: no set, no remove, no clear", async () => {
+    const { store, el } = setup({ initial: SEEDED });
+    el("export-btn").click();
+    await tick();
+    await tick();
+    expect(status()).toMatch(/^Exported /); // the flow actually ran
+    expect(store.setCalls).toEqual([]);
+    expect(store.removeCalls).toEqual([]);
+    expect(store.clearCount()).toBe(0);
+  });
+
+  it("attacker-controlled text reaching the status line renders inert as text, never parsed HTML", async () => {
+    // A crafted archive's `version` is echoed verbatim into the failure status.
+    const evil = '<img src=x onerror="document.body.dataset.pwned=1"> "quoted"';
+    const first = setup({ initial: SEEDED });
+    await importText(
+      JSON.stringify({ format: "marginalia-threads", version: evil, threads: {}, convos: {} }),
+    );
+    let statusEl = first.el("backup-status");
+    expect(statusEl.textContent).toBe(
+      "Import failed: backup: unsupported archive version " + evil + " Nothing was changed.",
+    );
+    expect(statusEl.children).toHaveLength(0); // textContent, not markup
+    expect(document.querySelector("img")).toBeNull();
+    expect(document.body.dataset.pwned).toBeUndefined();
+
+    // A storage-failure message surfacing on the import path is likewise inert.
+    const second = setup({ initial: SEEDED, failSet: "broken <b>tag</b> storage" });
+    await importText(ARCHIVE);
+    statusEl = second.el("backup-status");
+    expect(statusEl.textContent).toBe(
+      "Import failed: broken <b>tag</b> storage Nothing was changed.",
+    );
+    expect(statusEl.children).toHaveLength(0);
+    expect(document.querySelector("b")).toBeNull();
   });
 });

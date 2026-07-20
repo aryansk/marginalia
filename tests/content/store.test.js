@@ -3,35 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadGA } from "../helpers/loadGA.js";
+import { makeStorageFake } from "../helpers/storage-mock.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-// A minimal in-memory stand-in for browser.storage.local. Like the real API,
-// get/set exchange CLONES — callers never share object references with the
-// stored values (so the store's in-place createdAt stamping can't silently
-// rewrite what "storage" holds, matching real extension behavior).
-function fakeBrowser() {
-  const data = {};
-  return {
-    _data: data,
-    storage: {
-      local: {
-        get: async (k) => {
-          if (k == null) return structuredClone(data);
-          const keys = Array.isArray(k) ? k : [k];
-          const out = {};
-          keys.forEach((key) => {
-            if (key in data) out[key] = structuredClone(data[key]);
-          });
-          return out;
-        },
-        set: async (obj) => Object.assign(data, structuredClone(obj)),
-        remove: async (keys) =>
-          (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
-      },
-    },
-  };
-}
+// Shared in-memory browser.storage.local fake (clone semantics — the store's
+// in-place createdAt stamping can't silently rewrite what "storage" holds).
+const fakeBrowser = () => makeStorageFake().browser;
 
 let GA;
 beforeEach(() => {

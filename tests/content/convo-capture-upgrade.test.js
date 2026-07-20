@@ -8,29 +8,9 @@
 // is a prefix of the live head) before testing the anchoring conditions.
 import { describe, it, expect, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
+import { makeStorageFake } from "../helpers/storage-mock.js";
 
-function fakeBrowser() {
-  const data = {};
-  return {
-    _data: data,
-    storage: {
-      local: {
-        get: async (k) => {
-          if (k == null) return structuredClone(data);
-          const keys = Array.isArray(k) ? k : [k];
-          const out = {};
-          keys.forEach((key) => {
-            if (key in data) out[key] = structuredClone(data[key]);
-          });
-          return out;
-        },
-        set: async (obj) => Object.assign(data, structuredClone(obj)),
-        remove: async (keys) =>
-          (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
-      },
-    },
-  };
-}
+const fakeBrowser = () => makeStorageFake().browser;
 
 const FILES = [
   "src/shared/settings-schema.js",

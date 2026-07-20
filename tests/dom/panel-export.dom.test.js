@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
+import { stubGlobalDownloads } from "../helpers/download-stub.js";
 
 // Export button (T-012): the panel header gains an "Export for NotebookLM"
 // button — the system's SOLE decompress site. Clicking it loads the RAW convo
@@ -92,17 +93,9 @@ let clipboardReject;
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  clicks = [];
   clipboardWrites = [];
   clipboardReject = false;
-  URL.createObjectURL = vi.fn((blob) => {
-    URL.createObjectURL.lastBlob = blob;
-    return "blob:vitest";
-  });
-  URL.revokeObjectURL = vi.fn();
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function () {
-    clicks.push({ download: this.getAttribute("download"), href: this.getAttribute("href") });
-  });
+  ({ clicks } = stubGlobalDownloads());
   Object.defineProperty(globalThis.navigator, "clipboard", {
     configurable: true,
     value: {

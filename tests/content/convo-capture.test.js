@@ -10,33 +10,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadGA } from "../helpers/loadGA.js";
+import { makeStorageFake } from "../helpers/storage-mock.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
-// In-memory browser.storage.local with clone semantics (same as store.test.js).
-function fakeBrowser() {
-  const data = {};
-  return {
-    _data: data,
-    storage: {
-      local: {
-        get: async (k) => {
-          if (k == null) return structuredClone(data);
-          const keys = Array.isArray(k) ? k : [k];
-          const out = {};
-          keys.forEach((key) => {
-            if (key in data) out[key] = structuredClone(data[key]);
-          });
-          return out;
-        },
-        set: async (obj) => Object.assign(data, structuredClone(obj)),
-        remove: async (keys) =>
-          (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
-      },
-    },
-  };
-}
+// Shared in-memory browser.storage.local fake with clone semantics.
+const fakeBrowser = () => makeStorageFake().browser;
 
 const FILES = [
   "src/shared/settings-schema.js",

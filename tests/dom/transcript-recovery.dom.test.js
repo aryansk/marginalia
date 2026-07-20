@@ -13,30 +13,11 @@
 // re-homed onto the completed turn via the quote fallback.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
+import { makeStorageFake } from "../helpers/storage-mock.js";
+import { stubGlobalDownloads } from "../helpers/download-stub.js";
 
-function fakeBrowser() {
-  const data = {};
-  return {
-    _data: data,
-    runtime: { sendMessage: () => Promise.resolve() },
-    storage: {
-      local: {
-        get: async (k) => {
-          if (k == null) return structuredClone(data);
-          const keys = Array.isArray(k) ? k : [k];
-          const out = {};
-          keys.forEach((key) => {
-            if (key in data) out[key] = structuredClone(data[key]);
-          });
-          return out;
-        },
-        set: async (obj) => Object.assign(data, structuredClone(obj)),
-        remove: async (keys) =>
-          (Array.isArray(keys) ? keys : [keys]).forEach((key) => delete data[key]),
-      },
-    },
-  };
-}
+const fakeBrowser = () =>
+  makeStorageFake({ runtime: { sendMessage: () => Promise.resolve() } }).browser;
 
 const FILES = [
   "src/shared/protocol.js",
@@ -76,12 +57,7 @@ function setLiveTurns(GA, defs) {
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  URL.createObjectURL = vi.fn((blob) => {
-    URL.createObjectURL.lastBlob = blob;
-    return "blob:vitest";
-  });
-  URL.revokeObjectURL = vi.fn();
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  stubGlobalDownloads();
 });
 afterEach(() => {
   vi.restoreAllMocks();
