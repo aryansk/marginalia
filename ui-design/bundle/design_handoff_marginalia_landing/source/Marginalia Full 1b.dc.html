@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&amp;display=swap" rel="stylesheet">
+<style>html{scroll-behavior:smooth}body{margin:0;background:#fff;font-family:'Space Grotesk',system-ui,sans-serif;color:#17141f}a{color:#6c3df4;text-decoration:none}a:hover{color:#17141f}
+@media (max-width:880px){
+  .m-hero{grid-template-columns:1fr!important;padding:40px 20px!important;gap:36px!important}
+  .m-h1{font-size:38px!important}
+  .m-grid3{grid-template-columns:1fr!important}
+  .m-grid2{grid-template-columns:1fr!important}
+  .m-pad{padding:44px 20px!important}
+  .m-navpad{padding:12px 20px!important}
+}
+@media (max-width:720px){
+  .m-navlink{display:none!important}
+  .m-navcta{padding:7px 14px!important;font-size:13px!important;box-shadow:2px 2px 0 #17141f!important}
+  .m-burger{display:flex!important}
+  .m-thread{margin:-12px 0 0 16px!important}
+}</style></helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#6c3df4"/><rect x="30" y="34" width="40" height="10" rx="4" fill="#ffd803"/><rect x="30" y="50" width="40" height="6" rx="3" fill="#fff" opacity=".6"/><rect x="30" y="60" width="28" height="6" rx="3" fill="#fff" opacity=".6"/></svg></template>
+<div style="min-height:100vh;background:#fff">
+  <div style="position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:2px solid #17141f">
+    <div class="m-navpad" style="max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:15px 32px">
+      <a href="#top" style="display:flex;align-items:center;gap:10px;color:#17141f">
+        <span style="width:32px;height:32px;background:#6c3df4;border-radius:10px 10px 10px 2px;display:flex;align-items:center;justify-content:center">
+          <span style="display:block;width:13px;height:4px;background:#ffd803;border-radius:2px"></span>
+        </span>
+        <span style="font-size:20px;font-weight:700;letter-spacing:-.02em">marginalia</span>
+      </a>
+      <div style="display:flex;align-items:center;gap:22px;font-size:14px;font-weight:600">
+        <a class="m-navlink" href="#install" style="color:#4c4661" style-hover="color:#6c3df4">Install</a>
+        <a class="m-navlink" href="#use" style="color:#4c4661" style-hover="color:#6c3df4">How to use</a>
+        <a class="m-navlink" href="#configure" style="color:#4c4661" style-hover="color:#6c3df4">Configure</a>
+        <a class="m-navlink" href="https://github.com/midhunkrishna/marginalia" style="color:#4c4661" style-hover="color:#6c3df4">GitHub ↗</a>
+        <a class="m-navcta" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha" style="background:#6c3df4;color:#fff;padding:10px 19px;border-radius:999px;box-shadow:3px 3px 0 #17141f">＋ Add to Chrome</a>
+        <button class="m-burger" onClick="{{ toggleMenu }}" aria-label="Menu" style="display:none;align-items:center;justify-content:center;width:44px;height:44px;background:#fff;border:2px solid #17141f;border-radius:12px;font-size:18px;cursor:pointer;color:#17141f;padding:0">{{ burgerIcon }}</button>
+      </div>
+    </div>
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;background:#fff;border-bottom:2px solid #17141f">
+        <a href="#install" onClick="{{ closeMenu }}" style="padding:16px 20px;font-size:16px;font-weight:600;color:#17141f;border-bottom:1px solid #e2ddf2">Install</a>
+        <a href="#use" onClick="{{ closeMenu }}" style="padding:16px 20px;font-size:16px;font-weight:600;color:#17141f;border-bottom:1px solid #e2ddf2">How to use</a>
+        <a href="#configure" onClick="{{ closeMenu }}" style="padding:16px 20px;font-size:16px;font-weight:600;color:#17141f;border-bottom:1px solid #e2ddf2">Configure</a>
+        <a href="https://github.com/midhunkrishna/marginalia" onClick="{{ closeMenu }}" style="padding:16px 20px;font-size:16px;font-weight:600;color:#17141f">GitHub ↗</a>
+      </div>
+    </sc-if>
+  </div>
+  <div id="top" class="m-hero" style="max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.05fr 1fr;gap:40px;padding:60px 32px;align-items:center">
+    <div>
+      <h1 class="m-h1" style="font-size:54px;line-height:1.02;font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance">Stop scrolling away from <span style="background:#ffd803;padding:0 8px;border-radius:6px;box-decoration-break:clone;-webkit-box-decoration-break:clone">the good part.</span></h1>
+      <p style="font-size:17px;line-height:1.55;color:#4c4661;margin:20px 0 28px;max-width:440px;text-wrap:pretty">Comment threads for ChatGPT, Claude &amp; Gemini — like Google Docs, but for AI answers. Highlight it, ask about it, right there in the margin.</p>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha" style="background:#17141f;color:#fff;padding:16px 28px;border-radius:14px;font-weight:700;font-size:16px;box-shadow:4px 4px 0 #6c3df4">Add to Chrome — free</a>
+        <div style="font-size:13px;line-height:1.4;color:#4c4661">Free forever<br>Open source 🔓</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:26px;flex-wrap:wrap">
+        <span style="border:2px solid #17141f;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600">ChatGPT</span>
+        <span style="border:2px solid #17141f;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600">Claude</span>
+        <span style="border:2px solid #17141f;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600">Gemini</span>
+      </div>
+    </div>
+    <div style="position:relative">
+      <div style="background:#f4f2fb;border:2px solid #17141f;border-radius:16px;padding:24px 26px;font-size:14.5px;line-height:1.65;color:#33304a">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#8d86a8;margin-bottom:10px">CHATGPT · LONG ANSWER</div>
+        …the deposit is refundable only if you cancel within the <mark style="background:#ffd803;padding:1px 3px;border-radius:4px;font-weight:600">statutory cooling-off period</mark>, which varies by state. After that window closes, the landlord may retain…
+        <div style="margin-top:12px;height:7px;background:#e2ddf2;border-radius:4px;width:90%"></div>
+        <div style="margin-top:7px;height:7px;background:#e2ddf2;border-radius:4px;width:64%"></div>
+      </div>
+      <div class="m-thread" style="position:relative;margin:-18px 0 0 60px;background:#fff;border:2px solid #17141f;border-radius:14px;padding:16px 18px;box-shadow:5px 5px 0 #ffd803;max-width:330px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#6c3df4;margin-bottom:7px">💬 YOUR MARGIN THREAD</div>
+        <div style="font-size:13.5px;font-weight:700">wait — how long is that in California?</div>
+        <div style="font-size:13.5px;line-height:1.5;color:#4c4661;margin-top:8px">In California it's 3 business days for most contracts (Civil Code §1689.5) — some door-to-door sales get 5.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="install" style="background:#6c3df4;color:#fff;scroll-margin-top:80px">
+    <div class="m-pad" style="max-width:1080px;margin:0 auto;padding:52px 32px">
+      <h2 style="font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0 0 24px">Install in ten seconds ⚡</h2>
+      <div class="m-grid3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+        <div style="background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:14px;padding:22px 24px">
+          <div style="width:32px;height:32px;background:#ffd803;color:#17141f;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">1</div>
+          <div style="font-weight:700;font-size:16px;margin:12px 0 5px">Open the Web Store</div>
+          <div style="font-size:13.5px;line-height:1.55;color:#d9d0fb">Go to <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha" style="color:#ffd803">Marginalia's listing</a> — free, no account needed.</div>
+        </div>
+        <div style="background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:14px;padding:22px 24px">
+          <div style="width:32px;height:32px;background:#ffd803;color:#17141f;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">2</div>
+          <div style="font-weight:700;font-size:16px;margin:12px 0 5px">Click "Add to Chrome"</div>
+          <div style="font-size:13.5px;line-height:1.55;color:#d9d0fb">Confirm with "Add extension". That's the whole setup.</div>
+        </div>
+        <div style="background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:14px;padding:22px 24px">
+          <div style="width:32px;height:32px;background:#ffd803;color:#17141f;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">3</div>
+          <div style="font-weight:700;font-size:16px;margin:12px 0 5px">Open a chat</div>
+          <div style="font-size:13.5px;line-height:1.55;color:#d9d0fb">Visit chatgpt.com, claude.ai or gemini.google.com and highlight any text in an answer.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="use" class="m-pad" style="max-width:1080px;margin:0 auto;padding:56px 32px;scroll-margin-top:80px">
+    <h2 style="font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px">How to use it</h2>
+    <p style="font-size:15px;color:#4c4661;margin:0 0 30px;max-width:560px">Highlight any phrase in an AI answer and a comment box opens beside it. <span style="background:#ffd803;padding:0 5px;border-radius:4px;font-weight:600">That's it.</span></p>
+    <div class="m-grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+        <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/selection.png" alt="Highlighting text opens a comment box" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #e2ddf2">
+        <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">Ask about a selection.</strong> Highlight the phrase you're unsure about and type your question in the margin.</figcaption>
+      </figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+        <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/response.png" alt="The reply streams into the margin thread" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #e2ddf2">
+        <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">Read the reply in place.</strong> The answer streams into the thread — the text you were reading never scrolls away.</figcaption>
+      </figure>
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px;grid-column:1 / -1">
+        <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/another.png" alt="A second question minimizes other threads" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #e2ddf2">
+        <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">Ask as many as you like.</strong> Starting another question on the same chat minimizes the other threads and focuses the new selection.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div id="configure" style="background:#f4f2fb;border-top:2px solid #17141f;scroll-margin-top:80px">
+    <div class="m-pad" style="max-width:1080px;margin:0 auto;padding:56px 32px">
+      <h2 style="font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px">Configure 🔧</h2>
+      <p style="font-size:15px;color:#4c4661;margin:0 0 30px;max-width:620px">Logged into Claude or Gemini? It just works — zero setup. Prefer API keys? Add them on the settings page.</p>
+      <div class="m-grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+        <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+          <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/settings.png" alt="Marginalia settings page" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #ffd803">
+          <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">The settings page</strong> is where you set up API keys. Without keys, it uses the chat app you're already signed into (Claude and Gemini).</figcaption>
+        </figure>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+            <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/manage_conversations.png" alt="Manage Conversation menu in the corner" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #ffd803">
+            <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">Find the menu.</strong> Every conversation has a "Manage Conversation" menu in the bottom-right corner.</figcaption>
+          </figure>
+          <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+            <img src="https://github.com/midhunkrishna/marginalia/raw/master/images/go_to_settings.png" alt="Opening settings from the menu" style="width:100%;border:2px solid #17141f;border-radius:14px;box-shadow:5px 5px 0 #ffd803">
+            <figcaption style="font-size:13.5px;line-height:1.5;color:#4c4661"><strong style="color:#17141f">Open Settings</strong> from there to manage keys and preferences.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#17141f;color:#fff">
+    <div class="m-pad" style="max-width:1080px;margin:0 auto;padding:52px 32px;text-align:center">
+      <div style="font-size:30px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;text-wrap:balance">Your next "wait, what?" deserves a margin.</div>
+      <div style="font-size:14px;line-height:1.6;color:#a89fc4;max-width:520px;margin:0 auto 24px">No server, no tracking. Threads live in your browser; questions go only to your AI. <a href="https://github.com/midhunkrishna/marginalia" style="color:#ffd803">Check the code yourself</a>.</div>
+      <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha" style="display:inline-block;background:#ffd803;color:#17141f;padding:16px 32px;border-radius:14px;font-weight:700;font-size:16px;border:2px solid #fff;box-shadow:4px 4px 0 #6c3df4">Add to Chrome — 10 seconds, no account</a>
+      <div style="display:flex;justify-content:center;gap:20px;font-size:12.5px;color:#8d86a8;margin-top:32px">
+        <span>© 2026 Marginalia</span>
+        <a href="https://github.com/midhunkrishna/marginalia" style="color:#8d86a8">GitHub</a>
+        <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha" style="color:#8d86a8">Chrome Web Store</a>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { menuOpen: false };
+  renderVals() {
+    return {
+      menuOpen: this.state.menuOpen,
+      burgerIcon: this.state.menuOpen ? '✕' : '☰',
+      toggleMenu: () => this.setState(s => ({ menuOpen: !s.menuOpen })),
+      closeMenu: () => this.setState({ menuOpen: false })
+    };
+  }
+}
+</script>
+</body>
+</html>
