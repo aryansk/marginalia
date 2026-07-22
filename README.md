@@ -36,6 +36,27 @@ copy buttons on replies and code blocks. On narrow windows the margin collapses
 to a chip rail (chips open the modal); on very narrow ones highlights open the
 modal directly.
 
+## Features at a glance
+
+- **Margin comment threads** — highlight any part of an AI answer and discuss
+  just that part, without touching the main chat.
+- **Labels** — tag highlights (`project.ux`-style dotted families) via the tag
+  button or `/label`, as standalone tag chips or on top of threads.
+- **Across-chats search & synthesis** — search every annotated conversation,
+  pick threads/labels, and ask one prompt across the bundle ("summarize
+  these", "find the patterns"); carry the answer into a new chat or download
+  it as Markdown.
+- **Transcripts & export** — annotated conversations are captured locally and
+  export (with your comments) to NotebookLM/Obsidian-ready Markdown; full
+  backup/restore from the options page.
+- **Comfortable reading** — markdown + math rendering, resizable full-screen
+  view, focus mode, keyboard navigation, per-site light/dark theming.
+- **Your choice of plumbing** — official APIs (OpenAI / Google AI / Anthropic)
+  with your keys, or your logged-in Gemini/Claude session with no key at all.
+
+The full, user-friendly list — release by release — lives in
+[`docs/features.md`](docs/features.md).
+
 ## How it talks to each AI
 
 Two ways, chosen per site by whether you've set an API key (in Settings):

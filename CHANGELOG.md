@@ -16,10 +16,10 @@ conversation you've annotated.
   thread it converts the record into a standalone label — a violet tag chip
   that marks the whole LLM answer, with its own in-chip editor. Compound
   labels use dotted namespaces (`project.ux.nav`); multiple labels per item.
-- **"All chats" tab in the threads panel.** Search threads across every
-  stored conversation, or switch the dropdown to Labels and pick from a
-  namespace-grouped picker (selecting `project` matches everything under
-  `project.*`). Matched threads and labeled answers list for curation.
+- **"Across chats" tab in the threads panel.** Search threads across every
+  stored conversation, or flip the Threads|Labels segmented control and pick
+  from a namespace-grouped picker (selecting `project` matches everything
+  under `project.*`). Matched threads and labeled answers list for curation.
 - **Cross-conversation synthesis.** With items selected, a prompt bar
   appears: ask for a summary / common patterns and the bundle (thread
   discussions + the transcript text of labeled answers) goes to the current
@@ -27,12 +27,35 @@ conversation you've annotated.
   only their own per-message blob; the whole-conversation decode runs only on
   a fingerprint miss, and a missing transcript degrades to the stored
   section text.
-- **Output actions.** "Download as md" saves the output verbatim under a
+- **Output actions.** "Download .md" saves the output verbatim under a
   small provenance header (date, prompt, sources) — no second LLM round-trip.
-  "Start a conversation" copies the output and opens the provider's new-chat
+  "Copy & open new chat" copies the output and opens the provider's new-chat
   page (none of the sites expose a create-conversation API, so paste-to-start
   is the honest version of this feature).
 - Transcript exports now include a **Labels:** line in annotation callouts.
+
+### Changed (UX pass, same release)
+
+- **Labeling got a visible door.** A tag button on every comment box opens
+  label entry directly — no syntax to learn; `/label` remains the typed
+  power path (the empty-box placeholder hints it).
+- **One label editor everywhere.** The thread label section now uses the
+  same pill-by-pill editor as the tag chip (× removes one, the input adds);
+  the raw-text editor with its quoting rules is gone.
+- **Tag chips are label-first.** The chip leads with the tag name you wrote
+  (extras as "+N", pencil on hover); the highlight snippet trails muted.
+- **Synthesis output is a run log.** A second prompt appends below a divider
+  instead of silently replacing the previous answer; a failed run puts the
+  typed prompt back in the composer; "Gathering the selected items…" shows
+  while sources resolve.
+- The synthesis footer is always visible on the Across-chats tab with a
+  short how-to hint; submitting with nothing selected explains itself.
+- Label names are capped at 64 characters and can't contain `"` — they flow
+  into pills, chips, and toasts sized for tags.
+- Escape no longer closes the panel over a typed-but-unsent prompt (first
+  press blurs, second closes); long content stopped clipping (toast widths,
+  pill remove buttons, tab wrapping on narrow windows); focus rings, hover
+  states, and reduced-motion coverage filled in across the new controls.
 
 ### Fixed (post-review, same release)
 
@@ -43,6 +66,32 @@ conversation you've annotated.
 - Re-picking a label after changing the selection no longer resurrects stale
   curation unchecks; label names containing a double quote are rejected
   (they could never round-trip through the editors).
+
+## 0.2.2 — 2026-07-18
+
+The modal UX release.
+
+### Added
+
+- **Drag-resizable modal.** The full-screen thread view resizes from either
+  edge (width clamped to the viewport) and remembers the chosen width for
+  the rest of the page session.
+- **Live-stream late-join.** Opening the modal while an answer is still
+  streaming into the docked box picks the stream up mid-sentence instead of
+  waiting for the turn to finish (shared feed in `core/live-stream.js`).
+- **Minimize on expand.** While a thread is maximized, its docked box tucks
+  to a chip (transient — never persisted) and restores to its prior state
+  when the modal closes.
+
+## 0.2.1 — 2026-07-17
+
+The math release.
+
+### Added
+
+- **Math rendering.** TeX notation in replies (`\frac{a}{b}`, Greek letters,
+  super/subscripts, common operators) renders as Unicode math in boxes and
+  the modal — a lightweight TeX→Unicode prettifier, no external math engine.
 
 ## 0.2.0 — 2026-07-13
 
