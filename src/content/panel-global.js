@@ -122,8 +122,8 @@ GA.panelGlobal = (function () {
       });
       titleFor(session).then((t) => {
         if (t && el.isConnected) {
-          el.textContent = GA.truncate(t, GA.config.PANEL_SNIPPET_CHARS);
-          el.title = t;
+          el.textContent = GA.truncate(t, GA.config.PANEL_BADGE_CHARS);
+          el.title = t; // full title on hover
         }
       });
       return el;
@@ -287,13 +287,16 @@ GA.panelGlobal = (function () {
     function buildFooter() {
       ui.selCount = GA.el("div", { class: "ga-panel-selcount", "aria-live": "polite" });
       ui.outputEl = GA.el("div", { class: "ga-panel-output", role: "log", "aria-label": "Output" });
+      // "Copy & open new chat" states the MECHANISM before the click: the
+      // explanation can't follow the user to the new tab, so the label is the
+      // only guidance guaranteed to be read.
       const startBtn = GA.el("button", { class: "ga-panel-action", onclick: startConversation }, [
         GA.icons.make("jump"),
-        "Start a conversation",
+        "Copy & open new chat",
       ]);
       const downloadBtn = GA.el("button", { class: "ga-panel-action", onclick: downloadOutput }, [
         GA.icons.make("download"),
-        "Download as md",
+        "Download .md",
       ]);
       ui.actionsEl = GA.el("div", { class: "ga-panel-output-actions" }, [startBtn, downloadBtn]);
       ui.composer = GA.Composer({
@@ -313,13 +316,20 @@ GA.panelGlobal = (function () {
 
     function updateFooter() {
       if (closed || !ui.footer) return;
-      const items = ctx.isActive() && state.buckets ? selectedItems() : [];
+      const loaded = !!state.buckets;
+      const items = ctx.isActive() && loaded ? selectedItems() : [];
       const busy = !!state.askHandle;
-      const show = ctx.isActive() && (items.length > 0 || busy || !!state.output);
+      // The footer is the feature's front door — visible whenever the tab is
+      // (once buckets load), with a hint standing in for the count until
+      // something is selected. Hiding it until a selection existed made the
+      // whole synthesis flow undiscoverable.
+      const show = ctx.isActive() && (loaded || busy || !!state.output);
       ui.footer.classList.toggle("ga-panel-foot-on", show);
       ui.selCount.textContent = items.length
         ? items.length + (items.length === 1 ? " item" : " items") + " selected"
-        : "";
+        : "Select threads or labels above, then run a prompt across them.";
+      // the hint is a sentence, not a status counter — style it as one
+      ui.selCount.classList.toggle("ga-panel-hint", !items.length);
       ui.actionsEl.classList.toggle("ga-panel-output-actions-on", !!state.output && !busy);
     }
 
@@ -388,13 +398,31 @@ GA.panelGlobal = (function () {
     }
 
     async function runSynthesis(instruction) {
+      if (state.askHandle) return;
       const items = selectedItems();
-      if (!items.length || state.askHandle) return;
+      if (!items.length) {
+        // The composer is always visible (discoverability) — a submit with an
+        // empty selection must say why nothing happened, not silently no-op.
+        GA.toast("Select at least one thread or label above first.");
+        return;
+      }
       state.instruction = instruction;
       state.output = "";
       ui.composer.setLoading(true);
-      ui.outputEl.textContent = "";
+      // Run LOG, not run replacement: a synthesis is expensive — a new prompt
+      // must never silently destroy the previous answer. Prior runs stay
+      // above, separated by a divider; the action buttons always operate on
+      // the latest settled output.
+      if (ui.outputEl.childElementCount)
+        ui.outputEl.appendChild(GA.el("div", { class: "ga-panel-run-divider" }));
       ui.outputEl.appendChild(GA.el("div", { class: "ga-msg ga-msg-user", text: instruction }));
+      // Bundling can decode transcripts for seconds before the first chunk —
+      // say so, or the blinking caret reads as a hang.
+      const resolving = GA.el("div", {
+        class: "ga-panel-resolving",
+        text: "Gathering the selected items…",
+      });
+      ui.outputEl.appendChild(resolving);
       const sv = makeOutputStream();
       state.cancelStream = () => sv.cancel();
       const el = sv.beginModel();
@@ -406,6 +434,7 @@ GA.panelGlobal = (function () {
         // bail HERE or the provider request (and Gemini token scrape) would
         // fire for a panel that no longer exists.
         if (closed) return;
+        resolving.remove(); // sources gathered — the stream caret takes over
         state.sources = sources;
         state.askHandle = GA.askFlow.ask(prompt, (t) => {
           acc = t;
@@ -419,8 +448,12 @@ GA.panelGlobal = (function () {
           state.output = acc; // stopped — keep the partial, it's still usable output
         } else {
           sv.renderError(el, (err && err.message) || "Request failed.");
+          // The prompt cost thought and the run cost seconds — put the text
+          // back in the composer so retrying is one Enter, not a retype.
+          if (!closed) ui.composer.textarea.value = instruction;
         }
       } finally {
+        resolving.remove();
         state.askHandle = null;
         state.cancelStream = null;
         sv.endModel(el);

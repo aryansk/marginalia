@@ -79,7 +79,10 @@ GA.labelPill = function (label, opts) {
   if (!(opts && opts.onRemove))
     return GA.el("span", { class: "ga-label-pill", text: label, title: label });
   return GA.el("span", { class: "ga-label-pill", title: label }, [
-    GA.el("span", { text: label }),
+    // The text span must be the shrinkable flex child (min-width:0 in CSS) —
+    // otherwise a long label pushes the × past the pill's clip edge and the
+    // only per-label remove control becomes unclickable.
+    GA.el("span", { class: "ga-label-pill-text", text: label }),
     GA.el(
       "button",
       {
@@ -91,7 +94,7 @@ GA.labelPill = function (label, opts) {
           opts.onRemove(label);
         },
       },
-      GA.icons.make("close", 10),
+      GA.icons.make("close"), // sized by .ga-label-remove svg — CSS owns it
     ),
   ]);
 };

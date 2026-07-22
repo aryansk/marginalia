@@ -9,6 +9,10 @@ GA.core = GA.core || {};
 
 GA.core.labels = (function () {
   const USAGE = 'Usage: /label "name" — e.g. /label project.ux';
+  // Ceiling on a single label's length: labels flow into pills, chips, and
+  // toasts, all sized for tag-like names — an unbounded name breaks every one
+  // of those surfaces at once.
+  const MAX_CHARS = 64;
 
   // normalize(name) -> canonical label string, or null when invalid.
   // Canonical = lowercase, whitespace collapsed, segments trimmed. Dots are
@@ -22,7 +26,7 @@ GA.core.labels = (function () {
       .trim()
       .replace(/\s+/g, " ")
       .toLowerCase();
-    if (!s || s.indexOf('"') >= 0) return null;
+    if (!s || s.indexOf('"') >= 0 || s.length > MAX_CHARS) return null;
     const segs = s.split(".").map((p) => p.trim());
     if (segs.some((p) => !p)) return null;
     return segs.join(".");

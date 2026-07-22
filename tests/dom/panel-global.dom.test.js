@@ -129,22 +129,24 @@ const actionsShown = () =>
     .classList.contains("ga-panel-output-actions-on");
 
 function setSearchType(type) {
-  const select = document.querySelector(".ga-panel-type");
-  select.value = type;
-  select.dispatchEvent(new window.Event("change", { bubbles: true }));
+  document.querySelector('.ga-panel-seg-btn[data-type="' + type + '"]').click();
 }
 
 describe("All chats — threads mode", () => {
-  it("shows the type dropdown only on the global tab and lists threads across conversations", async () => {
+  it("shows the mode segments only on the global tab and lists threads across conversations", async () => {
     const GA = makeGA();
     GA.panel.open();
-    expect(document.querySelector(".ga-panel-type").classList.contains("ga-panel-type-on")).toBe(
+    expect(document.querySelector(".ga-panel-seg").classList.contains("ga-panel-seg-on")).toBe(
       false,
     );
     document.querySelector('[data-filter="global"]').click();
-    expect(document.querySelector(".ga-panel-type").classList.contains("ga-panel-type-on")).toBe(
+    expect(document.querySelector(".ga-panel-seg").classList.contains("ga-panel-seg-on")).toBe(
       true,
     );
+    // both modes are VISIBLE segments — labels mode is not hidden in a dropdown
+    expect(
+      Array.from(document.querySelectorAll(".ga-panel-seg-btn"), (b) => b.textContent),
+    ).toEqual(["Threads", "Labels"]);
     await tick();
     // conversation threads from BOTH sessions; the standalone label is not a thread
     expect(rows()).toHaveLength(2);
@@ -156,19 +158,32 @@ describe("All chats — threads mode", () => {
     expect(document.querySelector(".ga-modal-empty").textContent).toContain("No threads here");
   });
 
-  it("search narrows across conversations; selection reveals the prompt footer", async () => {
+  it("search narrows across conversations; the footer hints until a selection exists", async () => {
     const GA = makeGA();
     await openGlobal(GA);
+    // Discoverability: the footer is visible from the start, with a hint.
+    expect(footer().classList.contains("ga-panel-foot-on")).toBe(true);
+    expect(footer().textContent).toContain("Select threads or labels");
+    expect(footer().querySelector(".ga-composer")).toBeTruthy();
+
     const input = document.querySelector(".ga-panel-search-input");
     input.value = "css";
     input.dispatchEvent(new window.Event("input", { bubbles: true }));
     expect(rows()).toHaveLength(1);
-    expect(footer().classList.contains("ga-panel-foot-on")).toBe(false);
 
     rowByText("css anchors").click();
-    expect(footer().classList.contains("ga-panel-foot-on")).toBe(true);
     expect(footer().textContent).toContain("1 item selected");
-    expect(footer().querySelector(".ga-composer")).toBeTruthy();
+  });
+
+  it("submitting a prompt with nothing selected toasts instead of silently no-oping", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    const composer = footer().querySelector(".ga-input");
+    composer.value = "summarize";
+    footer().querySelector(".ga-send").click();
+    await tick();
+    expect(GA.askFlow.ask).not.toHaveBeenCalled();
+    expect(document.querySelector(".ga-toast").textContent).toContain("Select at least one");
   });
 });
 
@@ -246,6 +261,35 @@ describe("All chats — synthesis", () => {
     await tick();
     expect(document.querySelector(".ga-panel-output").textContent).toContain("Final synthesis");
     expect(actionsShown()).toBe(true);
+  });
+
+  it("a second prompt appends as a run log — the first output survives", async () => {
+    const GA = makeGA();
+    await selectAndAsk(GA, "first question");
+    GA.askFlow.resolve("first answer");
+    await tick();
+    const output = document.querySelector(".ga-panel-output");
+    expect(output.textContent).toContain("first answer");
+
+    const composer = footer().querySelector(".ga-input");
+    composer.value = "second question";
+    footer().querySelector(".ga-send").click();
+    await tick();
+    GA.askFlow.resolve("second answer");
+    await tick();
+
+    expect(output.textContent).toContain("first answer"); // never destroyed
+    expect(output.textContent).toContain("second answer");
+    expect(output.querySelector(".ga-panel-run-divider")).toBeTruthy();
+  });
+
+  it("a failed run puts the typed prompt back in the composer for retry", async () => {
+    const GA = makeGA();
+    await selectAndAsk(GA, "expensive prompt");
+    expect(footer().querySelector(".ga-input").value).toBe(""); // cleared on send
+    GA.askFlow.reject(new Error("NETWORK down"));
+    await tick();
+    expect(footer().querySelector(".ga-input").value).toBe("expensive prompt");
   });
 
   it("a stop (AbortError) keeps the partial text as usable output", async () => {

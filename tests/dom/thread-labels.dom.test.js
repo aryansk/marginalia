@@ -124,48 +124,76 @@ describe("label section rendering + pencil editor", () => {
     expect(box.el.classList.contains("ga-has-labels")).toBe(true);
   });
 
-  it("pencil edit rewrites labels in place (quotes for spaced names) and persists", () => {
+  it("pencil opens the pill editor: x removes one label, the add-input merges", () => {
     const GA = makeGA();
     const persist = vi.fn();
     const thread = {
       id: "t5",
       selector: { exact: "x" },
-      messages: [],
+      messages: [{ role: "user", text: "q" }],
       labels: ["needs review", "todo"],
     };
-    const box = GA.ThreadBox(thread, { persist });
+    const onLabel = vi.fn((t, labels) => {
+      t.labels = GA.core.labels.merge(t.labels, labels); // controller policy
+    });
+    const box = GA.ThreadBox(thread, { persist, onLabel });
     document.body.appendChild(box.el);
 
     box.el.querySelector(".ga-label-editbtn").click();
-    const input = box.el.querySelector(".ga-label-edit");
-    expect(input.value).toBe('"needs review" todo');
+    // same pill-by-pill model as the standalone chip
+    const editorPills = () =>
+      Array.from(box.el.querySelectorAll(".ga-thread-labels .ga-label-pill-text"), (p) =>
+        p.textContent.trim(),
+      );
+    expect(editorPills()).toEqual(["needs review", "todo"]);
 
-    input.value = "project.ux DONE";
-    input.dispatchEvent(pressKey("Enter"));
-
-    expect(thread.labels).toEqual(["project.ux", "done"]);
+    box.el.querySelector(".ga-label-remove").click(); // removes "needs review"
+    expect(thread.labels).toEqual(["todo"]);
     expect(persist).toHaveBeenCalledWith(thread);
-    expect(pillTexts(box)).toEqual(["project.ux", "done"]);
+
+    const input = box.el.querySelector(".ga-label-edit");
+    input.value = "project.ux";
+    input.dispatchEvent(pressKey("Enter"));
+    expect(onLabel).toHaveBeenCalledWith(thread, ["project.ux"]);
+    expect(editorPills()).toEqual(["todo", "project.ux"]);
   });
 
-  it("Escape cancels the edit without persisting; invalid input keeps the editor open", () => {
+  it("the tag header button opens label entry with zero syntax", () => {
+    const GA = makeGA();
+    const thread = { id: "t5b", selector: { exact: "x" }, messages: [], labels: [] };
+    const onLabel = vi.fn();
+    const box = GA.ThreadBox(thread, { persist: vi.fn(), onLabel });
+    document.body.appendChild(box.el);
+
+    box.el.querySelector(".ga-labelbtn").click();
+    const input = box.el.querySelector(".ga-label-edit");
+    expect(input).toBeTruthy();
+    input.value = "todo";
+    input.dispatchEvent(pressKey("Enter"));
+    // empty thread: routed to the controller, which converts to a label chip
+    expect(onLabel).toHaveBeenCalledWith(thread, ["todo"]);
+  });
+
+  it("invalid additions toast and keep the editor open; Escape closes it", () => {
     const GA = makeGA();
     const persist = vi.fn();
+    const onLabel = vi.fn();
     const thread = { id: "t6", selector: { exact: "x" }, messages: [], labels: ["keep"] };
-    const box = GA.ThreadBox(thread, { persist });
+    const box = GA.ThreadBox(thread, { persist, onLabel });
     document.body.appendChild(box.el);
 
     box.el.querySelector(".ga-label-editbtn").click();
     let input = box.el.querySelector(".ga-label-edit");
     input.value = "bad..name";
     input.dispatchEvent(pressKey("Enter"));
-    expect(thread.labels).toEqual(["keep"]); // rejected — nothing committed
+    expect(onLabel).not.toHaveBeenCalled(); // rejected — nothing committed
+    expect(thread.labels).toEqual(["keep"]);
     expect(box.el.querySelector(".ga-label-edit")).toBeTruthy(); // still editing
+    expect(document.querySelector(".ga-toast").textContent).toContain("bad..name");
 
     input = box.el.querySelector(".ga-label-edit");
     input.dispatchEvent(pressKey("Escape"));
     expect(box.el.querySelector(".ga-label-edit")).toBeFalsy();
-    expect(persist).not.toHaveBeenCalled();
     expect(pillTexts(box)).toEqual(["keep"]);
   });
 
@@ -185,19 +213,17 @@ describe("label section rendering + pencil editor", () => {
     expect(box.el.classList.contains("ga-has-labels")).toBe(true);
   });
 
-  it("clearing the editor removes all labels and the chip marker", () => {
+  it("removing every pill clears the labels and the chip marker", () => {
     const GA = makeGA();
     const thread = { id: "t7", selector: { exact: "x" }, messages: [], labels: ["a", "b"] };
     const box = GA.ThreadBox(thread, { persist: vi.fn() });
     document.body.appendChild(box.el);
 
     box.el.querySelector(".ga-label-editbtn").click();
-    const input = box.el.querySelector(".ga-label-edit");
-    input.value = "";
-    input.dispatchEvent(pressKey("Enter"));
+    box.el.querySelector(".ga-label-remove").click();
+    box.el.querySelector(".ga-label-remove").click();
 
     expect(thread.labels).toEqual([]);
     expect(box.el.classList.contains("ga-has-labels")).toBe(false);
-    expect(pillTexts(box)).toEqual([]);
   });
 });

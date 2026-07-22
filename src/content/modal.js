@@ -112,8 +112,10 @@ GA.Modal = (function () {
           // label section, so a toast is the feedback; converting an empty
           // thread closes the modal (the chip is its surface now).
           const handled = GA.tryLabelCommand(q, thread, handlers, () => {
-            GA.toast("Labeled: " + thread.labels.join(", "));
+            // Conversion already toasts from the controller — don't overwrite
+            // its "now a tag" explanation with a plainer message.
             if (thread.kind === "label") close();
+            else GA.toast("Labeled: " + thread.labels.join(", "));
           });
           if (handled) return;
           GA.threadTurn.run(thread, q, ops);

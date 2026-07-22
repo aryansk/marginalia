@@ -28,6 +28,11 @@ describe("GA.core.labels.normalize", () => {
     expect(normalize('he said "hi"')).toBe(null);
     expect(normalize('ab"cd')).toBe(null);
   });
+
+  it("caps label length — pills, chips and toasts are sized for tag-like names", () => {
+    expect(normalize("x".repeat(64))).toBe("x".repeat(64));
+    expect(normalize("x".repeat(65))).toBe(null);
+  });
 });
 
 describe("GA.core.labels.parseCommand", () => {

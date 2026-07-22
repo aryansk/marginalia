@@ -89,6 +89,22 @@ GA.ThreadBox = function (thread, handlers) {
     title: "Waiting for a reply…",
     "aria-label": "Waiting for a reply",
   });
+  // The no-syntax door into labeling: opens the pill editor directly. /label
+  // stays as the typed power-path; this button is how the feature is FOUND.
+  const labelBtn = GA.el(
+    "button",
+    {
+      class: "ga-iconbtn ga-labelbtn",
+      title: "Add label",
+      "aria-label": "Add label",
+      onclick: function (e) {
+        e.stopPropagation();
+        editingLabels = true;
+        renderLabels();
+      },
+    },
+    GA.icons.make("tag"),
+  );
   const minimizeBtn = GA.el(
     "button",
     {
@@ -152,6 +168,7 @@ GA.ThreadBox = function (thread, handlers) {
     chipCount,
     GA.el("div", { class: "ga-box-actions" }, [
       spinner,
+      labelBtn,
       minimizeBtn,
       expandBtn,
       resolveBtn,
@@ -173,43 +190,53 @@ GA.ThreadBox = function (thread, handlers) {
 
   // ---- labels ----
   // Shown right under the header when the thread has labels (hidden while
-  // collapsed — the chip's tag glyph carries the signal there). The pencil
-  // swaps the pills for an inline editor; /label appends via the controller.
+  // collapsed — the chip's tag glyph carries the signal there). The editor is
+  // the SAME pill-by-pill model the standalone chip uses (× removes one,
+  // add-input merges) — one mental model for label editing everywhere.
   const labelsEl = GA.el("div", { class: "ga-thread-labels" });
   let editingLabels = false;
 
-  function labelsAsText(labels) {
-    return labels.map((l) => (l.indexOf(" ") >= 0 ? '"' + l + '"' : l)).join(" ");
+  function removeLabel(name) {
+    thread.labels = (thread.labels || []).filter((l) => l !== name);
+    root.classList.toggle("ga-has-labels", thread.labels.length > 0);
+    handlers.persist && handlers.persist(thread);
+    renderLabels();
   }
 
-  function commitLabelEdit(value) {
-    const parsed = GA.core.labels.parseList(value);
+  function addLabels(text) {
+    const parsed = GA.core.labels.parseList(text);
     if (parsed.invalid.length) {
       GA.toast(GA.core.labels.invalidMessage(parsed.invalid[0]));
       return; // stay in the editor — the typed text is still on screen
     }
-    editingLabels = false;
-    thread.labels = parsed.labels; // the editor is authoritative: [] clears
-    handlers.persist && handlers.persist(thread);
-    renderLabels();
+    if (!parsed.labels.length) {
+      editingLabels = false; // empty Enter = done editing
+      renderLabels();
+      return;
+    }
+    // Route through the controller: on an EMPTY thread this converts the
+    // record to a standalone label (destroying this box) — same policy as
+    // the /label command.
+    handlers.onLabel && handlers.onLabel(thread, parsed.labels);
+    if (!state.destroyed) renderLabels();
   }
 
   function renderLabels() {
     const labels = thread.labels || [];
     root.classList.toggle("ga-has-labels", labels.length > 0);
     labelsEl.textContent = "";
-    if (!labels.length) editingLabels = false;
     if (editingLabels) {
+      labels.forEach((l) => labelsEl.appendChild(GA.labelPill(l, { onRemove: removeLabel })));
       const input = GA.el("input", {
         class: "ga-label-edit",
         type: "text",
-        "aria-label": "Edit labels (space-separated; quote names with spaces)",
+        placeholder: "Add label…",
+        "aria-label": "Add labels (space-separated; quote names with spaces)",
       });
-      input.value = labelsAsText(labels);
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
           e.preventDefault();
-          commitLabelEdit(input.value);
+          addLabels(input.value);
         } else if (e.key === "Escape") {
           e.stopPropagation(); // don't bubble into the box's delete/Esc guard
           editingLabels = false;
@@ -218,7 +245,6 @@ GA.ThreadBox = function (thread, handlers) {
       });
       labelsEl.appendChild(input);
       input.focus();
-      input.select();
     } else if (labels.length) {
       labelsEl.appendChild(GA.labelGlyph({ on: true }));
       labels.forEach((l) => labelsEl.appendChild(GA.labelPill(l)));
@@ -259,8 +285,13 @@ GA.ThreadBox = function (thread, handlers) {
 
   // ---- composer (shared GA.Composer: Enter-to-send, Ask↔Stop swap, local
   // undo with clear-on-send snapshot) ----
+  // A brand-new thread is the /label teaching moment — the command is
+  // otherwise invisible. Once a conversation exists the placeholder goes
+  // back to plain asking (the command still works everywhere).
   const composer = GA.Composer({
-    placeholder: "Ask a follow-up about the highlighted text…",
+    placeholder: (thread.messages || []).length
+      ? "Ask a follow-up about the highlighted text…"
+      : "Ask about the highlighted text — or tag it with /label",
     ariaLabel: "Ask a follow-up about the highlighted text",
     onSubmit: submit,
     onStop: () => handlers.onStop && handlers.onStop(thread),

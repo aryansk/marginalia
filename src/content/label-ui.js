@@ -33,13 +33,36 @@ GA.LabelChip = function (record, handlers) {
   }
 
   const glyph = GA.labelGlyph();
+  // Label-first: the tag NAME is this chip's identity — the thing the user
+  // authored. The highlight snippet trails muted (the on-page highlight
+  // already shows where it lives); render() keeps both in sync.
+  const primaryLabel = GA.el("span", { class: "ga-label-pill" });
   const snippet = GA.el("div", {
     class: "ga-box-snippet",
     title: record.selector && record.selector.exact,
     text: snippetText,
   });
   const count = GA.el("span", { class: "ga-chip-count ga-count" });
-  const header = GA.el("div", { class: "ga-box-header" }, [glyph, snippet, count]);
+  const pencilBtn = GA.el(
+    "button",
+    {
+      class: "ga-iconbtn ga-label-pencil",
+      title: "Edit labels",
+      "aria-label": "Edit labels",
+      onclick: function (e) {
+        e.stopPropagation();
+        setEditing(!state.editing);
+      },
+    },
+    GA.icons.make("pencil"),
+  );
+  const header = GA.el("div", { class: "ga-box-header" }, [
+    glyph,
+    primaryLabel,
+    snippet,
+    count,
+    pencilBtn,
+  ]);
   header.addEventListener("click", function (e) {
     if (e.target.closest(".ga-iconbtn")) return;
     setEditing(!state.editing);
@@ -76,7 +99,14 @@ GA.LabelChip = function (record, handlers) {
   }
 
   function render() {
-    count.textContent = (record.labels || []).length > 1 ? String(record.labels.length) : "";
+    const labels = record.labels || [];
+    primaryLabel.textContent = labels[0] || "";
+    primaryLabel.title = labels.join(", ");
+    count.textContent = labels.length > 1 ? "+" + (labels.length - 1) : "";
+    root.setAttribute(
+      "aria-label",
+      "Label" + (labels.length ? " " + labels.join(", ") : "") + ": " + snippetText,
+    );
     editorEl.textContent = "";
     if (!state.editing) {
       invalidateHeight();

@@ -74,6 +74,9 @@ GA.threadController = (function () {
       // The destroyed box had focus/active; hand both to the chip (same move
       // createFromSelection makes for a new box).
       GA.gutter.focusThread(thread.id);
+      // The comment box just vanished into a chip — say what happened, or the
+      // conversion reads as the thread being eaten.
+      GA.toast("Labeled: " + thread.labels.join(", ") + " — this highlight is now a tag.");
     }
     return persistThread(thread);
   }

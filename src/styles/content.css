@@ -200,8 +200,18 @@
      visibly trails its highlight (rubber-band drag). Deliberate layout shifts
      (focus, add/remove, collapse) opt in via .ga-animate on the gutter. */
   transform: translateY(var(--ga-y, 0px)) scale(var(--ga-scale, 1));
-  transition: opacity 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    border-color 0.12s ease; /* chip hover cues ease like every other border */
   overflow: hidden;
+}
+/* both chip flavors respond to hover — a clickable chip that doesn't react
+   reads as inert (the label chip got this first; parity for comments) */
+.ga-box.ga-collapsed:hover {
+  border-color: rgba(var(--ga-accent-rgb), 0.6);
+}
+.ga-box.ga-label-chip.ga-collapsed:hover {
+  border-color: rgba(var(--ga-label-rgb), 0.75);
 }
 .ga-gutter.ga-animate .ga-box {
   transition:
@@ -396,7 +406,7 @@
 .ga-box-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px; /* resolve sits beside delete — give mis-clicks a buffer */
 }
 .ga-iconbtn {
   appearance: none;
@@ -580,6 +590,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Removable pills: the TEXT shrinks and ellipsizes, never the × — a clipped
+   remove button is an unremovable label. */
+.ga-label-pill-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-label-remove {
+  flex: none;
+}
 .ga-label-editbtn {
   margin-left: auto;
 }
@@ -599,15 +619,36 @@
   border-radius: var(--ga-r-sm);
   padding: 4px 8px;
   outline: none;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease; /* the house 0.12s — the search input eases, so does this */
 }
 .ga-label-edit:focus {
   border-color: var(--ga-label-strong);
   box-shadow: 0 0 0 2px rgba(var(--ga-label-rgb), 0.25);
 }
 
-/* standalone label chip: label-tinted so it never reads as a comment chip */
+/* standalone label chip: label-tinted so it never reads as a comment chip.
+   Header order is label-first — the tag NAME is the chip's identity; the
+   highlight snippet trails muted (the on-page highlight already shows where). */
 .ga-box.ga-label-chip {
   border-color: rgba(var(--ga-label-rgb), 0.45);
+}
+.ga-box.ga-label-chip:hover {
+  border-color: rgba(var(--ga-label-rgb), 0.75);
+}
+.ga-label-chip .ga-box-snippet {
+  max-width: 120px;
+  flex: 0 1 auto; /* the label pill is the star; the snippet yields */
+}
+/* pencil: hover/focus-revealed edit affordance, mirroring the comment chip's
+   hover-revealed restore button */
+.ga-label-chip .ga-label-pencil {
+  display: none;
+}
+.ga-label-chip:hover .ga-label-pencil,
+.ga-label-chip:focus-within .ga-label-pencil {
+  display: inline-flex;
 }
 .ga-label-chip .ga-count {
   background: rgba(var(--ga-label-rgb), 0.12);
@@ -649,13 +690,20 @@
   border: none;
   background: transparent;
   color: inherit;
-  padding: 0;
+  /* a 12px glyph alone is a sub-fingertip target — pad the hit area out to
+     ~22px and pull the padding back out of the pill's footprint */
+  padding: 5px;
+  margin: -5px -5px -5px 0;
   line-height: 0;
   cursor: pointer;
   border-radius: 50%;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
 }
 .ga-label-remove:hover {
   color: var(--ga-danger);
+  background: rgba(var(--ga-label-rgb), 0.18);
 }
 /* collapsed/rail hide header icon buttons; the label editor's must survive */
 .ga-box.ga-collapsed .ga-label-editor .ga-iconbtn,
@@ -1012,7 +1060,7 @@
 }
 .ga-confirm-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px; /* destructive Yes and safe No need daylight between them */
 }
 .ga-confirm button {
   appearance: none;
@@ -1020,7 +1068,7 @@
   background: transparent;
   color: var(--ga-fg);
   font-size: 12px;
-  padding: 3px 10px;
+  padding: 5px 12px;
   border-radius: var(--ga-r-sm);
   cursor: pointer;
 }
@@ -1121,6 +1169,9 @@
   color: var(--ga-toast-fg);
   font-family: var(--ga-font);
   font-size: 13px;
+  /* label lists and error strings interpolate user text — cap and wrap */
+  max-width: min(92vw, 420px);
+  overflow-wrap: anywhere;
   padding: 10px 16px;
   border-radius: var(--ga-r-md);
   box-shadow: var(--ga-shadow-md);
@@ -1201,7 +1252,26 @@
 }
 .ga-panel-tabs {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* four tabs must wrap, not clip, on a narrow modal */
+  min-width: 0;
   gap: 4px;
+}
+/* "All chats" changes SCOPE (every conversation), unlike the three status
+   tabs beside it — a hairline divider keeps it from reading as a fourth
+   status, especially next to the similarly-named "All". */
+.ga-panel-tab[data-filter="global"] {
+  margin-left: 8px;
+  position: relative;
+}
+.ga-panel-tab[data-filter="global"]::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: var(--ga-border);
 }
 .ga-panel-tab {
   appearance: none;
@@ -1334,20 +1404,42 @@
   outline-offset: 1px;
 }
 
-/* ---------- All-chats tab: type dropdown, selection rows, synthesis foot ---- */
-.ga-panel-type {
+/* ---------- All-chats tab: mode segments, selection rows, synthesis foot ---- */
+/* Threads|Labels segmented control: both modes stay VISIBLE (a dropdown hid
+   the labels mode's existence entirely). Same pill grammar as the tabs. */
+.ga-panel-seg {
   display: none;
   flex: none;
+  align-items: center;
+  border: 1px solid var(--ga-border);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+}
+.ga-panel-seg.ga-panel-seg-on {
+  display: inline-flex;
+}
+.ga-panel-seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ga-muted);
   font: inherit;
   font-size: 12px;
-  color: var(--ga-fg);
-  background: var(--ga-surface);
-  border: 1px solid var(--ga-border);
-  border-radius: var(--ga-r-sm);
-  padding: 4px 6px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
 }
-.ga-panel-type.ga-panel-type-on {
-  display: inline-block;
+.ga-panel-seg-btn:hover {
+  color: var(--ga-fg);
+}
+.ga-panel-seg-btn.ga-panel-seg-btn-on {
+  color: var(--ga-accent-strong);
+  background: rgba(var(--ga-accent-rgb), 0.12);
 }
 .ga-panel-check {
   flex: none;
@@ -1365,9 +1457,34 @@
   color: var(--ga-muted);
   padding: 8px 2px 0;
 }
+.ga-panel-group:first-child {
+  padding-top: 0;
+}
+/* keyboard path: tabbing lands on the checkbox — ring the whole row */
+.ga-panel-row-select:focus-within {
+  outline: 2px solid var(--ga-accent);
+  outline-offset: 1px;
+}
+/* a curated-IN row must read as in at a glance — the 14px box alone doesn't */
+.ga-panel-row-select:has(.ga-panel-check:checked) {
+  border-color: rgba(var(--ga-accent-rgb), 0.55);
+  background: rgba(var(--ga-accent-rgb), 0.06);
+}
+/* conversation badge stays a badge — never wide enough to squeeze the snippet */
+.ga-panel-row-convo {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ga-panel-snippet .ga-label-glyph-on {
-  vertical-align: -2px;
   margin-right: 4px;
+}
+/* dense contexts: the tag glyph matches its 11-12px neighbors instead of
+   towering 2-3px over them (the chip keeps the 14px glyph — it stands alone) */
+.ga-panel-snippet .ga-label-glyph-on svg,
+.ga-thread-labels .ga-label-glyph svg {
+  width: 12px;
+  height: 12px;
 }
 .ga-panel-foot {
   display: none;
@@ -1379,10 +1496,29 @@
 .ga-panel-foot.ga-panel-foot-on {
   display: flex;
 }
+/* the composer brings its own inset + divider — strip both so every footer
+   child shares one left edge and one top divider */
+.ga-panel-foot .ga-composer {
+  padding: 0;
+  border-top: none;
+}
 .ga-panel-selcount {
   font-size: 12px;
   color: var(--ga-muted);
   font-variant-numeric: tabular-nums;
+}
+/* same slot, different voice: the teaching sentence isn't a status counter */
+.ga-panel-selcount.ga-panel-hint {
+  font-variant-numeric: normal;
+}
+.ga-panel-run-divider {
+  border-top: 1px dashed var(--ga-border);
+  margin: 4px 0;
+}
+.ga-panel-resolving {
+  font-size: 12px;
+  color: var(--ga-muted);
+  font-style: italic;
 }
 .ga-panel-output {
   display: flex;
@@ -1397,6 +1533,7 @@
 .ga-panel-output-actions {
   display: none;
   gap: 8px;
+  flex-wrap: wrap; /* two labeled buttons must never clip on a narrow modal */
 }
 .ga-panel-output-actions.ga-panel-output-actions-on {
   display: flex;
@@ -1412,7 +1549,7 @@
   color: var(--ga-accent-strong);
   background: rgba(var(--ga-accent-rgb), 0.1);
   border: 1px solid rgba(var(--ga-accent-rgb), 0.35);
-  border-radius: var(--ga-r-sm);
+  border-radius: var(--ga-r-md); /* matches the Send button sharing this footer */
   padding: 6px 10px;
   cursor: pointer;
   transition: background-color 0.12s ease;
@@ -1485,6 +1622,10 @@
 .ga-confirm button:focus-visible,
 .ga-adder:focus-visible,
 .ga-retry-btn:focus-visible,
+.ga-panel-tab:focus-visible,
+.ga-panel-action:focus-visible,
+.ga-panel-seg-btn:focus-visible,
+.ga-label-remove:focus-visible,
 .ga-box:focus-visible {
   outline: 2px solid var(--ga-accent);
   outline-offset: 1px;
@@ -1503,6 +1644,11 @@
   .ga-panel-btn,
   .ga-panel-row,
   .ga-panel-tab,
+  .ga-panel-action,
+  .ga-panel-seg-btn,
+  .ga-panel-search-input,
+  .ga-label-remove,
+  .ga-label-edit,
   .ga-highlight {
     transition: none;
   }

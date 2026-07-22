@@ -14,7 +14,7 @@ GA.panel = (function () {
   let dlg = null; // current dialog handle (GA.dialog) — close() targets it
   let filter = "open"; // "open" | "resolved" | "all" | "global" — persists across opens
   // Per-open view state shared by the build/render helpers below:
-  // { query, body, count, searchInput, clearBtn, typeSelect, footer, chats }.
+  // { query, body, count, searchInput, clearBtn, typeSeg, footer, chats }.
   // Set in open(), nulled when the dialog closes, so a query never leaks into
   // the next open — unlike the deliberately persistent `filter`.
   let view = null;
@@ -139,7 +139,8 @@ GA.panel = (function () {
                     const it = GA.gutter.get(t.id);
                     // reopen through the box so state/highlight stay in sync
                     if (it && it.box.setResolved) it.box.setResolved(false);
-                    renderList();
+                    renderList(); // rebuild removes the focused button…
+                    view.searchInput.focus(); // …so keyboard focus needs a home
                   },
                 },
                 GA.icons.make("reopen"),
@@ -208,7 +209,9 @@ GA.panel = (function () {
       ["open", "Open"],
       ["resolved", "Resolved"],
       ["all", "All"],
-      ["global", "All chats"],
+      // "Across chats" — deliberately NOT "All chats": beside the status tab
+      // "All" that read as a fourth status instead of a scope jump.
+      ["global", "Across chats"],
     ].forEach(([key, label]) => {
       tabs.appendChild(
         GA.el("button", {
@@ -238,7 +241,7 @@ GA.panel = (function () {
   // exists on All chats, and the search placeholder follows the mode.
   function updateChrome() {
     const global = filter === "global";
-    view.typeSelect.classList.toggle("ga-panel-type-on", global);
+    view.typeSeg.classList.toggle("ga-panel-seg-on", global);
     view.searchInput.placeholder = !global
       ? "Search threads…"
       : view.chats.state.type === "labels"
@@ -248,18 +251,35 @@ GA.panel = (function () {
   }
 
   function buildSearch() {
-    view.typeSelect = GA.el(
-      "select",
-      { class: "ga-panel-type", "aria-label": "What to search across all chats" },
-      [
-        GA.el("option", { value: "threads", text: "Threads" }),
-        GA.el("option", { value: "labels", text: "Labels" }),
-      ],
-    );
-    view.typeSelect.addEventListener("change", function () {
-      view.chats.setType(this.value);
-      updateChrome();
-      renderList();
+    // Threads|Labels as a SEGMENTED control, not a dropdown: both modes stay
+    // visible, so the labels path can't hide behind a closed select.
+    view.typeSeg = GA.el("div", {
+      class: "ga-panel-seg",
+      role: "group",
+      "aria-label": "What to search across all chats",
+    });
+    [
+      ["threads", "Threads"],
+      ["labels", "Labels"],
+    ].forEach(([key, label]) => {
+      view.typeSeg.appendChild(
+        GA.el("button", {
+          class: "ga-panel-seg-btn" + (key === "threads" ? " ga-panel-seg-btn-on" : ""),
+          text: label,
+          "data-type": key,
+          "aria-pressed": key === "threads" ? "true" : "false",
+          onclick: function () {
+            view.chats.setType(key);
+            Array.from(view.typeSeg.children).forEach((b) => {
+              const on = b.dataset.type === key;
+              b.classList.toggle("ga-panel-seg-btn-on", on);
+              b.setAttribute("aria-pressed", on ? "true" : "false");
+            });
+            updateChrome();
+            renderList();
+          },
+        }),
+      );
     });
     view.searchInput = GA.el("input", {
       class: "ga-panel-search-input",
@@ -288,7 +308,7 @@ GA.panel = (function () {
     );
     view.count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
     return GA.el("div", { class: "ga-panel-search" }, [
-      view.typeSelect,
+      view.typeSeg,
       view.searchInput,
       view.clearBtn,
       view.count,
@@ -365,7 +385,7 @@ GA.panel = (function () {
       count: null,
       searchInput: null,
       clearBtn: null,
-      typeSelect: null,
+      typeSeg: null,
       chats: null,
     };
     view.chats = GA.panelGlobal.create(makeChatsCtx());
@@ -385,10 +405,20 @@ GA.panel = (function () {
       // here (GA.dialog's keydown is capture-phase) so it fires before the
       // input's own handlers.
       onEscape: function () {
-        if (document.activeElement === view.searchInput && view.searchInput.value.trim()) {
+        const ae = document.activeElement;
+        if (ae === view.searchInput && view.searchInput.value.trim()) {
           clearQuery();
           return true; // vetoed — keep the panel open
         }
+        // A typed-but-unsent prompt must survive Escape: absorb one press
+        // (blur), close only on the next. Losing a composed synthesis prompt
+        // to a reflexive Esc is the worst outcome this dialog can produce.
+        if (ae && ae.classList && ae.classList.contains("ga-input") && ae.value.trim()) {
+          ae.blur();
+          return true;
+        }
+        // A native select's Escape means "close the dropdown", never the panel.
+        if (ae && ae.tagName === "SELECT") return true;
         return false;
       },
       onClose: function () {

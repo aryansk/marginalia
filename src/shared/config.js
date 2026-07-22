@@ -21,6 +21,7 @@ GA.config = {
   MODAL_SNIPPET_CHARS: 120, // modal header snippet — the wider surface fits more context
   PANEL_SNIPPET_CHARS: 70, // panel row highlight snippet — shorter than the modal's, two lines per row
   PANEL_QUESTION_CHARS: 90, // panel row first-question preview length
+  PANEL_BADGE_CHARS: 28, // conversation-title badge on All-chats rows — a badge, not a headline
   COPY_FEEDBACK_MS: 1500, // a copy button shows the check icon this long before reverting
   SECTION_MIN_CHARS: 200, // fallback section walk: smallest block that counts as an answer "section"
   CONVO_CAPTURE_DEBOUNCE_MS: 1200, // transcript capture runs this long after the last settle ping

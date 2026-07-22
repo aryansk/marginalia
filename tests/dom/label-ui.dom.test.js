@@ -66,12 +66,16 @@ describe("GA.LabelChip", () => {
     expect(chip.isCompact()).toBe(true);
   });
 
-  it("shows a count pill only for multi-label records", () => {
+  it("is label-first: the primary label leads; extras show as +N", () => {
     const GA = makeGA();
-    const one = GA.LabelChip(makeRecord(["a"]), makeHandlers());
+    const one = GA.LabelChip(makeRecord(["todo"]), makeHandlers());
     const three = GA.LabelChip(makeRecord(["a", "b", "c"]), makeHandlers());
+    expect(one.el.querySelector(".ga-box-header .ga-label-pill").textContent).toBe("todo");
     expect(one.el.querySelector(".ga-chip-count").textContent).toBe("");
-    expect(three.el.querySelector(".ga-chip-count").textContent).toBe("3");
+    expect(three.el.querySelector(".ga-box-header .ga-label-pill").textContent).toBe("a");
+    expect(three.el.querySelector(".ga-chip-count").textContent).toBe("+2");
+    // hover-revealed pencil is present as an explicit edit affordance
+    expect(three.el.querySelector(".ga-label-pencil")).toBeTruthy();
   });
 
   it("header click opens the editor; adding labels merges + persists", () => {

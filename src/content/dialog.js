@@ -35,7 +35,7 @@ GA.dialog = (function () {
 
     function focusables() {
       return Array.from(
-        overlay.querySelectorAll("button, textarea, input, a[href], [tabindex]"),
+        overlay.querySelectorAll("button, textarea, input, select, a[href], [tabindex]"),
       ).filter((el) => !el.disabled && el.offsetParent !== null);
     }
 
