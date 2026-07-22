@@ -32,7 +32,7 @@ GA.LabelChip = function (record, handlers) {
     cachedNaturalHeight = null;
   }
 
-  const glyph = GA.el("span", { class: "ga-label-glyph", title: "Label" }, GA.icons.make("tag"));
+  const glyph = GA.labelGlyph();
   const snippet = GA.el("div", {
     class: "ga-box-snippet",
     title: record.selector && record.selector.exact,
@@ -48,33 +48,10 @@ GA.LabelChip = function (record, handlers) {
   // ---- editor (unfolds under the header) ----
   const editorEl = GA.el("div", { class: "ga-label-editor" });
 
-  const confirmEl = GA.el("div", { class: "ga-confirm" }, [
-    GA.el("span", { text: "Delete this label?" }),
-    GA.el("div", { class: "ga-confirm-actions" }, [
-      GA.el("button", {
-        class: "ga-confirm-yes",
-        text: "Yes",
-        onclick: function (e) {
-          e.stopPropagation();
-          handlers.onDelete && handlers.onDelete(record);
-        },
-      }),
-      GA.el("button", {
-        class: "ga-confirm-no",
-        text: "No",
-        onclick: function (e) {
-          e.stopPropagation();
-          hideDelete();
-        },
-      }),
-    ]),
-  ]);
-  function askDelete() {
-    confirmEl.classList.add("ga-confirm-show");
-  }
-  function hideDelete() {
-    confirmEl.classList.remove("ga-confirm-show");
-  }
+  const confirm = GA.confirmPopover({
+    prompt: "Delete this label?",
+    onYes: () => handlers.onDelete && handlers.onDelete(record),
+  });
 
   function persist() {
     handlers.persist && handlers.persist(record);
@@ -89,7 +66,7 @@ GA.LabelChip = function (record, handlers) {
   function addLabels(text) {
     const parsed = GA.core.labels.parseList(text);
     if (parsed.invalid.length) {
-      GA.toast('Invalid label "' + parsed.invalid[0] + '".');
+      GA.toast(GA.core.labels.invalidMessage(parsed.invalid[0]));
       return false;
     }
     if (!parsed.labels.length) return true; // empty input — just close
@@ -109,24 +86,7 @@ GA.LabelChip = function (record, handlers) {
     const pills = GA.el(
       "div",
       { class: "ga-label-editor-pills" },
-      (record.labels || []).map((l) =>
-        GA.el("span", { class: "ga-label-pill", title: l }, [
-          GA.el("span", { text: l }),
-          GA.el(
-            "button",
-            {
-              class: "ga-label-remove",
-              title: 'Remove "' + l + '"',
-              "aria-label": 'Remove label "' + l + '"',
-              onclick: function (e) {
-                e.stopPropagation();
-                removeLabel(l);
-              },
-            },
-            GA.icons.make("close", 10),
-          ),
-        ]),
-      ),
+      (record.labels || []).map((l) => GA.labelPill(l, { onRemove: removeLabel })),
     );
     const input = GA.el("input", {
       class: "ga-label-edit",
@@ -154,7 +114,7 @@ GA.LabelChip = function (record, handlers) {
         "aria-label": "Delete label",
         onclick: function (e) {
           e.stopPropagation();
-          askDelete();
+          confirm.show();
         },
       },
       GA.icons.make("trash"),
@@ -168,7 +128,7 @@ GA.LabelChip = function (record, handlers) {
   function setEditing(on) {
     state.editing = !!on;
     root.classList.toggle("ga-label-editing", state.editing);
-    hideDelete();
+    confirm.hide();
     render();
     if (state.editing) {
       const input = editorEl.querySelector(".ga-label-edit");
@@ -178,16 +138,16 @@ GA.LabelChip = function (record, handlers) {
 
   root.appendChild(header);
   root.appendChild(editorEl);
-  root.appendChild(confirmEl);
+  root.appendChild(confirm.el);
   render();
 
   root.addEventListener("keydown", function (e) {
     const inInput = document.activeElement && document.activeElement.tagName === "INPUT";
     if ((e.key === "Delete" || e.key === "Backspace") && !inInput) {
       e.preventDefault();
-      askDelete();
+      confirm.show();
     } else if (e.key === "Escape") {
-      hideDelete();
+      confirm.hide();
     }
   });
   root.addEventListener("mousedown", function () {
@@ -220,22 +180,7 @@ GA.LabelChip = function (record, handlers) {
     },
     setCollapsed() {},
     setMaxHeight() {},
-    setOrphan(orphan) {
-      root.classList.toggle("ga-orphan", !!orphan);
-      let badge = root.querySelector(".ga-orphan-badge");
-      if (orphan && !badge) {
-        badge = GA.el("div", {
-          class: "ga-orphan-badge ga-tag",
-          text: "detached",
-          title: "The highlighted text no longer exists on the page",
-        });
-        header.insertBefore(badge, snippet);
-        invalidateHeight();
-      } else if (!orphan && badge) {
-        badge.remove();
-        invalidateHeight();
-      }
-    },
+    setOrphan: GA.makeOrphanToggle({ root, header, snippet, onChange: invalidateHeight }),
     naturalHeight() {
       if (cachedNaturalHeight == null) cachedNaturalHeight = root.offsetHeight;
       return cachedNaturalHeight;

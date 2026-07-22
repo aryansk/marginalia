@@ -13,13 +13,16 @@ GA.core.labels = (function () {
   // normalize(name) -> canonical label string, or null when invalid.
   // Canonical = lowercase, whitespace collapsed, segments trimmed. Dots are
   // namespace separators, so an empty segment (leading/trailing/double dot)
-  // invalidates the whole name rather than silently reshaping it.
+  // invalidates the whole name rather than silently reshaping it. A double
+  // quote is rejected outright: it's the arg-quoting character, so a label
+  // containing one (reachable only via backup import / hand-edited storage)
+  // could never round-trip through the editors.
   function normalize(name) {
     const s = String(name == null ? "" : name)
       .trim()
       .replace(/\s+/g, " ")
       .toLowerCase();
-    if (!s) return null;
+    if (!s || s.indexOf('"') >= 0) return null;
     const segs = s.split(".").map((p) => p.trim());
     if (segs.some((p) => !p)) return null;
     return segs.join(".");
@@ -57,10 +60,15 @@ GA.core.labels = (function () {
     const m = /^\/label\b([\s\S]*)$/i.exec(t);
     if (!m) return null;
     const parsed = parseList(m[1]);
-    if (parsed.invalid.length)
-      return { error: 'Invalid label "' + parsed.invalid[0] + '". ' + USAGE };
+    if (parsed.invalid.length) return { error: invalidMessage(parsed.invalid[0]) + " " + USAGE };
     if (!parsed.labels.length) return { error: USAGE };
     return { labels: parsed.labels };
+  }
+
+  // The one rendering of "that name is not a valid label" — every surface
+  // (command errors, both editors) toasts this same sentence.
+  function invalidMessage(name) {
+    return 'Invalid label "' + name + '".';
   }
 
   // merge(existing, added) -> union, existing order first, deduped.
@@ -72,11 +80,12 @@ GA.core.labels = (function () {
     return out;
   }
 
-  // selects(label, selected) -> namespace containment: selecting "project"
-  // matches "project" itself and everything under it, but never "projector".
-  function selects(label, selected) {
-    if (!label || !selected) return false;
-    return label === selected || label.indexOf(selected + ".") === 0;
+  // covers(prefix, label) -> namespace containment, prefix first:
+  // covers("project", "project.ux.nav") === true. A picked prefix covers the
+  // label itself and everything under it, but never "projector".
+  function covers(prefix, label) {
+    if (!prefix || !label) return false;
+    return label === prefix || label.indexOf(prefix + ".") === 0;
   }
 
   // searchMatch(label, typed) -> picker filter: the typed text must start at a
@@ -111,7 +120,16 @@ GA.core.labels = (function () {
     return groups;
   }
 
-  return { normalize, parseList, parseCommand, merge, selects, searchMatch, groupByNamespace };
+  return {
+    normalize,
+    parseList,
+    parseCommand,
+    invalidMessage,
+    merge,
+    covers,
+    searchMatch,
+    groupByNamespace,
+  };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.labels;

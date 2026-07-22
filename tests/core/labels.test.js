@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
 const GA = loadGA(["src/core/labels.js"]);
-const { normalize, parseList, parseCommand, merge, selects, searchMatch, groupByNamespace } =
+const { normalize, parseList, parseCommand, merge, covers, searchMatch, groupByNamespace } =
   GA.core.labels;
 
 describe("GA.core.labels.normalize", () => {
@@ -22,6 +22,11 @@ describe("GA.core.labels.normalize", () => {
     expect(normalize(".ux")).toBe(null);
     expect(normalize("project.")).toBe(null);
     expect(normalize("project..ux")).toBe(null);
+  });
+
+  it("rejects names containing a double quote (would break editor round-trips)", () => {
+    expect(normalize('he said "hi"')).toBe(null);
+    expect(normalize('ab"cd')).toBe(null);
   });
 });
 
@@ -86,18 +91,18 @@ describe("GA.core.labels.merge", () => {
   });
 });
 
-describe("GA.core.labels.selects (namespace containment)", () => {
-  it("matches the label itself and its descendants", () => {
-    expect(selects("project", "project")).toBe(true);
-    expect(selects("project.ux.nav", "project")).toBe(true);
-    expect(selects("project.ux.nav", "project.ux")).toBe(true);
+describe("GA.core.labels.covers (namespace containment, prefix first)", () => {
+  it("a prefix covers the label itself and its descendants", () => {
+    expect(covers("project", "project")).toBe(true);
+    expect(covers("project", "project.ux.nav")).toBe(true);
+    expect(covers("project.ux", "project.ux.nav")).toBe(true);
   });
 
-  it("never matches a sibling prefix or an ancestor", () => {
-    expect(selects("projector", "project")).toBe(false);
-    expect(selects("project", "project.ux")).toBe(false);
-    expect(selects(null, "x")).toBe(false);
-    expect(selects("x", null)).toBe(false);
+  it("never covers a sibling prefix or an ancestor", () => {
+    expect(covers("project", "projector")).toBe(false);
+    expect(covers("project.ux", "project")).toBe(false);
+    expect(covers("x", null)).toBe(false);
+    expect(covers(null, "x")).toBe(false);
   });
 });
 

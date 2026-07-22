@@ -23,11 +23,13 @@ function makeGA() {
       "src/core/markdown-ast.js",
       "src/content/util.js",
       "src/content/icons.js",
+      "src/content/ui-bits.js",
       "src/content/markdown.js",
       "src/content/stream-view.js",
       "src/content/dialog.js",
       "src/content/undo-stack.js",
       "src/content/composer.js",
+      "src/content/panel-global.js",
       "src/content/panel.js",
     ],
     {
@@ -121,6 +123,16 @@ async function openGlobal(GA) {
 const rows = () => Array.from(document.querySelectorAll(".ga-panel-row-select"));
 const rowByText = (text) => rows().find((r) => r.textContent.includes(text));
 const footer = () => document.querySelector(".ga-panel-foot");
+const actionsShown = () =>
+  document
+    .querySelector(".ga-panel-output-actions")
+    .classList.contains("ga-panel-output-actions-on");
+
+function setSearchType(type) {
+  const select = document.querySelector(".ga-panel-type");
+  select.value = type;
+  select.dispatchEvent(new window.Event("change", { bubbles: true }));
+}
 
 describe("All chats — threads mode", () => {
   it("shows the type dropdown only on the global tab and lists threads across conversations", async () => {
@@ -161,16 +173,10 @@ describe("All chats — threads mode", () => {
 });
 
 describe("All chats — labels mode", () => {
-  async function toLabelsMode() {
-    const select = document.querySelector(".ga-panel-type");
-    select.value = "labels";
-    select.dispatchEvent(new window.Event("change", { bubbles: true }));
-  }
-
   it("groups labels by namespace and lists prefix-matched items pre-checked for curation", async () => {
     const GA = makeGA();
     await openGlobal(GA);
-    await toLabelsMode();
+    setSearchType("labels");
 
     const groups = Array.from(document.querySelectorAll(".ga-panel-group"), (g) => g.textContent);
     expect(groups).toContain("physics");
@@ -187,14 +193,27 @@ describe("All chats — labels mode", () => {
     rowByText("quantum decay").click();
     expect(footer().textContent).toContain("1 item selected");
   });
+
+  it("changing the label pick resets curation — no ghost exclusions", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    rowByText("physics.qft").click(); // matches t1 + lab1
+    rowByText("quantum decay").click(); // curate t1 out
+    expect(footer().textContent).toContain("1 item selected");
+
+    rowByText("physics.qft").click(); // deselect the label entirely
+    rowByText("physics.qft").click(); // re-pick it — a fresh curation
+    expect(footer().textContent).toContain("2 items selected");
+    expect(rowByText("quantum decay").querySelector(".ga-panel-check").checked).toBe(true);
+  });
 });
 
 describe("All chats — synthesis", () => {
   async function selectAndAsk(GA, instruction = "summarize the bundle") {
     await openGlobal(GA);
-    const select = document.querySelector(".ga-panel-type");
-    select.value = "labels";
-    select.dispatchEvent(new window.Event("change", { bubbles: true }));
+    setSearchType("labels");
     rowByText("physics.qft").click(); // thread t1 + label lab1
     const composer = footer().querySelector(".ga-input");
     composer.value = instruction;
@@ -221,20 +240,12 @@ describe("All chats — synthesis", () => {
     await selectAndAsk(GA);
     GA.askFlow.onChunk("partial…");
     expect(document.querySelector(".ga-panel-output").textContent).toContain("partial…");
-    expect(
-      document
-        .querySelector(".ga-panel-output-actions")
-        .classList.contains("ga-panel-output-actions-on"),
-    ).toBe(false);
+    expect(actionsShown()).toBe(false);
 
     GA.askFlow.resolve("## Final synthesis");
     await tick();
     expect(document.querySelector(".ga-panel-output").textContent).toContain("Final synthesis");
-    expect(
-      document
-        .querySelector(".ga-panel-output-actions")
-        .classList.contains("ga-panel-output-actions-on"),
-    ).toBe(true);
+    expect(actionsShown()).toBe(true);
   });
 
   it("a stop (AbortError) keeps the partial text as usable output", async () => {
@@ -243,11 +254,7 @@ describe("All chats — synthesis", () => {
     GA.askFlow.onChunk("partial answer");
     GA.askFlow.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
     await tick();
-    expect(
-      document
-        .querySelector(".ga-panel-output-actions")
-        .classList.contains("ga-panel-output-actions-on"),
-    ).toBe(true);
+    expect(actionsShown()).toBe(true);
     expect(document.querySelector(".ga-error-card")).toBeFalsy();
   });
 
@@ -257,11 +264,28 @@ describe("All chats — synthesis", () => {
     GA.askFlow.reject(new Error("NETWORK down"));
     await tick();
     expect(document.querySelector(".ga-error-card").textContent).toContain("NETWORK down");
-    expect(
-      document
-        .querySelector(".ga-panel-output-actions")
-        .classList.contains("ga-panel-output-actions-on"),
-    ).toBe(false);
+    expect(actionsShown()).toBe(false);
+  });
+
+  it("closing the panel while the bundle is still resolving never dispatches the ask", async () => {
+    const GA = makeGA();
+    // Force the fingerprint-miss fallback and make the whole-convo decode hang
+    // until we release it — the window where onClose finds no askHandle.
+    let releaseDecode;
+    GA.convoRepair.loadDecoded = vi.fn(() => new Promise((resolve) => (releaseDecode = resolve)));
+    await openGlobal(GA);
+    setSearchType("labels");
+    rowByText("physics.qft").click();
+    const composer = footer().querySelector(".ga-input");
+    composer.value = "summarize";
+    footer().querySelector(".ga-send").click();
+    await tick(); // bundling reaches the hung decode
+
+    GA.panel.close(); // askHandle doesn't exist yet — nothing to abort
+    releaseDecode({ turns: [] });
+    await tick();
+    await tick();
+    expect(GA.askFlow.ask).not.toHaveBeenCalled();
   });
 
   it("closing the panel mid-stream aborts (not stops) the ask", async () => {

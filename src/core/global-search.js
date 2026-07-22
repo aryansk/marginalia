@@ -35,7 +35,7 @@ GA.core.globalSearch = (function () {
 
   // filterByLabels(buckets, selected) -> [{ session, record }] where any of the
   // record's labels falls under any selected label (namespace containment via
-  // core/labels.selects). Includes BOTH threads and standalone label records.
+  // core/labels.covers). Includes BOTH threads and standalone label records.
   // No selection selects nothing — the caller gates on the picker.
   function filterByLabels(buckets, selected) {
     const sel = (selected || []).filter(Boolean);
@@ -44,7 +44,7 @@ GA.core.globalSearch = (function () {
     for (const b of buckets || []) {
       for (const t of (b && b.threads) || []) {
         const labels = (t && t.labels) || [];
-        if (labels.some((l) => sel.some((s) => GA.core.labels.selects(l, s))))
+        if (labels.some((l) => sel.some((s) => GA.core.labels.covers(s, l))))
           out.push({ session: b.session, record: t });
       }
     }

@@ -13,11 +13,15 @@ function makeGA() {
     "src/core/sites.js",
     "src/content/util.js",
     "src/content/icons.js",
+    "src/content/ui-bits.js",
     "src/content/label-ui.js",
   ]);
   GA.selection = { setHighlightHover: vi.fn() };
   return GA;
 }
+
+const pressKey = (key) =>
+  new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -83,9 +87,7 @@ describe("GA.LabelChip", () => {
 
     const input = chip.el.querySelector(".ga-label-edit");
     input.value = 'todo "needs review"';
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Enter"));
 
     expect(record.labels).toEqual(["project.ux", "todo", "needs review"]);
     expect(handlers.persist).toHaveBeenCalledWith(record);
@@ -102,9 +104,7 @@ describe("GA.LabelChip", () => {
     chip.el.querySelector(".ga-box-header").click();
     const input = chip.el.querySelector(".ga-label-edit");
     input.value = ".bad";
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Enter"));
 
     expect(record.labels).toEqual(["keep"]);
     expect(handlers.persist).not.toHaveBeenCalled();

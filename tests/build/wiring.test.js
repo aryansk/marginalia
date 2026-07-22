@@ -153,6 +153,15 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(fxJs.indexOf("src/content/label-ui.js")).toBe(
       fxJs.indexOf("src/content/thread-ui.js") + 1,
     );
+    // shared DOM leaves load right after the icons they build on, before every consumer
+    expect(fxJs.indexOf("src/content/ui-bits.js")).toBe(fxJs.indexOf("src/content/icons.js") + 1);
+    expect(fxJs.indexOf("src/content/ui-bits.js")).toBeLessThan(
+      fxJs.indexOf("src/content/thread-ui.js"),
+    );
+    // the All-chats sub-feature loads right before the panel shell that mounts it
+    expect(fxJs.indexOf("src/content/panel-global.js")).toBe(
+      fxJs.indexOf("src/content/panel.js") - 1,
+    );
     // the shared ask transport policy loads right after the service it wraps
     expect(fxJs.indexOf("src/content/ask-flow.js")).toBe(
       fxJs.indexOf("src/content/ask-service.js") + 1,
@@ -167,6 +176,8 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
       "src/core/global-search.js",
       "src/content/label-ui.js",
       "src/content/ask-flow.js",
+      "src/content/ui-bits.js",
+      "src/content/panel-global.js",
     ]) {
       expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
     }

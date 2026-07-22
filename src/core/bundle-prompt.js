@@ -68,6 +68,24 @@ GA.core.bundlePrompt = (function () {
     return null;
   }
 
+  // resolveText(rawConvo, getDecoded, record) -> Promise<string>. The WHOLE
+  // resolution ladder for a labeled turn, floor included: selective blob
+  // decode → whole-conversation decode (getDecoded is a lazy thunk, so that
+  // expensive path runs only on a fingerprint miss) → the record's stored
+  // section/quote text. Never rejects, never returns null — a label always
+  // contributes SOMETHING to the bundle.
+  async function resolveText(rawConvo, getDecoded, record) {
+    let text = await resolveTurn(rawConvo, record);
+    if (text == null && getDecoded) {
+      const decoded = await getDecoded();
+      text = decoded ? resolveFromDecoded(decoded.turns, record) : null;
+    }
+    if (text == null)
+      text =
+        (record && record.section) || (record && record.selector && record.selector.exact) || "";
+    return text;
+  }
+
   // The margin discussion of a thread, in core/prompt.js's Me:/You: convention
   // (error notices skipped — they aren't part of the conversation).
   function threadContent(record) {
@@ -144,7 +162,7 @@ GA.core.bundlePrompt = (function () {
     return out.join("\n");
   }
 
-  return { resolveTurn, resolveFromDecoded, threadContent, compose, downloadDoc };
+  return { resolveTurn, resolveFromDecoded, resolveText, threadContent, compose, downloadDoc };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.bundlePrompt;

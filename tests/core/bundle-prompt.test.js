@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
 const GA = loadGA(["src/core/turn-id.js", "src/core/compress.js", "src/core/bundle-prompt.js"]);
-const { resolveTurn, resolveFromDecoded, threadContent, compose, downloadDoc } =
+const { resolveTurn, resolveFromDecoded, resolveText, threadContent, compose, downloadDoc } =
   GA.core.bundlePrompt;
 const { fingerprint } = GA.core.turnId;
 const { gzipToB64 } = GA.core.compress;
@@ -82,6 +82,36 @@ describe("bundlePrompt.resolveFromDecoded (fallback)", () => {
   it("is null-safe", () => {
     expect(resolveFromDecoded(null, labelRecord())).toBe(null);
     expect(resolveFromDecoded([], labelRecord())).toBe(null);
+  });
+});
+
+describe("bundlePrompt.resolveText (the full ladder)", () => {
+  it("tier 1: selective decode wins without ever calling the decoded thunk", async () => {
+    const raw = await makeRawConvo();
+    const getDecoded = vi.fn();
+    await expect(resolveText(raw, getDecoded, labelRecord())).resolves.toBe(TURN_TEXT);
+    expect(getDecoded).not.toHaveBeenCalled();
+  });
+
+  it("tier 2: fingerprint miss falls back to the lazily-decoded conversation", async () => {
+    const stale = labelRecord({ anchor: { role: "model", turn: fingerprint("regenerated") } });
+    const getDecoded = vi.fn(async () => ({
+      turns: [{ role: "model", fp: fingerprint(TURN_TEXT), text: TURN_TEXT }],
+    }));
+    await expect(resolveText(null, getDecoded, stale)).resolves.toBe(TURN_TEXT);
+    expect(getDecoded).toHaveBeenCalledTimes(1);
+  });
+
+  it("tier 3: every miss floors to section text, then the quote, then empty", async () => {
+    const gone = labelRecord({
+      anchor: null,
+      section: "the stored section",
+      selector: { exact: "the quote" },
+    });
+    await expect(resolveText(null, async () => null, gone)).resolves.toBe("the stored section");
+    delete gone.section;
+    await expect(resolveText(null, async () => null, gone)).resolves.toBe("the quote");
+    await expect(resolveText(null, async () => null, {})).resolves.toBe("");
   });
 });
 

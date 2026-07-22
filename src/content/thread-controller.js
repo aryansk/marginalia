@@ -71,6 +71,9 @@ GA.threadController = (function () {
       addLabel(thread);
       GA.selection.setHighlightKind(thread.id, "label");
       GA.gutter.relayout();
+      // The destroyed box had focus/active; hand both to the chip (same move
+      // createFromSelection makes for a new box).
+      GA.gutter.focusThread(thread.id);
     }
     return persistThread(thread);
   }

@@ -16,6 +16,7 @@ function makeGA() {
       "src/core/markdown-ast.js",
       "src/content/util.js",
       "src/content/icons.js",
+      "src/content/ui-bits.js",
       "src/content/markdown.js",
       "src/content/thread-turn.js",
       "src/content/stream-view.js",
@@ -29,6 +30,9 @@ function makeGA() {
     },
   );
 }
+
+const pressKey = (key) =>
+  new window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -137,9 +141,7 @@ describe("label section rendering + pencil editor", () => {
     expect(input.value).toBe('"needs review" todo');
 
     input.value = "project.ux DONE";
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Enter"));
 
     expect(thread.labels).toEqual(["project.ux", "done"]);
     expect(persist).toHaveBeenCalledWith(thread);
@@ -156,19 +158,31 @@ describe("label section rendering + pencil editor", () => {
     box.el.querySelector(".ga-label-editbtn").click();
     let input = box.el.querySelector(".ga-label-edit");
     input.value = "bad..name";
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Enter"));
     expect(thread.labels).toEqual(["keep"]); // rejected — nothing committed
     expect(box.el.querySelector(".ga-label-edit")).toBeTruthy(); // still editing
 
     input = box.el.querySelector(".ga-label-edit");
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Escape"));
     expect(box.el.querySelector(".ga-label-edit")).toBeFalsy();
     expect(persist).not.toHaveBeenCalled();
     expect(pillTexts(box)).toEqual(["keep"]);
+  });
+
+  it("refreshMessages re-renders labels appended elsewhere (the modal's /label path)", () => {
+    const GA = makeGA();
+    const thread = { id: "t8", selector: { exact: "x" }, messages: [], labels: [] };
+    const box = GA.ThreadBox(thread, { persist: vi.fn() });
+    document.body.appendChild(box.el);
+    expect(box.el.classList.contains("ga-has-labels")).toBe(false);
+
+    // The modal's intercept mutates the record directly; the docked box only
+    // hears about it through the controller's onClosed → refreshMessages.
+    thread.labels = ["from.modal"];
+    box.refreshMessages();
+
+    expect(pillTexts(box)).toEqual(["from.modal"]);
+    expect(box.el.classList.contains("ga-has-labels")).toBe(true);
   });
 
   it("clearing the editor removes all labels and the chip marker", () => {
@@ -180,9 +194,7 @@ describe("label section rendering + pencil editor", () => {
     box.el.querySelector(".ga-label-editbtn").click();
     const input = box.el.querySelector(".ga-label-edit");
     input.value = "";
-    input.dispatchEvent(
-      new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
-    );
+    input.dispatchEvent(pressKey("Enter"));
 
     expect(thread.labels).toEqual([]);
     expect(box.el.classList.contains("ga-has-labels")).toBe(false);

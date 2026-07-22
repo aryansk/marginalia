@@ -34,6 +34,16 @@ conversation you've annotated.
   is the honest version of this feature).
 - Transcript exports now include a **Labels:** line in annotation callouts.
 
+### Fixed (post-review, same release)
+
+- Closing the panel while a synthesis bundle was still resolving no longer
+  dispatches the provider request for the dead panel.
+- Labels appended via the modal's `/label` now render on the docked box as
+  soon as the modal closes (previously stale until reload).
+- Re-picking a label after changing the selection no longer resurrects stale
+  curation unchecks; label names containing a double quote are rejected
+  (they could never round-trip through the editors).
+
 ## 0.2.0 — 2026-07-13
 
 The transcript & durability release: annotated conversations are now captured

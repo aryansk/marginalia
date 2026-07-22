@@ -144,11 +144,7 @@ GA.ThreadBox = function (thread, handlers) {
   );
   // Tag glyph lives in the header permanently but only shows on a labeled
   // chip (CSS: .ga-collapsed.ga-has-labels) — no icon churn on collapse.
-  const labelGlyph = GA.el(
-    "span",
-    { class: "ga-label-glyph", title: "Labeled" },
-    GA.icons.make("tag"),
-  );
+  const labelGlyph = GA.labelGlyph({ title: "Labeled" });
   const header = GA.el("div", { class: "ga-box-header" }, [
     unreadDot,
     labelGlyph,
@@ -189,7 +185,7 @@ GA.ThreadBox = function (thread, handlers) {
   function commitLabelEdit(value) {
     const parsed = GA.core.labels.parseList(value);
     if (parsed.invalid.length) {
-      GA.toast('Invalid label "' + parsed.invalid[0] + '".');
+      GA.toast(GA.core.labels.invalidMessage(parsed.invalid[0]));
       return; // stay in the editor — the typed text is still on screen
     }
     editingLabels = false;
@@ -224,12 +220,8 @@ GA.ThreadBox = function (thread, handlers) {
       input.focus();
       input.select();
     } else if (labels.length) {
-      labelsEl.appendChild(
-        GA.el("span", { class: "ga-label-glyph ga-label-glyph-on" }, GA.icons.make("tag")),
-      );
-      labels.forEach((l) =>
-        labelsEl.appendChild(GA.el("span", { class: "ga-label-pill", text: l, title: l })),
-      );
+      labelsEl.appendChild(GA.labelGlyph({ on: true }));
+      labels.forEach((l) => labelsEl.appendChild(GA.labelPill(l)));
       labelsEl.appendChild(
         GA.el(
           "button",
@@ -302,28 +294,11 @@ GA.ThreadBox = function (thread, handlers) {
     ),
   ]);
 
-  // ---- delete confirm popover ----
-  const confirmEl = GA.el("div", { class: "ga-confirm" }, [
-    GA.el("span", { text: "Delete this thread?" }),
-    GA.el("div", { class: "ga-confirm-actions" }, [
-      GA.el("button", {
-        class: "ga-confirm-yes",
-        text: "Yes",
-        onclick: function (e) {
-          e.stopPropagation();
-          handlers.onDelete && handlers.onDelete(thread);
-        },
-      }),
-      GA.el("button", {
-        class: "ga-confirm-no",
-        text: "No",
-        onclick: function (e) {
-          e.stopPropagation();
-          hideDelete();
-        },
-      }),
-    ]),
-  ]);
+  // ---- delete confirm popover (shared GA.confirmPopover) ----
+  const confirm = GA.confirmPopover({
+    prompt: "Delete this thread?",
+    onYes: () => handlers.onDelete && handlers.onDelete(thread),
+  });
 
   root.appendChild(liveRegion);
   root.appendChild(header);
@@ -331,7 +306,7 @@ GA.ThreadBox = function (thread, handlers) {
   root.appendChild(messagesEl);
   root.appendChild(composer.el);
   root.appendChild(reopenBar);
-  root.appendChild(confirmEl);
+  root.appendChild(confirm.el);
 
   // Del/Backspace deletes — but only when the box (not the textarea) has focus.
   root.addEventListener("keydown", function (e) {
@@ -499,10 +474,10 @@ GA.ThreadBox = function (thread, handlers) {
   }
 
   function askDelete() {
-    confirmEl.classList.add("ga-confirm-show");
+    confirm.show();
   }
   function hideDelete() {
-    confirmEl.classList.remove("ga-confirm-show");
+    confirm.hide();
   }
 
   // ---- turn wiring (orchestration lives in thread-turn.js) ----
@@ -523,19 +498,10 @@ GA.ThreadBox = function (thread, handlers) {
   // GA.Composer already trimmed the text, gated on loading, snapshotted the
   // undo stack and cleared the box — only the turn itself lives here.
   function submit(q) {
-    // /label is a command, not a question — it must never reach the LLM.
-    // Policy (append vs convert-to-standalone-label) lives in the controller;
-    // conversion destroys this box, hence the destroyed guard before re-render.
-    const cmd = GA.core.labels.parseCommand(q);
-    if (cmd) {
-      if (cmd.error) {
-        GA.toast(cmd.error);
-        return;
-      }
-      handlers.onLabel && handlers.onLabel(thread, cmd.labels);
-      if (!state.destroyed) renderLabels();
-      return;
-    }
+    // /label is a command, not a question — the shared intercept keeps it
+    // away from the LLM. Append-vs-convert policy lives in the controller;
+    // conversion destroys this box, hence the destroyed guard on the tail.
+    if (GA.tryLabelCommand(q, thread, handlers, () => !state.destroyed && renderLabels())) return;
     GA.threadTurn
       .run(thread, q, makeTurnOps())
       .then(() => !state.destroyed && handlers.onResize && handlers.onResize());
@@ -582,24 +548,12 @@ GA.ThreadBox = function (thread, handlers) {
       messagesEl.textContent = "";
       (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
       updateChipCount();
+      // The modal can also have APPENDED LABELS (/label there persists to the
+      // record but renders nothing here) — refresh means the whole record.
+      renderLabels();
       invalidateHeight();
     },
-    setOrphan(orphan) {
-      root.classList.toggle("ga-orphan", !!orphan);
-      let badge = root.querySelector(".ga-orphan-badge");
-      if (orphan && !badge) {
-        badge = GA.el("div", {
-          class: "ga-orphan-badge ga-tag",
-          text: "detached",
-          title: "The highlighted text no longer exists on the page",
-        });
-        header.insertBefore(badge, snippet);
-        invalidateHeight();
-      } else if (!orphan && badge) {
-        badge.remove();
-        invalidateHeight();
-      }
-    },
+    setOrphan: GA.makeOrphanToggle({ root, header, snippet, onChange: invalidateHeight }),
     // Height the box would take unconstrained: current height minus the
     // (possibly clamped) messages viewport plus the messages' full scroll
     // height. Pure reads — no style write/restore, so measuring N boxes in the

@@ -18,6 +18,7 @@ function makeGA() {
     "src/core/layout-engine.js",
     "src/content/util.js",
     "src/content/icons.js",
+    "src/content/ui-bits.js",
     "src/content/markdown.js",
     "src/content/thread-turn.js",
     "src/content/stream-view.js",
