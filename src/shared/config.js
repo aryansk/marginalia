@@ -26,6 +26,8 @@ GA.config = {
   SECTION_MIN_CHARS: 200, // fallback section walk: smallest block that counts as an answer "section"
   CONVO_CAPTURE_DEBOUNCE_MS: 1200, // transcript capture runs this long after the last settle ping
   TEXTAREA_MAX_PX: 120, // composer auto-grow cap
+  COMPOSER_MANUAL_MIN_PX: 60, // drag-resized composer floor (modal grip)
+  COMPOSER_MANUAL_MAX_FRAC: 0.5, // drag-resized composer ceiling, fraction of viewport height
   MODAL_MIN_PX: 420, // drag-resize floor for the thread modal
   MODAL_MAX_FRAC: 0.95, // drag-resize ceiling as a fraction of the viewport width
   MODAL_FALLBACK_PX: 820, // drag-start width when the modal has no measurable width yet (first paint / jsdom)

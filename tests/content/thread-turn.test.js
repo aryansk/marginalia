@@ -159,3 +159,15 @@ describe("threadTurn.retry", () => {
     expect(t.messages[1]).toMatchObject({ text: "still down", error: true });
   });
 });
+
+describe("markdown flag", () => {
+  it("run() stamps md:true from opts onto the stored user message (absent otherwise)", async () => {
+    const { ops } = makeOps(async () => "ok");
+    const t = thread();
+    await threadTurn.run(t, "with md", ops, { md: true });
+    await threadTurn.run(t, "without", ops);
+    const users = t.messages.filter((m) => m.role === "user");
+    expect(users[0].md).toBe(true);
+    expect("md" in users[1]).toBe(false);
+  });
+});

@@ -293,6 +293,7 @@ GA.ThreadBox = function (thread, handlers) {
       ? "Ask a follow-up about the highlighted text…"
       : "Ask about the highlighted text — or tag it with /label",
     ariaLabel: "Ask a follow-up about the highlighted text",
+    markdownToggle: true,
     onSubmit: submit,
     onStop: () => handlers.onStop && handlers.onStop(thread),
     onResize: () => {
@@ -389,6 +390,9 @@ GA.ThreadBox = function (thread, handlers) {
         textOf.set(el, text);
         if (text) addCopyAction(el);
       }
+    } else if (meta && meta.md) {
+      // sent with the composer's MD toggle on — same renderer as replies
+      el.appendChild(GA.markdown.render(text));
     } else {
       el.textContent = text;
     }
@@ -515,7 +519,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   function makeTurnOps() {
     return {
-      appendUser: (text) => appendMessage("user", text),
+      appendUser: (text, meta) => appendMessage("user", text, meta),
       beginModel: () => streamView.beginModel(),
       renderModel: (el, text) => streamView.renderModel(el, text),
       renderError: (el, message) => streamView.renderError(el, message),
@@ -528,13 +532,13 @@ GA.ThreadBox = function (thread, handlers) {
 
   // GA.Composer already trimmed the text, gated on loading, snapshotted the
   // undo stack and cleared the box — only the turn itself lives here.
-  function submit(q) {
+  function submit(q, sendOpts) {
     // /label is a command, not a question — the shared intercept keeps it
     // away from the LLM. Append-vs-convert policy lives in the controller;
     // conversion destroys this box, hence the destroyed guard on the tail.
     if (GA.tryLabelCommand(q, thread, handlers, () => !state.destroyed && renderLabels())) return;
     GA.threadTurn
-      .run(thread, q, makeTurnOps())
+      .run(thread, q, makeTurnOps(), sendOpts)
       .then(() => !state.destroyed && handlers.onResize && handlers.onResize());
   }
 
@@ -554,6 +558,17 @@ GA.ThreadBox = function (thread, handlers) {
     el: root,
     focusInput() {
       textarea.focus();
+    },
+    // Draft handoff with the modal: take = read-and-clear on expand, set =
+    // hand the (possibly edited) draft back on close.
+    takeDraft() {
+      const d = composer.draft();
+      composer.setDraft("");
+      return d;
+    },
+    setDraft(text) {
+      composer.setDraft(text);
+      invalidateHeight();
     },
     setActive(active) {
       state.active = !!active;

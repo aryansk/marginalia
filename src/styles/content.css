@@ -971,11 +971,45 @@
 
 /* composer */
 .ga-composer {
+  position: relative; /* anchors the resize grip overlay */
   display: flex;
   gap: 8px;
   align-items: flex-end;
   padding: 8px;
   border-top: 1px solid var(--ga-border);
+}
+/* markdown toggle: muted when off, accent-tinted when this message will be
+   sent (and rendered) as markdown — the state must read at a glance */
+.ga-md-btn.ga-md-on {
+  color: var(--ga-accent-strong);
+  background: rgba(var(--ga-accent-rgb), 0.12);
+}
+/* drag-to-resize grip (modal composer): a slim row-resize strip riding the
+   composer's top border, with a subtle center bar as the affordance */
+.ga-composer-grip {
+  position: absolute;
+  top: -5px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: row-resize;
+}
+.ga-composer-grip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 36px;
+  height: 3px;
+  margin-left: -18px;
+  border-radius: 999px;
+  background: var(--ga-border);
+}
+.ga-composer-grip:hover::after {
+  background: var(--ga-accent);
+}
+.ga-composer-manual .ga-input {
+  max-height: none; /* a hand-set height wins over the auto-grow cap */
 }
 .ga-input {
   flex: 1;

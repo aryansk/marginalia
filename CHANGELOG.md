@@ -34,6 +34,21 @@ conversation you've annotated.
   is the honest version of this feature).
 - Transcript exports now include a **Labels:** line in annotation callouts.
 
+### Added (composer & modal pass, same release)
+
+- **Drafts follow you.** Text typed in a margin box travels into the
+  maximized view's input when you expand, and any unsent text comes back to
+  the box when you close it.
+- **Markdown toggle.** A small MD button on the composer (margin box and
+  maximized view) lets you choose, per message, whether what you send is
+  rendered as markdown — code fences, lists and all — in your own bubble.
+  The choice is remembered on the message, so it survives reloads. Plain
+  Enter inside an unclosed ``` fence now inserts a newline instead of
+  sending (Ctrl/Cmd+Enter always sends).
+- **Resizable input in the maximized view.** A drag grip above the input
+  lets you pull it as tall as half the window; double-click the grip to
+  return to auto-grow. The margin boxes keep their compact auto-size.
+
 ### Changed (UX pass, same release)
 
 - **Labeling got a visible door.** A tag button on every comment box opens

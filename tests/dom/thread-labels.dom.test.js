@@ -227,3 +227,39 @@ describe("label section rendering + pencil editor", () => {
     expect(box.el.classList.contains("ga-has-labels")).toBe(false);
   });
 });
+
+describe("draft handoff + markdown messages (box side)", () => {
+  it("takeDraft reads-and-clears; setDraft restores", () => {
+    const GA = makeGA();
+    const box = GA.ThreadBox(
+      { id: "d1", selector: { exact: "x" }, messages: [] },
+      { persist: vi.fn() },
+    );
+    document.body.appendChild(box.el);
+    box.el.querySelector(".ga-input").value = "typed two sentences";
+    expect(box.takeDraft()).toBe("typed two sentences");
+    expect(box.el.querySelector(".ga-input").value).toBe("");
+    box.setDraft("came back from the modal");
+    expect(box.el.querySelector(".ga-input").value).toBe("came back from the modal");
+  });
+
+  it("a restored md:true user message renders markdown; plain stays literal", () => {
+    const GA = makeGA();
+    const box = GA.ThreadBox(
+      {
+        id: "d2",
+        selector: { exact: "x" },
+        messages: [
+          { role: "user", text: "```py\nprint(1)\n```", md: true },
+          { role: "user", text: "* not a list" },
+        ],
+      },
+      { persist: vi.fn() },
+    );
+    document.body.appendChild(box.el);
+    const msgs = box.el.querySelectorAll(".ga-msg-user");
+    expect(msgs[0].querySelector("pre, code")).toBeTruthy();
+    expect(msgs[1].querySelector("ul, li, pre, code")).toBeFalsy();
+    expect(msgs[1].textContent).toBe("* not a list");
+  });
+});

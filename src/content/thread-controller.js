@@ -292,16 +292,25 @@ GA.threadController = (function () {
     const it = GA.gutter.get(thread.id);
     const wasCompact = !!(it && it.box.isCompact());
     if (it && !wasCompact) it.box.setCollapsed(true, { persist: false });
+    // The in-progress draft follows the user into the modal and, if still
+    // unsent when the modal closes, comes back to the docked box.
+    const draft = it && it.box.takeDraft ? it.box.takeDraft() : "";
     // A standalone label has no conversation to continue — open read-only
     // (no composer) rather than let a modal question graft messages onto it.
-    GA.Modal.open(thread, thread.kind === "label" ? null : makeHandlers(), function () {
-      const cur = GA.gutter.get(thread.id);
-      if (cur) {
-        if (!wasCompact) cur.box.setCollapsed(false, { persist: false });
-        if (cur.box.refreshMessages) cur.box.refreshMessages();
-      }
-      GA.gutter.scheduleLayout();
-    });
+    GA.Modal.open(
+      thread,
+      thread.kind === "label" ? null : makeHandlers(),
+      function (modalDraft) {
+        const cur = GA.gutter.get(thread.id);
+        if (cur) {
+          if (!wasCompact) cur.box.setCollapsed(false, { persist: false });
+          if (cur.box.refreshMessages) cur.box.refreshMessages();
+          if (modalDraft && cur.box.setDraft) cur.box.setDraft(modalDraft);
+        }
+        GA.gutter.scheduleLayout();
+      },
+      { draft },
+    );
   }
 
   function expandThreadById(threadId) {

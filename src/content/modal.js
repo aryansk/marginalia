@@ -14,7 +14,10 @@ GA.Modal = (function () {
 
   // handlers: the thread's box handlers (ask/persist/onStop) — optional; the
   // composer is omitted when absent (read-only legacy behavior).
-  function open(thread, handlers, onClosed) {
+  // opts.draft seeds the composer (the docked box's in-progress text follows
+  // the user into the modal); onClosed receives the unsent modal draft so the
+  // controller can hand it back.
+  function open(thread, handlers, onClosed, opts) {
     close();
 
     const snippet = GA.truncate(
@@ -52,6 +55,9 @@ GA.Modal = (function () {
         } else {
           el.appendChild(GA.markdown.render(text));
         }
+      } else if (meta && meta.md) {
+        // sent with the composer's MD toggle on — same renderer as replies
+        el.appendChild(GA.markdown.render(text));
       } else {
         el.textContent = text;
       }
@@ -96,7 +102,7 @@ GA.Modal = (function () {
         },
       });
       const ops = {
-        appendUser: (text) => appendMsg("user", text),
+        appendUser: (text, meta) => appendMsg("user", text, meta),
         beginModel: () => streamView.beginModel(),
         renderModel: (el, text) => streamView.renderModel(el, text),
         renderError: (el, message) => streamView.renderError(el, message),
@@ -107,7 +113,9 @@ GA.Modal = (function () {
       };
       composer = GA.Composer({
         placeholder: "Ask a follow-up about the highlighted text…",
-        onSubmit: (q) => {
+        markdownToggle: true,
+        resizable: true, // the maximized view has room — let the input grow
+        onSubmit: (q, sendOpts) => {
           // Same shared /label intercept as the docked box. The modal has no
           // label section, so a toast is the feedback; converting an empty
           // thread closes the modal (the chip is its surface now).
@@ -118,10 +126,11 @@ GA.Modal = (function () {
             else GA.toast("Labeled: " + thread.labels.join(", "));
           });
           if (handled) return;
-          GA.threadTurn.run(thread, q, ops);
+          GA.threadTurn.run(thread, q, ops, sendOpts);
         },
         onStop: () => handlers.onStop && handlers.onStop(thread),
       });
+      if (opts && opts.draft) composer.setDraft(opts.draft);
       parts.push(composer.el);
 
       // Late-join an answer already streaming in the docked box (controller's
@@ -168,7 +177,8 @@ GA.Modal = (function () {
         }
         if (streamView) streamView.cancel();
         if (dlg === myDlg) dlg = null;
-        if (onClosed) onClosed();
+        // Unsent text goes back to the caller — never dies with the dialog.
+        if (onClosed) onClosed(composer ? composer.draft() : "");
       },
     });
     attachResize(panel, myDlg.overlay);

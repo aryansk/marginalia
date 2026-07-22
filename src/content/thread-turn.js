@@ -17,9 +17,13 @@
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.threadTurn = (function () {
-  async function run(thread, question, ops) {
-    ops.appendUser(question);
-    thread.messages.push({ role: "user", text: question, ts: Date.now() });
+  // opts.md: the composer's markdown toggle — stamped onto the stored message
+  // so the choice survives reloads (renderers branch on it).
+  async function run(thread, question, ops, opts) {
+    const msg = { role: "user", text: question, ts: Date.now() };
+    if (opts && opts.md) msg.md = true;
+    ops.appendUser(question, msg);
+    thread.messages.push(msg);
     await settle(ops.persist, thread);
     return askAndStream(thread, ops);
   }

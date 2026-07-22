@@ -128,6 +128,8 @@ describe("expandThread minimize/restore", () => {
       isCompact: vi.fn(() => false),
       setCollapsed: vi.fn(),
       refreshMessages: vi.fn(),
+      takeDraft: vi.fn(() => ""),
+      setDraft: vi.fn(),
     };
     GA.gutter.get.mockReturnValue({ box });
   });
@@ -144,6 +146,26 @@ describe("expandThread minimize/restore", () => {
     expect(box.setCollapsed).toHaveBeenLastCalledWith(false, { persist: false });
     expect(box.refreshMessages).toHaveBeenCalledTimes(1);
     expect(GA.gutter.scheduleLayout).toHaveBeenCalled();
+  });
+
+  it("carries the box draft into the modal and hands the leftover back on close", async () => {
+    box.takeDraft.mockReturnValue("two sentences in progress");
+    await restoreOne(GA, "t1");
+    GA.threadController.expandThreadById("t1");
+
+    expect(box.takeDraft).toHaveBeenCalledTimes(1);
+    expect(GA.Modal.open.mock.calls[0][3]).toEqual({ draft: "two sentences in progress" });
+
+    const onClosed = GA.Modal.open.mock.calls[0][2];
+    onClosed("edited in the modal, still unsent");
+    expect(box.setDraft).toHaveBeenCalledWith("edited in the modal, still unsent");
+  });
+
+  it("an empty modal draft is not pushed back into the box", async () => {
+    await restoreOne(GA, "t1");
+    GA.threadController.expandThreadById("t1");
+    GA.Modal.open.mock.calls[0][2]("");
+    expect(box.setDraft).not.toHaveBeenCalled();
   });
 
   it("an already-minimized box is left alone (and stays minimized on close)", async () => {

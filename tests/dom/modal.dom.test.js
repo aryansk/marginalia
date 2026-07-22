@@ -213,3 +213,48 @@ describe("Modal — live stream late-join", () => {
     expect(feed.listeners.size).toBe(0);
   });
 });
+
+describe("draft handoff + composer upgrades", () => {
+  it("opts.draft seeds the composer; closing returns the unsent draft", async () => {
+    const GA = makeGA();
+    const onClosed = vi.fn();
+    GA.Modal.open(makeThread(), baseHandlers(), onClosed, { draft: "two sentences so far" });
+    const ta = document.querySelector(".ga-modal .ga-input");
+    expect(ta.value).toBe("two sentences so far");
+
+    ta.value = "two sentences so far, plus edits";
+    GA.Modal.close();
+    expect(onClosed).toHaveBeenCalledWith("two sentences so far, plus edits");
+  });
+
+  it("a read-only modal (no handlers) closes with an empty draft", () => {
+    const GA = makeGA();
+    const onClosed = vi.fn();
+    GA.Modal.open(makeThread(), null, onClosed);
+    GA.Modal.close();
+    expect(onClosed).toHaveBeenCalledWith("");
+  });
+
+  it("the modal composer has the resize grip and the MD toggle", () => {
+    const GA = makeGA();
+    GA.Modal.open(makeThread(), baseHandlers(), () => {});
+    expect(document.querySelector(".ga-modal .ga-composer-grip")).toBeTruthy();
+    expect(document.querySelector(".ga-modal .ga-md-btn")).toBeTruthy();
+  });
+
+  it("a stored md:true user message renders markdown; a plain one stays text", () => {
+    const GA = makeGA();
+    GA.Modal.open(
+      makeThread([
+        { role: "user", text: "```js\ncode();\n```", md: true },
+        { role: "user", text: "# not a heading" },
+      ]),
+      baseHandlers(),
+      () => {},
+    );
+    const msgs = document.querySelectorAll(".ga-modal .ga-msg-user");
+    expect(msgs[0].querySelector("pre, code")).toBeTruthy();
+    expect(msgs[1].querySelector("h1, pre, code")).toBeFalsy();
+    expect(msgs[1].textContent).toBe("# not a heading");
+  });
+});
