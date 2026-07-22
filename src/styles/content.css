@@ -31,6 +31,10 @@
   --ga-toast-fg: #ffffff;
   --ga-hl: var(--ga-accent-rgb); /* highlight tint follows the accent hue */
   --ga-hl-resolved: 127, 127, 127;
+  /* labels: deliberately off every provider accent (blue/green/terracotta) so
+     a label chip never reads as a comment. Violet, AA on --ga-surface. */
+  --ga-label-rgb: 124, 58, 237;
+  --ga-label-strong: #6d28d9;
   /* elevation tiers: sm = chips/pills, md = boxes/popovers/toast, lg = modal */
   --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
   --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -62,6 +66,8 @@
   --ga-user-bg: rgba(var(--ga-accent-rgb), 0.18);
   --ga-toast-bg: #e8eaed;
   --ga-toast-fg: #1f1f24;
+  --ga-label-rgb: 167, 139, 250;
+  --ga-label-strong: #a78bfa;
   --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
   --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
   --ga-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.6);
@@ -85,6 +91,8 @@
     --ga-user-bg: rgba(var(--ga-accent-rgb), 0.18);
     --ga-toast-bg: #e8eaed;
     --ga-toast-fg: #1f1f24;
+    --ga-label-rgb: 167, 139, 250;
+    --ga-label-strong: #a78bfa;
     --ga-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
     --ga-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
     --ga-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.6);
@@ -153,6 +161,11 @@
 .ga-highlight-resolved {
   background: rgba(var(--ga-hl-resolved), 0.12);
   border-bottom: 1px dotted rgba(var(--ga-hl-resolved), 0.6);
+}
+/* label-tinted highlight: repoint the tint triplet so the idle/hover/active
+   alphas above all follow — one override instead of three variants */
+.ga-highlight-label {
+  --ga-hl: var(--ga-label-rgb);
 }
 
 /* ---------- gutter ---------- */
@@ -508,6 +521,146 @@
 }
 .ga-box.ga-resolved .ga-resolvebtn {
   display: none;
+}
+
+/* ---------- labels ---------- */
+/* Tag glyph: parked in every header, shown only where it carries the signal —
+   a labeled minimized chip, a rail chip, or a standalone label chip. */
+.ga-label-glyph {
+  display: none;
+  color: var(--ga-label-strong);
+  flex: none;
+  line-height: 0;
+}
+.ga-label-glyph svg {
+  width: 14px;
+  height: 14px;
+}
+.ga-box.ga-collapsed.ga-has-labels .ga-label-glyph,
+.ga-gutter.ga-rail .ga-box.ga-has-labels .ga-label-glyph,
+.ga-label-chip .ga-label-glyph,
+.ga-label-glyph-on {
+  display: inline-flex;
+}
+/* on a labeled chip the tag replaces the quote bar as the "what is this" cue */
+.ga-box.ga-collapsed.ga-has-labels .ga-box-snippet,
+.ga-gutter.ga-rail .ga-box.ga-has-labels .ga-box-snippet,
+.ga-label-chip .ga-box-snippet {
+  border-left: none;
+  padding-left: 0;
+}
+
+/* label section in an expanded thread box (between header and messages) */
+.ga-thread-labels {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ga-border);
+}
+.ga-thread-labels:empty,
+.ga-box.ga-collapsed .ga-thread-labels,
+.ga-gutter.ga-rail .ga-box .ga-thread-labels {
+  display: none;
+}
+.ga-label-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(var(--ga-label-rgb), 0.12);
+  color: var(--ga-label-strong);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ga-label-editbtn {
+  margin-left: auto;
+}
+.ga-label-editbtn svg,
+.ga-label-remove svg {
+  width: 12px;
+  height: 12px;
+}
+.ga-label-edit {
+  flex: 1;
+  min-width: 120px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ga-fg);
+  background: var(--ga-surface);
+  border: 1px solid var(--ga-border);
+  border-radius: var(--ga-r-sm);
+  padding: 4px 8px;
+  outline: none;
+}
+.ga-label-edit:focus {
+  border-color: var(--ga-label-strong);
+  box-shadow: 0 0 0 2px rgba(var(--ga-label-rgb), 0.25);
+}
+
+/* standalone label chip: label-tinted so it never reads as a comment chip */
+.ga-box.ga-label-chip {
+  border-color: rgba(var(--ga-label-rgb), 0.45);
+}
+.ga-label-chip .ga-count {
+  background: rgba(var(--ga-label-rgb), 0.12);
+  color: var(--ga-label-strong);
+}
+.ga-label-chip .ga-box-header {
+  cursor: pointer;
+}
+/* the in-chip editor unfolds the chip back to card width */
+.ga-box.ga-label-chip.ga-label-editing {
+  width: 100%;
+  border-radius: var(--ga-r-md);
+}
+.ga-label-editor {
+  display: none;
+}
+.ga-label-chip.ga-label-editing .ga-label-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ga-border);
+}
+.ga-label-editor-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ga-label-editor-pills:empty {
+  display: none;
+}
+.ga-label-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ga-label-remove {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  line-height: 0;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.ga-label-remove:hover {
+  color: var(--ga-danger);
+}
+/* collapsed/rail hide header icon buttons; the label editor's must survive */
+.ga-box.ga-collapsed .ga-label-editor .ga-iconbtn,
+.ga-gutter.ga-rail .ga-label-editor .ga-iconbtn {
+  display: inline-flex;
 }
 
 /* top-right loading spinner */
@@ -1179,6 +1332,97 @@
 .ga-panel-row:focus-visible {
   outline: 2px solid var(--ga-accent);
   outline-offset: 1px;
+}
+
+/* ---------- All-chats tab: type dropdown, selection rows, synthesis foot ---- */
+.ga-panel-type {
+  display: none;
+  flex: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ga-fg);
+  background: var(--ga-surface);
+  border: 1px solid var(--ga-border);
+  border-radius: var(--ga-r-sm);
+  padding: 4px 6px;
+}
+.ga-panel-type.ga-panel-type-on {
+  display: inline-block;
+}
+.ga-panel-check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--ga-accent-strong);
+  cursor: pointer;
+}
+.ga-panel-group {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ga-muted);
+  padding: 8px 2px 0;
+}
+.ga-panel-snippet .ga-label-glyph-on {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+.ga-panel-foot {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--ga-border);
+}
+.ga-panel-foot.ga-panel-foot-on {
+  display: flex;
+}
+.ga-panel-selcount {
+  font-size: 12px;
+  color: var(--ga-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ga-panel-output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.ga-panel-output:empty {
+  display: none;
+}
+.ga-panel-output-actions {
+  display: none;
+  gap: 8px;
+}
+.ga-panel-output-actions.ga-panel-output-actions-on {
+  display: flex;
+}
+.ga-panel-action {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ga-accent-strong);
+  background: rgba(var(--ga-accent-rgb), 0.1);
+  border: 1px solid rgba(var(--ga-accent-rgb), 0.35);
+  border-radius: var(--ga-r-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.ga-panel-action:hover {
+  background: rgba(var(--ga-accent-rgb), 0.18);
+}
+.ga-panel-action svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ---------- selection adder (the floating "Comment" pill) ---------- */

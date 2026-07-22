@@ -30,6 +30,7 @@ GA.threadController = (function () {
       onFocus: (t) => GA.gutter.focusThread(t.id),
       onExpand: (t) => expandThread(t),
       onStop: (t) => stopAsk(t.id),
+      onLabel: (t, labels) => applyLabelCommand(t, labels),
       onResize: (opts) => GA.gutter.scheduleLayout(opts),
       liveStream: (id) => liveStreams.get(id),
       // Rail mode = narrow viewport, every box a chip; the box asks instead of
@@ -44,6 +45,34 @@ GA.threadController = (function () {
     bindings.bind(thread.id, currentSession);
     GA.gutter.add(thread.id, box);
     return box;
+  }
+
+  // Standalone label records (kind:"label") share the thread lifecycle —
+  // same bucket, same bindings, same gutter — but mount a LabelChip surface.
+  function addLabel(record) {
+    const chip = GA.LabelChip(record, makeHandlers());
+    threadsById.set(record.id, record);
+    bindings.bind(record.id, currentSession);
+    GA.gutter.add(record.id, chip);
+    return chip;
+  }
+
+  // /label policy (core/labels parses, this decides): a thread with history
+  // gets the labels appended; an EMPTY thread is the label gesture itself —
+  // the record converts to a standalone label on the same highlight, keeping
+  // its id (so the session pin and the stored copy stay one record).
+  function applyLabelCommand(thread, labels) {
+    thread.labels = GA.core.labels.merge(thread.labels, labels);
+    const empty = !(thread.messages || []).length;
+    if (thread.kind !== "label" && empty) {
+      thread.kind = "label";
+      // Old surface out before the new one in — never two gutter entries.
+      GA.gutter.remove(thread.id);
+      addLabel(thread);
+      GA.selection.setHighlightKind(thread.id, "label");
+      GA.gutter.relayout();
+    }
+    return persistThread(thread);
   }
 
   async function createFromSelection() {
@@ -88,7 +117,8 @@ GA.threadController = (function () {
     // A thread created before turn identity existed just learned its role and
     // message. Record it so the next reload takes the exact path.
     if (!hadAnchor && thread.anchor) persistThread(thread);
-    addThread(thread);
+    if (thread.kind === "label") addLabel(thread);
+    else addThread(thread);
   }
 
   function deleteThread(thread) {
@@ -217,42 +247,22 @@ GA.threadController = (function () {
   }
 
   async function askThread(thread, opts) {
-    // Page-scraped session tokens are only needed for the Gemini *web* path —
-    // skip them when a Gemini API key is set (the background uses the official API)
-    // or on ChatGPT/Claude (their clients acquire their own auth).
-    const needsGeminiWebTokens = GA.provider === "gemini" && !GA.settings.geminiApiKey;
-    const prompt = composePrompt(thread);
-
     // Feed the live registry alongside the caller's renderer, so the modal can
-    // late-join this stream (see makeHandlers.liveStream). Ended in the outer
-    // finally: the auth retry below reuses the same feed.
+    // late-join this stream (see makeHandlers.liveStream). Token acquisition
+    // and the expired-page-token retry live in GA.askFlow (shared with the
+    // panel's synthesis flow); the flow handle spans both attempts, so one
+    // track/untrack pair covers the retry too.
     const feed = liveStreams.begin(thread.id);
     const onChunk = (t) => {
       feed.push(t);
       if (opts && opts.onChunk) opts.onChunk(t);
     };
-
-    async function once() {
-      const tokens = needsGeminiWebTokens ? await GA.tokenProvider.get() : undefined;
-      const handle = GA.askService.ask({ provider: GA.provider, prompt, tokens }, onChunk);
-      bindings.trackAsk(thread.id, handle);
-      try {
-        return await handle.result;
-      } finally {
-        bindings.untrackAsk(thread.id, handle);
-      }
-    }
-
+    const handle = GA.askFlow.ask(composePrompt(thread), onChunk);
+    bindings.trackAsk(thread.id, handle);
     try {
-      return await once();
-    } catch (e) {
-      // Expired Gemini page token: drop the cached one, re-scrape, retry once.
-      if (needsGeminiWebTokens && e && e.code === "AUTH") {
-        GA.tokenProvider.invalidate();
-        return once();
-      }
-      throw e;
+      return await handle.result;
     } finally {
+      bindings.untrackAsk(thread.id, handle);
       liveStreams.end(thread.id);
     }
   }
@@ -276,7 +286,9 @@ GA.threadController = (function () {
     const it = GA.gutter.get(thread.id);
     const wasCompact = !!(it && it.box.isCompact());
     if (it && !wasCompact) it.box.setCollapsed(true, { persist: false });
-    GA.Modal.open(thread, makeHandlers(), function () {
+    // A standalone label has no conversation to continue — open read-only
+    // (no composer) rather than let a modal question graft messages onto it.
+    GA.Modal.open(thread, thread.kind === "label" ? null : makeHandlers(), function () {
       const cur = GA.gutter.get(thread.id);
       if (cur) {
         if (!wasCompact) cur.box.setCollapsed(false, { persist: false });

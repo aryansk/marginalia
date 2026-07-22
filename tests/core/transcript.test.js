@@ -244,6 +244,20 @@ describe("thread placement", () => {
     expect(md).not.toContain("## Unanchored notes");
   });
 
+  it("a labeled thread's callout carries a Labels line between quote and Q&A", () => {
+    const turnText = "The borrow checker enforces aliasing rules.";
+    const md = build(convo([turn("model", turnText, 0)]), [
+      anchoredThread(turnText, { labels: ["rust.ownership", "todo"] }),
+    ]);
+    expect(md).toContain("> **Labels:** rust.ownership, todo");
+    const labelsAt = md.indexOf("**Labels:**");
+    expect(labelsAt).toBeGreaterThan(md.indexOf('> "borrow checker"'));
+    expect(labelsAt).toBeLessThan(md.indexOf("> **You:**"));
+    // label-less callouts are unchanged
+    const plain = build(convo([turn("model", turnText, 0)]), [anchoredThread(turnText)]);
+    expect(plain).not.toContain("**Labels:**");
+  });
+
   it("multi-line thread messages stay inside the blockquote", () => {
     const turnText = "Answer with structure.";
     const md = build(convo([turn("model", turnText, 0)]), [

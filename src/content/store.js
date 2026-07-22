@@ -166,6 +166,33 @@ GA.store = (function () {
     });
   }
 
+  // listThreadBuckets() -> [{ session, threads }] for every REAL conversation
+  // bucket (drafts excluded — they belong to a tab, not a conversation).
+  // Serialized, so the listing sees every queued persist. Prefers
+  // storage.local.getKeys() (Chrome ≥130 / recent Firefox) plus a scoped get so
+  // the multi-MB compressed ga:convo:* blobs never cross the storage IPC; the
+  // get() (everything) fallback is filtered immediately and nothing else is
+  // retained. Nothing here ever decodes a convo blob.
+  function listThreadBuckets() {
+    return serialize(async () => {
+      const draftPrefix = PREFIX + DRAFT + ":";
+      const isBucketKey = (k) => k.indexOf(PREFIX) === 0 && k.indexOf(draftPrefix) !== 0;
+      let all;
+      if (typeof browser.storage.local.getKeys === "function") {
+        const keys = (await browser.storage.local.getKeys()).filter(isBucketKey);
+        all = keys.length ? await browser.storage.local.get(keys) : {};
+      } else {
+        all = await browser.storage.local.get();
+      }
+      const out = [];
+      for (const k of Object.keys(all)) {
+        if (!isBucketKey(k) || !Array.isArray(all[k])) continue;
+        out.push({ session: k.slice(PREFIX.length), threads: all[k].filter(Boolean) });
+      }
+      return out;
+    });
+  }
+
   async function clearAll() {
     const all = await browser.storage.local.get();
     const toRemove = Object.keys(all).filter((k) => k.indexOf(PREFIX) === 0);
@@ -223,6 +250,7 @@ GA.store = (function () {
     remove,
     migrateDraft,
     sweepDrafts,
+    listThreadBuckets,
     clearAll,
     convoKey,
     loadConvo,

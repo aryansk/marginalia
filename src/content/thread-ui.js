@@ -142,8 +142,16 @@ GA.ThreadBox = function (thread, handlers) {
     },
     GA.icons.make("trash"),
   );
+  // Tag glyph lives in the header permanently but only shows on a labeled
+  // chip (CSS: .ga-collapsed.ga-has-labels) — no icon churn on collapse.
+  const labelGlyph = GA.el(
+    "span",
+    { class: "ga-label-glyph", title: "Labeled" },
+    GA.icons.make("tag"),
+  );
   const header = GA.el("div", { class: "ga-box-header" }, [
     unreadDot,
+    labelGlyph,
     snippet,
     chipCount,
     GA.el("div", { class: "ga-box-actions" }, [
@@ -166,6 +174,82 @@ GA.ThreadBox = function (thread, handlers) {
     if (!state.collapsed) return;
     setCollapsed(false);
   });
+
+  // ---- labels ----
+  // Shown right under the header when the thread has labels (hidden while
+  // collapsed — the chip's tag glyph carries the signal there). The pencil
+  // swaps the pills for an inline editor; /label appends via the controller.
+  const labelsEl = GA.el("div", { class: "ga-thread-labels" });
+  let editingLabels = false;
+
+  function labelsAsText(labels) {
+    return labels.map((l) => (l.indexOf(" ") >= 0 ? '"' + l + '"' : l)).join(" ");
+  }
+
+  function commitLabelEdit(value) {
+    const parsed = GA.core.labels.parseList(value);
+    if (parsed.invalid.length) {
+      GA.toast('Invalid label "' + parsed.invalid[0] + '".');
+      return; // stay in the editor — the typed text is still on screen
+    }
+    editingLabels = false;
+    thread.labels = parsed.labels; // the editor is authoritative: [] clears
+    handlers.persist && handlers.persist(thread);
+    renderLabels();
+  }
+
+  function renderLabels() {
+    const labels = thread.labels || [];
+    root.classList.toggle("ga-has-labels", labels.length > 0);
+    labelsEl.textContent = "";
+    if (!labels.length) editingLabels = false;
+    if (editingLabels) {
+      const input = GA.el("input", {
+        class: "ga-label-edit",
+        type: "text",
+        "aria-label": "Edit labels (space-separated; quote names with spaces)",
+      });
+      input.value = labelsAsText(labels);
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commitLabelEdit(input.value);
+        } else if (e.key === "Escape") {
+          e.stopPropagation(); // don't bubble into the box's delete/Esc guard
+          editingLabels = false;
+          renderLabels();
+        }
+      });
+      labelsEl.appendChild(input);
+      input.focus();
+      input.select();
+    } else if (labels.length) {
+      labelsEl.appendChild(
+        GA.el("span", { class: "ga-label-glyph ga-label-glyph-on" }, GA.icons.make("tag")),
+      );
+      labels.forEach((l) =>
+        labelsEl.appendChild(GA.el("span", { class: "ga-label-pill", text: l, title: l })),
+      );
+      labelsEl.appendChild(
+        GA.el(
+          "button",
+          {
+            class: "ga-iconbtn ga-label-editbtn",
+            title: "Edit labels",
+            "aria-label": "Edit labels",
+            onclick: function (e) {
+              e.stopPropagation();
+              editingLabels = true;
+              renderLabels();
+            },
+          },
+          GA.icons.make("pencil"),
+        ),
+      );
+    }
+    invalidateHeight();
+    handlers.onResize && handlers.onResize();
+  }
 
   // ---- messages ----
   // role=log: screen readers announce additions without re-reading the whole
@@ -243,6 +327,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   root.appendChild(liveRegion);
   root.appendChild(header);
+  root.appendChild(labelsEl);
   root.appendChild(messagesEl);
   root.appendChild(composer.el);
   root.appendChild(reopenBar);
@@ -271,6 +356,7 @@ GA.ThreadBox = function (thread, handlers) {
   // render any existing history (restored threads)
   (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
   updateChipCount();
+  renderLabels();
 
   // restore persisted view state (don't persist — nothing changed)
   if (thread.collapsed) setCollapsed(true, { persist: false });
@@ -437,6 +523,19 @@ GA.ThreadBox = function (thread, handlers) {
   // GA.Composer already trimmed the text, gated on loading, snapshotted the
   // undo stack and cleared the box — only the turn itself lives here.
   function submit(q) {
+    // /label is a command, not a question — it must never reach the LLM.
+    // Policy (append vs convert-to-standalone-label) lives in the controller;
+    // conversion destroys this box, hence the destroyed guard before re-render.
+    const cmd = GA.core.labels.parseCommand(q);
+    if (cmd) {
+      if (cmd.error) {
+        GA.toast(cmd.error);
+        return;
+      }
+      handlers.onLabel && handlers.onLabel(thread, cmd.labels);
+      if (!state.destroyed) renderLabels();
+      return;
+    }
     GA.threadTurn
       .run(thread, q, makeTurnOps())
       .then(() => !state.destroyed && handlers.onResize && handlers.onResize());

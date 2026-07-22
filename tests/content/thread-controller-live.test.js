@@ -11,6 +11,7 @@ function makeController() {
     "src/core/prompt.js",
     "src/core/live-stream.js",
     "src/core/session-bindings.js",
+    "src/content/ask-flow.js",
     "src/content/thread-controller.js",
   ]);
 

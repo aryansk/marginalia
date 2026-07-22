@@ -229,11 +229,16 @@ GA.selection = (function () {
 
   // Anchor one thread. Returns its highlight spans, or [] for an orphan.
   function highlightThread(thread) {
-    if (noTurnAdapter()) return highlightSelector(thread.selector, thread.id);
-    const hit = locateThread(thread, textCache());
-    if (!hit) return [];
-    const spans = highlightRange(hit.range, thread.id);
-    if (spans.length) backfillAnchor(thread, hit.turnEl);
+    let spans;
+    if (noTurnAdapter()) {
+      spans = highlightSelector(thread.selector, thread.id);
+    } else {
+      const hit = locateThread(thread, textCache());
+      spans = hit ? highlightRange(hit.range, thread.id) : [];
+      if (spans.length) backfillAnchor(thread, hit.turnEl);
+    }
+    // Fresh spans carry no classes — re-tint label records on every (re)anchor.
+    if (spans.length && thread.kind === "label") setHighlightKind(thread.id, "label");
     return spans;
   }
 
@@ -269,17 +274,21 @@ GA.selection = (function () {
     if (!threads.length) return result;
     if (noTurnAdapter()) {
       threads.forEach((t) => result.set(t.id, highlightSelector(t.selector, t.id)));
-      return result;
+    } else {
+      const textFor = textCache();
+      threads.forEach(function (thread) {
+        const hit = locateThread(thread, textFor);
+        let spans = [];
+        if (hit) {
+          spans = highlightRange(hit.range, thread.id);
+          if (spans.length) backfillAnchor(thread, hit.turnEl);
+        }
+        result.set(thread.id, spans);
+      });
     }
-    const textFor = textCache();
-    threads.forEach(function (thread) {
-      const hit = locateThread(thread, textFor);
-      let spans = [];
-      if (hit) {
-        spans = highlightRange(hit.range, thread.id);
-        if (spans.length) backfillAnchor(thread, hit.turnEl);
-      }
-      result.set(thread.id, spans);
+    // Same re-tint as highlightThread: re-anchored spans start class-less.
+    threads.forEach((t) => {
+      if (t.kind === "label" && (result.get(t.id) || []).length) setHighlightKind(t.id, "label");
     });
     return result;
   }
@@ -334,6 +343,14 @@ GA.selection = (function () {
     spans.forEach((s) => s.classList.toggle("ga-highlight-hover", !!on));
   }
 
+  // Additive kind layer (label vs comment tint) — separate from the exclusive
+  // active/resolved states so focusing a label doesn't lose its color.
+  function setHighlightKind(threadId, kind) {
+    const spans = spansByThread.get(threadId);
+    if (!spans) return;
+    spans.forEach((s) => s.classList.toggle("ga-highlight-label", kind === "label"));
+  }
+
   function setActiveHighlight(threadId, active) {
     setHighlightState(threadId, active ? "active" : null);
   }
@@ -357,5 +374,6 @@ GA.selection = (function () {
     setActiveHighlight,
     setHighlightState,
     setHighlightHover,
+    setHighlightKind,
   };
 })();

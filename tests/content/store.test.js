@@ -484,3 +484,48 @@ describe("conversation transcripts (ga:convo:*)", () => {
     });
   });
 });
+
+describe("store.listThreadBuckets", () => {
+  const seed = {
+    "ga:threads:gemini:abc": [{ id: "a" }, null, { id: "b" }],
+    "ga:threads:chatgpt:xyz": [{ id: "c", kind: "label", labels: ["todo"] }],
+    "ga:threads:__draft__:gemini:tab_1": [{ id: "draft" }], // tab bucket, not a conversation
+    "ga:threads:gemini:bad": { not: "an array" }, // unrecognized shape — skipped
+    "ga:convo:gemini:abc": { v: 1, turns: [], blobs: { k: "gzipb64" } },
+    "ga:settings": { scope: "section" },
+  };
+
+  it("lists every real conversation bucket, null-slots dropped, drafts/convo/settings excluded", async () => {
+    const fake = makeStorageFake({ initial: seed });
+    GA = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], {
+      browser: fake.browser,
+    });
+    const buckets = await GA.store.listThreadBuckets();
+    expect(buckets.map((b) => b.session).sort()).toEqual(["chatgpt:xyz", "gemini:abc"]);
+    expect(buckets.find((b) => b.session === "gemini:abc").threads.map((t) => t.id)).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("prefers getKeys() + a scoped get — the full-store get(null) is never issued", async () => {
+    const fake = makeStorageFake({ initial: seed });
+    const scopedGets = [];
+    const origGet = fake.browser.storage.local.get;
+    fake.browser.storage.local.getKeys = async () => Object.keys(fake.data);
+    fake.browser.storage.local.get = async (k) => {
+      scopedGets.push(k);
+      return origGet(k);
+    };
+    GA = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], {
+      browser: fake.browser,
+    });
+    const buckets = await GA.store.listThreadBuckets();
+    expect(buckets.map((b) => b.session).sort()).toEqual(["chatgpt:xyz", "gemini:abc"]);
+    expect(fake.getAllCount()).toBe(0);
+    // the one get() was key-scoped to thread buckets — convo blobs never asked for
+    expect(scopedGets).toHaveLength(1);
+    expect(scopedGets[0].every((k) => k.indexOf("ga:threads:") === 0)).toBe(true);
+    expect(scopedGets[0]).not.toContain("ga:convo:gemini:abc");
+  });
+});

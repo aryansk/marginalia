@@ -2,6 +2,38 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
+## 0.3.0 — 2026-07-22
+
+The labels & cross-conversation synthesis release: annotations become
+organizable (labels with dotted namespaces) and mineable across every
+conversation you've annotated.
+
+### Added
+
+- **Labels.** Type `/label "name"` in any thread composer. In a thread with
+  history it attaches labels (editable in place via the pencil in the label
+  section under the header; the minimized chip gains a tag icon). In an EMPTY
+  thread it converts the record into a standalone label — a violet tag chip
+  that marks the whole LLM answer, with its own in-chip editor. Compound
+  labels use dotted namespaces (`project.ux.nav`); multiple labels per item.
+- **"All chats" tab in the threads panel.** Search threads across every
+  stored conversation, or switch the dropdown to Labels and pick from a
+  namespace-grouped picker (selecting `project` matches everything under
+  `project.*`). Matched threads and labeled answers list for curation.
+- **Cross-conversation synthesis.** With items selected, a prompt bar
+  appears: ask for a summary / common patterns and the bundle (thread
+  discussions + the transcript text of labeled answers) goes to the current
+  provider, streaming into the panel. Labeled answers resolve by inflating
+  only their own per-message blob; the whole-conversation decode runs only on
+  a fingerprint miss, and a missing transcript degrades to the stored
+  section text.
+- **Output actions.** "Download as md" saves the output verbatim under a
+  small provenance header (date, prompt, sources) — no second LLM round-trip.
+  "Start a conversation" copies the output and opens the provider's new-chat
+  page (none of the sites expose a create-conversation API, so paste-to-start
+  is the honest version of this feature).
+- Transcript exports now include a **Labels:** line in annotation callouts.
+
 ## 0.2.0 — 2026-07-13
 
 The transcript & durability release: annotated conversations are now captured

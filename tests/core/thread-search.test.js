@@ -38,6 +38,15 @@ describe("GA.core.threadSearch.matches", () => {
     expect(matches(thread, undefined)).toBe(true);
   });
 
+  it("matches attached labels", () => {
+    const labeled = { ...thread, labels: ["project.ux.nav", "todo"] };
+    expect(matches(labeled, "project.ux")).toBe(true);
+    expect(matches(labeled, "TODO")).toBe(true);
+    expect(matches(labeled, "nav")).toBe(true);
+    // label-less thread unchanged
+    expect(matches(thread, "todo")).toBe(false);
+  });
+
   it("is null-safe: threads with no messages / no selector / no text do not throw", () => {
     expect(matches({ selector: { exact: "hi" } }, "hi")).toBe(true);
     expect(matches({ selector: { exact: "hi" } }, "nope")).toBe(false);

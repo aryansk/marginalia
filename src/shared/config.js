@@ -29,6 +29,7 @@ GA.config = {
   MODAL_MAX_FRAC: 0.95, // drag-resize ceiling as a fraction of the viewport width
   MODAL_FALLBACK_PX: 820, // drag-start width when the modal has no measurable width yet (first paint / jsdom)
   BOX_MESSAGES_MIN_PX: 40, // layout clamp floor — a squeezed box keeps at least a sliver of messages visible
+  BUNDLE_ITEM_CHARS: 8000, // max chars each selected item contributes to a cross-conversation prompt
 };
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.config;

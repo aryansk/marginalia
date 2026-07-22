@@ -138,6 +138,40 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     }
   });
 
+  it("labels-wave modules sit at their pinned positions in both content-script lists", () => {
+    const chrome = JSON.parse(read("manifest.chrome.json"));
+    const fxJs = manifest.content_scripts[0].js;
+    const crJs = chrome.content_scripts[0].js;
+    // label grammar closes the wave-2 core block, right after the transcript builder
+    expect(fxJs.indexOf("src/core/labels.js")).toBe(fxJs.indexOf("src/core/transcript.js") + 1);
+    // bundle-prompt (uses compress + turn-id) then global-search (uses labels + thread-search)
+    expect(fxJs.indexOf("src/core/bundle-prompt.js")).toBe(fxJs.indexOf("src/core/labels.js") + 1);
+    expect(fxJs.indexOf("src/core/global-search.js")).toBe(
+      fxJs.indexOf("src/core/bundle-prompt.js") + 1,
+    );
+    // the label chip loads right after the thread box, before the surfaces that mount it
+    expect(fxJs.indexOf("src/content/label-ui.js")).toBe(
+      fxJs.indexOf("src/content/thread-ui.js") + 1,
+    );
+    // the shared ask transport policy loads right after the service it wraps
+    expect(fxJs.indexOf("src/content/ask-flow.js")).toBe(
+      fxJs.indexOf("src/content/ask-service.js") + 1,
+    );
+    expect(fxJs.indexOf("src/content/ask-flow.js")).toBeLessThan(
+      fxJs.indexOf("src/content/thread-controller.js"),
+    );
+    expect(crJs).toEqual(fxJs);
+    for (const rel of [
+      "src/core/labels.js",
+      "src/core/bundle-prompt.js",
+      "src/core/global-search.js",
+      "src/content/label-ui.js",
+      "src/content/ask-flow.js",
+    ]) {
+      expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
+    }
+  });
+
   it("shared/hosts.js is the manifests' content-site pattern list, loaded everywhere it's read", async () => {
     const hosts = (await import("../../src/shared/hosts.js")).default;
     const chrome = JSON.parse(read("manifest.chrome.json"));

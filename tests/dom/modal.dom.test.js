@@ -11,6 +11,7 @@ function makeGA() {
       "src/shared/settings-schema.js",
       "src/shared/config.js",
       "src/core/sites.js",
+      "src/core/labels.js",
       "src/core/markdown-ast.js",
       "src/content/util.js",
       "src/content/icons.js",

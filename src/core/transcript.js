@@ -117,6 +117,8 @@ GA.core.transcript = (function () {
     const parts = [];
     const exact = thread && thread.selector ? thread.selector.exact : null;
     parts.push(norm(exact) ? '"' + mdInline(exact) + '"' : "_(no highlighted text recorded)_");
+    const labels = thread && Array.isArray(thread.labels) ? thread.labels.filter(Boolean) : [];
+    if (labels.length) parts.push("**Labels:** " + labels.map(mdInline).join(", "));
     const msgs = thread && Array.isArray(thread.messages) ? thread.messages : [];
     for (const raw of msgs) {
       const m = raw && typeof raw === "object" ? raw : {};

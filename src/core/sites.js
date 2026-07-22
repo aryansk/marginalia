@@ -20,6 +20,7 @@ GA.core.sites = (function () {
     gemini: {
       label: "Gemini",
       hosts: ["gemini.google.com"],
+      newChat: "https://gemini.google.com/app",
       // /app/<id> — matches anywhere so /u/0/app/<id> works; query/hash excluded.
       // /gem/<gemId>/<chatId> — a conversation inside a Gem; the bare Gem lobby
       // (/gem/<gemId>) is deliberately NOT a session (it's a new-chat page).
@@ -40,6 +41,7 @@ GA.core.sites = (function () {
     chatgpt: {
       label: "ChatGPT",
       hosts: ["chatgpt.com", "chat.openai.com"],
+      newChat: "https://chatgpt.com/",
       // /c/<conversation-uuid> — also matches project chats /g/g-…/c/<id>.
       sessionRes: [/\/c\/([^/?#]+)/],
       responseSelectors: ['[data-message-author-role="assistant"]', "div.markdown", ".agent-turn"],
@@ -53,6 +55,7 @@ GA.core.sites = (function () {
     claude: {
       label: "Claude",
       hosts: ["claude.ai"],
+      newChat: "https://claude.ai/new",
       // /chat/<conversation-uuid> — unanchored, so project-scoped chats
       // (/project/<projectId>/chat/<id>) resolve to the same chat id.
       sessionRes: [/\/chat\/([^/?#]+)/],
@@ -73,6 +76,14 @@ GA.core.sites = (function () {
   function providerLabel(provider) {
     const def = PROVIDERS[provider];
     return (def && def.label) || null;
+  }
+
+  // The site's new-chat page — where "Start a conversation" lands. None of
+  // these sites offer a programmatic create-conversation API; callers copy the
+  // text and the user pastes. Null when unknown.
+  function newChatUrl(provider) {
+    const def = PROVIDERS[provider];
+    return (def && def.newChat) || null;
   }
 
   // Map a hostname to a provider id. Matches the host exactly or as a subdomain
@@ -127,6 +138,7 @@ GA.core.sites = (function () {
 
   return {
     providerLabel,
+    newChatUrl,
     providerForHost,
     sessionIdFromPath,
     responseSelectors,

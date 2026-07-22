@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Marginalia",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Google-Docs-style follow-up comment threads on Gemini, ChatGPT and Claude — highlight text, ask in the margin, keep your place.",
   "browser_specific_settings": {
     "gecko": {
@@ -91,6 +91,9 @@
         "src/core/backup.js",
         "src/core/compress.js",
         "src/core/transcript.js",
+        "src/core/labels.js",
+        "src/core/bundle-prompt.js",
+        "src/core/global-search.js",
         "src/content/util.js",
         "src/content/frame.js",
         "src/content/icons.js",
@@ -108,12 +111,14 @@
         "src/content/undo-stack.js",
         "src/content/composer.js",
         "src/content/thread-ui.js",
+        "src/content/label-ui.js",
         "src/content/modal.js",
         "src/content/panel.js",
         "src/content/gutter.js",
         "src/content/keyboard-nav.js",
         "src/content/token-provider.js",
         "src/content/ask-service.js",
+        "src/content/ask-flow.js",
         "src/content/adder.js",
         "src/content/triggers.js",
         "src/content/navigation.js",

@@ -16,6 +16,8 @@ function makeGA(threads) {
     "src/content/util.js",
     "src/content/icons.js",
     "src/content/dialog.js",
+    "src/content/undo-stack.js",
+    "src/content/composer.js",
     "src/content/panel.js",
   ]);
   GA.threadController = {

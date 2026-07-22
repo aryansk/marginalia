@@ -36,6 +36,8 @@ const FILES = [
   "src/content/util.js",
   "src/content/icons.js",
   "src/content/dialog.js",
+  "src/content/undo-stack.js",
+  "src/content/composer.js",
   "src/content/convo-repair.js",
   "src/content/panel.js",
 ];

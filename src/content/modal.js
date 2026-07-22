@@ -107,7 +107,23 @@ GA.Modal = (function () {
       };
       composer = GA.Composer({
         placeholder: "Ask a follow-up about the highlighted text…",
-        onSubmit: (q) => GA.threadTurn.run(thread, q, ops),
+        onSubmit: (q) => {
+          // Same /label intercept as the docked box. The modal has no label
+          // section, so a toast is the feedback; converting an empty thread to
+          // a standalone label closes the modal (the chip is its surface now).
+          const cmd = GA.core.labels.parseCommand(q);
+          if (cmd) {
+            if (cmd.error) {
+              GA.toast(cmd.error);
+              return;
+            }
+            handlers.onLabel && handlers.onLabel(thread, cmd.labels);
+            GA.toast("Labeled: " + (thread.labels || cmd.labels).join(", "));
+            if (thread.kind === "label") close();
+            return;
+          }
+          GA.threadTurn.run(thread, q, ops);
+        },
         onStop: () => handlers.onStop && handlers.onStop(thread),
       });
       parts.push(composer.el);
