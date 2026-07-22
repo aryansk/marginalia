@@ -6,6 +6,22 @@ install and day-to-day usage instructions, see
 
 ---
 
+## 0.3.1 — A comfier place to write
+
+- **Your half-typed message follows you.** Started writing in a margin box,
+  then switched to the big full-screen view? Your text is right there,
+  ready to finish. Close without sending and it's back in the margin box.
+- **Send markdown when you mean to.** A little **MD** button on the message
+  field lets you decide, message by message, whether what you send shows up
+  formatted — code blocks, lists, headings — or as plain text. It lights up
+  when it's on.
+- **Code-friendly typing.** Press Enter inside an unfinished ``` code block
+  and you get a new line instead of accidentally sending
+  (Ctrl/Cmd + Enter always sends).
+- **Stretch the input.** In the full-screen view, drag the small handle
+  above the message field to make it as tall as you like — up to half the
+  window. Double-click the handle to go back to automatic sizing.
+
 ## 0.3.0 — Labels & "ask across your chats"
 
 _The organizing release: tag the answers worth keeping, then search — and
