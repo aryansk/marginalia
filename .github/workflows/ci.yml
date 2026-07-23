@@ -1,0 +1,88 @@
+# GitHub Actions CI for the Marginalia extension.
+#
+#   test     — full vitest suite (includes the manifest/sw.js wiring drift
+#              guards).
+#   lint     — ESLint, Prettier check, and web-ext manifest lint.
+#   release  — builds the Firefox + Chrome zips and publishes a GitHub
+#              Release tagged v<version>, but ONLY when no release for the
+#              current package.json version exists yet. The wiring test
+#              asserts package.json and both manifests carry the same
+#              version, so package.json is a safe single proxy for the
+#              extension version.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run lint:ext
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check whether this version is already released
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists — skipping packaging."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version v$VERSION has no release yet — building extension artifacts."
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build extension zips
+        if: steps.version.outputs.new == 'true'
+        run: |
+          npm ci
+          npm run build
+          VERSION=${{ steps.version.outputs.version }}
+          cp web-ext-artifacts/firefox/*.zip "marginalia-$VERSION-firefox.zip"
+          cp web-ext-artifacts/chrome/*.zip "marginalia-$VERSION-chrome.zip"
+      - name: Create GitHub Release
+        if: steps.version.outputs.new == 'true'
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Marginalia $VERSION" \
+            --generate-notes \
+            "marginalia-$VERSION-firefox.zip" \
+            "marginalia-$VERSION-chrome.zip"
