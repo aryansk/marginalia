@@ -76,13 +76,33 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           cp web-ext-artifacts/firefox/*.zip "marginalia-$VERSION-firefox.zip"
           cp web-ext-artifacts/chrome/*.zip "marginalia-$VERSION-chrome.zip"
+      - name: Extract release notes from CHANGELOG.md
+        if: steps.version.outputs.new == 'true'
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          awk -v ver="$VERSION" '
+            $0 ~ "^## " ver "([^0-9.]|$)" {found=1; next}
+            /^## / {if (found) exit}
+            found {print}
+          ' CHANGELOG.md > release-notes.md
+          if [ -s release-notes.md ]; then
+            echo "Using CHANGELOG.md section for $VERSION:"
+            cat release-notes.md
+          else
+            echo "No CHANGELOG.md section found for $VERSION — release will use auto-generated notes."
+          fi
       - name: Create GitHub Release
         if: steps.version.outputs.new == 'true'
         run: |
           VERSION=${{ steps.version.outputs.version }}
+          if [ -s release-notes.md ]; then
+            NOTES_ARGS=(--notes-file release-notes.md)
+          else
+            NOTES_ARGS=(--generate-notes)
+          fi
           gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Marginalia $VERSION" \
-            --generate-notes \
+            "${NOTES_ARGS[@]}" \
             "marginalia-$VERSION-firefox.zip" \
             "marginalia-$VERSION-chrome.zip"
