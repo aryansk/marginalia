@@ -6,3 +6,5 @@ package-lock.json
 src/core/tex-tables.js
 tickets/
 tests/fixtures/
+ui-design/
+web/
