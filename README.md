@@ -265,3 +265,7 @@ npm run test:cov    # coverage (core/*, each provider's parser|payload|client, a
   re-anchor automatically as their text scrolls into view; while orphaned, a lone
   one parks at the bottom of the margin and **2+ collapse into a single counted
   badge** (bottom-right) that opens a scrollable drawer.
+
+## License
+
+[MIT](LICENSE)
