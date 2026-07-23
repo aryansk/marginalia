@@ -969,14 +969,24 @@
   background: var(--ga-hover);
 }
 
-/* composer */
+/* composer: full-width textarea over a slim controls row (MD left, Ask
+   right) — the input never gives up horizontal space to buttons */
 .ga-composer {
   position: relative; /* anchors the resize grip overlay */
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--ga-border);
+}
+.ga-composer-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ga-composer-controls .ga-send {
+  margin-left: auto; /* Ask hugs the right edge, with or without the MD btn */
 }
 /* markdown toggle: muted when off, accent-tinted when this message will be
    sent (and rendered) as markdown — the state must read at a glance */

@@ -1,6 +1,7 @@
-// composer.js — the ask/stop input row, shared by the modal (and available to
-// any surface that needs to send a follow-up). Same classes as the box
-// composer (.ga-composer/.ga-input/.ga-send) so every surface looks identical.
+// composer.js — the ask/stop input, shared by the modal (and available to
+// any surface that needs to send a follow-up): a full-width textarea over a
+// controls row (MD toggle left, Ask right). Same classes everywhere
+// (.ga-composer/.ga-input/.ga-send) so every surface looks identical.
 //
 // GA.Composer({ placeholder, ariaLabel, onSubmit(text, {md}), onStop(),
 //               onResize(), markdownToggle, resizable })
@@ -56,7 +57,8 @@ GA.Composer = function (opts) {
         GA.icons.make("markdown"),
       )
     : null;
-  const el = GA.el("div", { class: "ga-composer" }, [textarea, mdBtn, sendBtn]);
+  const controls = GA.el("div", { class: "ga-composer-controls" }, [mdBtn, sendBtn]);
+  const el = GA.el("div", { class: "ga-composer" }, [textarea, controls]);
 
   function autosize() {
     if (manualPx) return; // the user chose a height — keep it
