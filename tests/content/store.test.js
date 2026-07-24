@@ -529,3 +529,44 @@ describe("store.listThreadBuckets", () => {
     expect(scopedGets[0]).not.toContain("ga:convo:gemini:abc");
   });
 });
+
+describe("sweepDrafts / clearAll — key-filtered storage reads", () => {
+  function harness(withGetKeys) {
+    const fake = makeStorageFake({
+      initial: {
+        "ga:threads:__draft__:gemini:tab_dead": [thread("d1")],
+        "ga:threads:gemini:s9": [thread("kept")],
+        "ga:convo:gemini:s9": { v: 1, turns: [], blobs: { big: "x".repeat(64) } },
+      },
+    });
+    if (withGetKeys) fake.browser.storage.local.getKeys = async () => Object.keys(fake.data);
+    const H = loadGA(["src/shared/settings-schema.js", "src/content/store.js"], {
+      browser: fake.browser,
+    });
+    H.provider = "gemini";
+    H.tabToken = "tab_1";
+    return { H, fake };
+  }
+
+  it("sweepDrafts with getKeys never issues an unfiltered get, and still adopts", async () => {
+    const { H, fake } = harness(true);
+    await H.store.sweepDrafts();
+    expect(fake.getAllCount()).toBe(0); // convo blobs never crossed IPC
+    expect((await H.store.load(null)).map((t) => t.id)).toEqual(["d1"]); // adopted
+    expect(fake.data["ga:threads:__draft__:gemini:tab_dead"]).toBeUndefined();
+  });
+
+  it("sweepDrafts without getKeys falls back to the unfiltered get (old browsers)", async () => {
+    const { H, fake } = harness(false);
+    await H.store.sweepDrafts();
+    expect(fake.getAllCount()).toBe(1);
+    expect((await H.store.load(null)).map((t) => t.id)).toEqual(["d1"]);
+  });
+
+  it("clearAll removes only ga:threads:* keys via getKeys when available", async () => {
+    const { H, fake } = harness(true);
+    await H.store.clearAll();
+    expect(fake.getAllCount()).toBe(0);
+    expect(Object.keys(fake.data)).toEqual(["ga:convo:gemini:s9"]); // convo record untouched
+  });
+});

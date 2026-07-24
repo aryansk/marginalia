@@ -229,13 +229,26 @@ GA.selection = (function () {
     return true;
   }
 
+  // One shared anchoring pass (turn list + text cache) for batch callers —
+  // the restore loop anchors every thread through a single findTurns and a
+  // single text extraction instead of one per thread. Lifetime: ONE pass;
+  // never hold it across frames (turn elements go stale with re-renders).
+  function makeAnchorPass() {
+    return noTurnAdapter() ? null : { textFor: textCache(), turns: GA.turns.findTurns() };
+  }
+
   // Anchor one thread. Returns its highlight spans, or [] for an orphan.
-  function highlightThread(thread) {
+  // `shared` is an optional makeAnchorPass() result.
+  function highlightThread(thread, shared) {
     let spans;
     if (noTurnAdapter()) {
       spans = highlightSelector(thread.selector, thread.id);
     } else {
-      const hit = locateThread(thread, textCache());
+      const hit = locateThread(
+        thread,
+        (shared && shared.textFor) || textCache(),
+        shared && shared.turns,
+      );
       spans = hit ? highlightRange(hit.range, thread.id) : [];
       if (spans.length) backfillAnchor(thread, hit.turnEl);
     }
@@ -380,6 +393,7 @@ GA.selection = (function () {
     highlightRange,
     highlightSelector,
     highlightThread,
+    makeAnchorPass,
     locateThread,
     reanchorAll,
     unhighlight,

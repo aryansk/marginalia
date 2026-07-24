@@ -133,8 +133,19 @@ GA.store = (function () {
   // Other providers' buckets are left alone. Age plays no part in sweeping.
   function sweepDrafts() {
     return serialize(async () => {
-      const all = await browser.storage.local.get();
       const draftPrefix = PREFIX + DRAFT + ":";
+      // Key-filtered read (same pattern as listThreadBuckets): the sweep only
+      // needs the tiny draft buckets — an unfiltered get() would drag every
+      // multi-MB ga:convo:* blob across the storage IPC on every page load.
+      let all;
+      if (typeof browser.storage.local.getKeys === "function") {
+        const draftKeys = (await browser.storage.local.getKeys()).filter(
+          (k) => k.indexOf(draftPrefix) === 0,
+        );
+        all = draftKeys.length ? await browser.storage.local.get(draftKeys) : {};
+      } else {
+        all = await browser.storage.local.get();
+      }
       const prov = GA.provider || "x";
       const sources = []; // [key, scan-time snapshot JSON]
       const adopted = [];
@@ -194,8 +205,13 @@ GA.store = (function () {
   }
 
   async function clearAll() {
-    const all = await browser.storage.local.get();
-    const toRemove = Object.keys(all).filter((k) => k.indexOf(PREFIX) === 0);
+    let keys;
+    if (typeof browser.storage.local.getKeys === "function") {
+      keys = await browser.storage.local.getKeys();
+    } else {
+      keys = Object.keys(await browser.storage.local.get());
+    }
+    const toRemove = keys.filter((k) => k.indexOf(PREFIX) === 0);
     if (toRemove.length) await browser.storage.local.remove(toRemove);
   }
 

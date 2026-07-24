@@ -117,9 +117,9 @@ GA.threadController = (function () {
     box.focusInput();
   }
 
-  function restoreThread(thread) {
+  function restoreThread(thread, shared) {
     const hadAnchor = !!thread.anchor;
-    GA.selection.highlightThread(thread); // no spans -> orphan, retried later
+    GA.selection.highlightThread(thread, shared); // no spans -> orphan, retried later
     // A thread created before turn identity existed just learned its role and
     // message. Record it so the next reload takes the exact path.
     if (!hadAnchor && thread.anchor) persistThread(thread);
@@ -164,9 +164,12 @@ GA.threadController = (function () {
     const threads = await GA.store.load(session);
     const timed = (name, fn) => (GA.perf ? GA.perf.time(name, fn) : fn());
     timed("restore.threads", function () {
+      // One anchoring pass for the whole loop: single findTurns + shared
+      // section-text cache instead of a full extraction per thread.
+      const shared = GA.selection.makeAnchorPass ? GA.selection.makeAnchorPass() : null;
       for (const thread of threads) {
         try {
-          restoreThread(thread);
+          restoreThread(thread, shared);
         } catch (e) {
           GA.warn("restore failed, skipping thread", thread && thread.id, e);
         }

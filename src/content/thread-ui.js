@@ -24,6 +24,18 @@ GA.ThreadBox = function (thread, handlers) {
   const bodyOf = new WeakMap();
   const textOf = new WeakMap();
 
+  // Lazy-history state (machinery lives after appendMessage below).
+  let pendingHistory = 0;
+  let oldestRendered = null; // prepend point (first history message rendered)
+  let idleHandle = 0;
+  // Looked up at call time (not captured): jsdom lacks requestIdleCallback
+  // and tests stub it per-case.
+  const requestIdle = (cb) =>
+    window.requestIdleCallback ? window.requestIdleCallback(cb) : setTimeout(cb, 50);
+  const cancelIdle = (h) =>
+    window.cancelIdleCallback ? window.cancelIdleCallback(h) : clearTimeout(h);
+  const HISTORY_FLUSH_PX = 200; // near-top scroll → user is reading history
+
   // Streaming machine (rAF coalescing, incremental markdown, final rebuild):
   // shared with the modal via GA.StreamView. Box-scoped so destroy() can
   // cancel a pending frame. Hooks reference function declarations below —
@@ -63,6 +75,9 @@ GA.ThreadBox = function (thread, handlers) {
   }
   function measureHeights() {
     if (cachedHeights == null) {
+      // First measurement after attach is where lazy history materializes —
+      // the engine must see the true visible-area height, never an empty box.
+      ensureVisibleHistory();
       const chrome = root.offsetHeight - messagesEl.clientHeight;
       cachedHeights = { chrome, natural: chrome + messagesEl.scrollHeight };
     }
@@ -227,6 +242,11 @@ GA.ThreadBox = function (thread, handlers) {
   // Auto-scroll policy (stick-follow, plus the calm-scrolling hold when the
   // setting is on) — shared with the modal and panel via GA.CalmScroll.
   const calm = GA.CalmScroll(messagesEl);
+  // Scrolling up near the top means the user is reading history — whatever
+  // is still pending must be there (lazy fill must never truncate the past).
+  messagesEl.addEventListener("scroll", function () {
+    if (pendingHistory && messagesEl.scrollTop < HISTORY_FLUSH_PX) flushHistory();
+  });
 
   // ---- composer (shared GA.Composer: Enter-to-send, Ask↔Stop swap, local
   // undo with clear-on-send snapshot) ----
@@ -305,8 +325,9 @@ GA.ThreadBox = function (thread, handlers) {
     GA.selection.setHighlightHover(thread.id, false);
   });
 
-  // render any existing history (restored threads)
-  (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
+  // Restored history renders lazily (see "lazy history" above) — the
+  // constructor only records how much is pending; chips never pay for it.
+  pendingHistory = (thread.messages || []).length;
   updateChipCount();
   labelStrip.render();
 
@@ -322,7 +343,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   // meta (optional) is the stored message record — error messages render as a
   // retry card instead of a fake model reply.
-  function appendMessage(role, text, meta) {
+  function buildMessage(role, text, meta) {
     const el = GA.el("div", { class: "ga-msg ga-msg-" + role });
     if (role === "model") {
       const body = GA.el("div", { class: "ga-msg-body" });
@@ -341,12 +362,97 @@ GA.ThreadBox = function (thread, handlers) {
     } else {
       el.textContent = text;
     }
+    return el;
+  }
+
+  function appendMessage(role, text, meta) {
+    const el = buildMessage(role, text, meta);
     if (state.destroyed) return el; // caller keeps a handle; nothing to show
+    // A live append lands below the whole history — make sure the pending
+    // prefix can never end up rendered after it (belt: unreachable in
+    // practice, measurement always precedes appends).
+    if (pendingHistory && !oldestRendered) flushHistory();
     messagesEl.appendChild(el);
     invalidateHeight();
     updateChipCount();
     scrollToBottom(role === "user"); // sending your own message re-sticks
     return el;
+  }
+
+  // ---- lazy history ----
+  // Restored history renders on demand, not in the constructor: a chip
+  // (collapsed/resolved — messages hidden) builds NO message DOM until it is
+  // expanded; an expanded box renders newest-first until the visible area is
+  // covered, at its FIRST measurement (the box is attached and measurable by
+  // then, still inside the restore task — nothing paints in between), and
+  // the older remainder fills in during idle. pendingHistory counts the
+  // not-yet-rendered PREFIX of thread.messages (state lives up top with the
+  // other box state — it is written before this section is reached).
+
+  function prependHistoryMessage(m) {
+    const el = buildMessage(m.role, m.text, m);
+    messagesEl.insertBefore(el, oldestRendered); // null -> append (after pin)
+    oldestRendered = el;
+  }
+
+  function ensureVisibleHistory() {
+    if (!pendingHistory || state.collapsed || state.resolved || !root.isConnected) return;
+    // Newest-first until one viewport is covered — an upper bound of any
+    // messages cap the engine can apply, so the visible clamped area paints
+    // exactly as an eager render would. Small threads render fully here.
+    const target = window.innerHeight;
+    const msgs = thread.messages || [];
+    while (pendingHistory > 0 && messagesEl.scrollHeight < target) {
+      prependHistoryMessage(msgs[pendingHistory - 1]);
+      pendingHistory--;
+    }
+    calm.toBottom();
+    if (pendingHistory > 0) scheduleIdleFill();
+  }
+
+  function scheduleIdleFill() {
+    if (idleHandle) return;
+    idleHandle = requestIdle(function () {
+      idleHandle = 0;
+      if (!pendingHistory || state.destroyed) return;
+      const msgs = thread.messages || [];
+      const before = messagesEl.scrollHeight;
+      for (let i = 0; i < 4 && pendingHistory > 0; i++) {
+        prependHistoryMessage(msgs[pendingHistory - 1]);
+        pendingHistory--;
+      }
+      // Content grew ABOVE the fold — keep what's on screen where it is
+      // (explicit: scroll anchoring on prepends isn't reliable cross-engine).
+      messagesEl.scrollTop += messagesEl.scrollHeight - before;
+      if (pendingHistory) scheduleIdleFill();
+      else {
+        // Fill complete: heights may now exceed the engine's cap assumption
+        // only in ways the clamp already absorbs, but let the cache learn the
+        // final truth once.
+        invalidateHeight();
+        handlers.onResize && handlers.onResize();
+      }
+    });
+  }
+
+  // Sync-render everything still pending. Triggers: expand/uncollapse (the
+  // chip promised full history), a near-top scroll (the user is reading
+  // history — an incomplete top would silently truncate it), and the
+  // belt-guard in appendMessage.
+  function flushHistory() {
+    if (!pendingHistory) return;
+    if (idleHandle) {
+      cancelIdle(idleHandle);
+      idleHandle = 0;
+    }
+    const msgs = thread.messages || [];
+    const before = messagesEl.scrollHeight;
+    while (pendingHistory > 0) {
+      prependHistoryMessage(msgs[pendingHistory - 1]);
+      pendingHistory--;
+    }
+    messagesEl.scrollTop += messagesEl.scrollHeight - before;
+    invalidateHeight();
   }
 
   function renderModelInto(el, text) {
@@ -431,7 +537,10 @@ GA.ThreadBox = function (thread, handlers) {
     minimizeBtn.setAttribute("aria-label", state.collapsed ? "Restore thread" : "Minimize thread");
     minimizeBtn.setAttribute("aria-pressed", state.collapsed ? "true" : "false");
     thread.collapsed = state.collapsed;
-    if (!state.collapsed) setUnread(false, opts);
+    if (!state.collapsed) {
+      setUnread(false, opts);
+      flushHistory(); // an expanding chip promised its full history
+    }
     invalidateHeight();
     if (persist) handlers.persist && handlers.persist(thread);
     // A collapse/restore is a discrete jump — worth easing the reflow.
@@ -538,6 +647,14 @@ GA.ThreadBox = function (thread, handlers) {
     // session added turns the docked box hasn't seen.
     refreshMessages() {
       if (state.destroyed) return;
+      // Full eager rebuild — reset the lazy-fill state FIRST or a pending
+      // idle batch would duplicate messages into the fresh DOM.
+      if (idleHandle) {
+        cancelIdle(idleHandle);
+        idleHandle = 0;
+      }
+      pendingHistory = 0;
+      oldestRendered = null;
       messagesEl.textContent = "";
       (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
       updateChipCount();
@@ -565,6 +682,10 @@ GA.ThreadBox = function (thread, handlers) {
     destroy() {
       state.destroyed = true;
       streamView.cancel();
+      if (idleHandle) {
+        cancelIdle(idleHandle);
+        idleHandle = 0;
+      }
       root.remove();
     },
   };

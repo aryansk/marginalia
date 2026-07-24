@@ -62,6 +62,7 @@ describe("/label in the box composer", () => {
     });
     const box = GA.ThreadBox(thread, { persist: vi.fn(), onLabel });
     document.body.appendChild(box.el);
+    box.naturalHeight(); // first measure materializes the lazy history
     expect(box.el.querySelector(".ga-thread-labels").children).toHaveLength(0);
 
     submitText(box, '/label project.ux "needs review"');
@@ -259,6 +260,7 @@ describe("draft handoff + markdown messages (box side)", () => {
       { persist: vi.fn() },
     );
     document.body.appendChild(box.el);
+    box.naturalHeight(); // first measure materializes the lazy history
     const msgs = box.el.querySelectorAll(".ga-msg-user");
     expect(msgs[0].querySelector("pre, code")).toBeTruthy();
     expect(msgs[1].querySelector("ul, li, pre, code")).toBeFalsy();
