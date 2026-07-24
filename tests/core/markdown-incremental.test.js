@@ -39,13 +39,11 @@ describe("parseStream — incremental === full, at every prefix", () => {
   it("a mid-stream rewrite (prefix mismatch) falls back to a correct full parse", () => {
     const doc = FIXTURES.mixed;
     let state = null;
-    let res = null;
     for (let end = 1; end <= doc.length; end += 7) {
-      res = ast.parseStream(state, doc.slice(0, end));
-      state = res.state;
+      state = ast.parseStream(state, doc.slice(0, end)).state;
     }
     const rewritten = "REWRITTEN. " + doc.slice(11);
-    res = ast.parseStream(state, rewritten);
+    const res = ast.parseStream(state, rewritten);
     expect(deep(res.blocks)).toEqual(deep(ast.parse(rewritten)));
   });
 

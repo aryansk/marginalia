@@ -200,7 +200,7 @@ describe("findTurns — linear outermost dedup equivalence", () => {
   }
 
   it("matches on adversarial synthetic nesting (chains + interleaved siblings)", () => {
-    const GA = mount("chatgpt");
+    // Pure algorithm check over synthetic DOM — no GA module needed.
     // deep matched chain: turn > turn > turn, followed by siblings
     document.body.innerHTML = `
       <div data-testid="conversation-turn-1" class="a">
