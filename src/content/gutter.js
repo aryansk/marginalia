@@ -280,6 +280,11 @@ GA.gutter = (function () {
 
   function relayout() {
     if (!container) return;
+    const timed = GA.perf ? GA.perf.time : (n, fn) => fn();
+    timed("gutter.relayout", relayoutNow);
+  }
+
+  function relayoutNow() {
     panelBtn.style.display = registry.size ? "flex" : "none";
     if (!registry.size) {
       state.lastSig = null;

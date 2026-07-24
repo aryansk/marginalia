@@ -161,13 +161,17 @@ GA.threadController = (function () {
     // loop and hide every other annotation. The failing record is skipped but
     // left INTACT in storage (never deleted or re-persisted here) so a future
     // load or migration can still deal with it.
-    for (const thread of await GA.store.load(session)) {
-      try {
-        restoreThread(thread);
-      } catch (e) {
-        GA.warn("restore failed, skipping thread", thread && thread.id, e);
+    const threads = await GA.store.load(session);
+    const timed = (name, fn) => (GA.perf ? GA.perf.time(name, fn) : fn());
+    timed("restore.threads", function () {
+      for (const thread of threads) {
+        try {
+          restoreThread(thread);
+        } catch (e) {
+          GA.warn("restore failed, skipping thread", thread && thread.id, e);
+        }
       }
-    }
+    });
     GA.gutter.relayout();
     // Gemini hydrates async (and lazily) — retry anchoring for a while.
     GA.config.REANCHOR_RETRY_MS.forEach((d) => setTimeout(reanchorOrphans, d));

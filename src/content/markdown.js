@@ -15,13 +15,16 @@ GA.markdown = (function () {
   // per block, matching renderAst's output shape).
   function makeStreamRenderer(el) {
     let blocks = [];
+    const timed = (name, fn) => (GA.perf ? GA.perf.time(name, fn) : fn());
     return {
       update(text) {
-        const ast = GA.core.markdownAst.parse(text);
-        const from = GA.core.markdownAst.firstChangedBlock(blocks, ast);
-        while (el.childNodes.length > from) el.removeChild(el.lastChild);
-        for (let i = from; i < ast.length; i++) el.appendChild(renderBlock(ast[i]));
-        blocks = ast;
+        timed("stream.render", function () {
+          const ast = GA.core.markdownAst.parse(text);
+          const from = GA.core.markdownAst.firstChangedBlock(blocks, ast);
+          while (el.childNodes.length > from) el.removeChild(el.lastChild);
+          for (let i = from; i < ast.length; i++) el.appendChild(renderBlock(ast[i]));
+          blocks = ast;
+        });
       },
     };
   }

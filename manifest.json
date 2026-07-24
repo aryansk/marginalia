@@ -96,6 +96,7 @@
         "src/core/global-search.js",
         "src/content/util.js",
         "src/content/frame.js",
+        "src/content/perf.js",
         "src/content/icons.js",
         "src/content/ui-bits.js",
         "src/content/theme-detector.js",

@@ -166,8 +166,9 @@ GA.convoCapture = (function () {
   // the same stored record and the slower save would clobber the faster one's
   // turns and blobs.
   let chain = Promise.resolve();
+  const timedCapture = () => (GA.perf ? GA.perf.time("capture.cycle", captureNow) : captureNow());
   function capture() {
-    const run = chain.then(captureNow, captureNow);
+    const run = chain.then(timedCapture, timedCapture);
     chain = run.then(
       () => undefined,
       () => undefined, // one failed capture must not poison the chain

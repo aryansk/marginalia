@@ -10,6 +10,8 @@
 var GA = (typeof GA !== "undefined" && GA) || {};
 
 GA.reanchorer = (function () {
+  const perfTime = (name, fn) => (GA.perf ? GA.perf.time(name, fn) : fn());
+
   function observe(ctx) {
     // Turns whose text may have changed since we last fingerprinted them.
     // Collected from the observer's records so a streaming answer invalidates
@@ -31,16 +33,18 @@ GA.reanchorer = (function () {
     }
 
     function onFrame() {
-      dropStaleFingerprints();
-      if (ctx.checkNav) ctx.checkNav();
-      if (ctx.hasOrphans()) ctx.reanchor();
-      // Anchors may have moved even with no orphans. Mode-aware: JS mode does a
-      // full relayout; CSS-anchored mode (Chrome) lets the compositor follow
-      // and only refreshes cues + debounces a settle pass.
-      else GA.gutter.onAnchorsMoved();
-      // Something on the page just changed — let settle-watchers (transcript
-      // capture) know. They debounce on their side; this stays one call.
-      if (ctx.onSettled) ctx.onSettled();
+      perfTime("reanchor.frame", function () {
+        dropStaleFingerprints();
+        if (ctx.checkNav) ctx.checkNav();
+        if (ctx.hasOrphans()) perfTime("reanchor.pass", () => ctx.reanchor());
+        // Anchors may have moved even with no orphans. Mode-aware: JS mode does a
+        // full relayout; CSS-anchored mode (Chrome) lets the compositor follow
+        // and only refreshes cues + debounces a settle pass.
+        else GA.gutter.onAnchorsMoved();
+        // Something on the page just changed — let settle-watchers (transcript
+        // capture) know. They debounce on their side; this stays one call.
+        if (ctx.onSettled) ctx.onSettled();
+      });
     }
 
     const obs = new MutationObserver(function (records) {

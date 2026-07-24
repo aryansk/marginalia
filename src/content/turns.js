@@ -49,23 +49,26 @@ GA.turns = (function () {
   // Every turn on the page, in DOM order, outermost-only. Empty when the site
   // has no adapter or nothing has hydrated yet.
   function findTurns() {
-    const sel = anySelector();
-    if (!sel) return [];
-    let els;
-    try {
-      els = Array.prototype.slice.call(document.querySelectorAll(sel));
-    } catch (e) {
-      return [];
-    }
-    return els
-      .filter(function (el) {
-        return !els.some(function (o) {
-          return o !== el && o.contains(el);
+    const timed = GA.perf ? GA.perf.time : (n, fn) => fn();
+    return timed("turns.findTurns", function () {
+      const sel = anySelector();
+      if (!sel) return [];
+      let els;
+      try {
+        els = Array.prototype.slice.call(document.querySelectorAll(sel));
+      } catch (e) {
+        return [];
+      }
+      return els
+        .filter(function (el) {
+          return !els.some(function (o) {
+            return o !== el && o.contains(el);
+          });
+        })
+        .map(function (el) {
+          return { el: el, role: roleOf(el) };
         });
-      })
-      .map(function (el) {
-        return { el: el, role: roleOf(el) };
-      });
+    });
   }
 
   // The turn a node lives in, or null if it sits outside the conversation.
