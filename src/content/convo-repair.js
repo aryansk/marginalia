@@ -89,7 +89,13 @@ GA.convoRepair = (function () {
             }
           }
         }
-        if (dirty) await GA.store.saveConvo(session, fresh);
+        if (dirty) {
+          await GA.store.saveConvo(session, fresh);
+          // The capture pre-check compares the DOM against the last record
+          // state IT saw — this external write must clear that baseline.
+          if (GA.convoCapture && GA.convoCapture.invalidateBaseline)
+            GA.convoCapture.invalidateBaseline();
+        }
       } catch (e) {
         GA.warn("transcript self-heal failed", e);
       }

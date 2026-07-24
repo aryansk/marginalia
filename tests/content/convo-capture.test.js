@@ -433,7 +433,7 @@ describe("convoCapture.schedule — debounce", () => {
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1)); // and it completed
   });
 
-  it("a later schedule() after the window fires a fresh capture", async () => {
+  it("a later schedule() after the window fires a fresh capture when the page changed", async () => {
     const { GA } = setup({ turns: [A, B] });
     const load = vi.spyOn(GA.store, "loadConvo");
     // Captures serialize through a chain; stub the codec so the first capture
@@ -442,10 +442,66 @@ describe("convoCapture.schedule — debounce", () => {
 
     GA.convoCapture.schedule();
     await vi.advanceTimersByTimeAsync(1200);
+    setLiveTurns(GA, [A, B, { role: "user", text: "And a comonad?" }]); // page grew
     GA.convoCapture.schedule();
     await vi.advanceTimersByTimeAsync(1200);
 
     expect(load).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("no-op pre-check + write-only-on-change", () => {
+  it("an unchanged page after a successful save skips the whole cycle (no record load)", async () => {
+    const { GA } = setup({ turns: [A, B] });
+    const load = vi.spyOn(GA.store, "loadConvo");
+    await GA.convoCapture.capture(); // saves
+    expect(load).toHaveBeenCalledTimes(1);
+    await GA.convoCapture.capture(); // same DOM -> free no-op
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed save does NOT advance the baseline — the next capture retries", async () => {
+    const { GA } = setup({ turns: [A, B] });
+    const save = vi.spyOn(GA.store, "saveConvo").mockRejectedValueOnce(new Error("quota"));
+    await expect(GA.convoCapture.capture()).rejects.toThrow("quota");
+    save.mockRestore();
+    const load = vi.spyOn(GA.store, "loadConvo");
+    await GA.convoCapture.capture(); // must retry, not false-no-op
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("a merge that changes nothing skips the write and still arms the no-op baseline", async () => {
+    const h = setup({ turns: [A, B] });
+    await h.GA.convoCapture.capture(); // record now matches the page
+    // Clear the baseline via the external-writer hook, then capture over the
+    // unchanged page — the record load happens, the write does not.
+    const save = vi.spyOn(h.GA.store, "saveConvo");
+    h.GA.convoCapture.invalidateBaseline();
+    const load = vi.spyOn(h.GA.store, "loadConvo");
+    await h.GA.convoCapture.capture();
+    expect(load).toHaveBeenCalledTimes(1); // pre-check missed -> full pass
+    expect(save).not.toHaveBeenCalled(); // ...but nothing changed -> no write
+    // and the confirmed-unchanged pass re-armed the baseline:
+    await h.GA.convoCapture.capture();
+    expect(load).toHaveBeenCalledTimes(1); // free no-op again
+  });
+
+  it("invalidateBaseline forces the next capture to run a full pass", async () => {
+    const { GA } = setup({ turns: [A, B] });
+    await GA.convoCapture.capture();
+    GA.convoCapture.invalidateBaseline();
+    const load = vi.spyOn(GA.store, "loadConvo");
+    await GA.convoCapture.capture();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("a conversation title change alone still writes (panel listings stay fresh)", async () => {
+    const { GA, b } = setup({ turns: [A, B] });
+    await GA.convoCapture.capture();
+    document.title = "renamed conversation";
+    GA.convoCapture.invalidateBaseline(); // title isn't part of the DOM signature
+    await GA.convoCapture.capture();
+    expect(bucket(b).title).toBe("renamed conversation");
   });
 });
 

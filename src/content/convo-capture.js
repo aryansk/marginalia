@@ -67,6 +67,41 @@ GA.convoCapture = (function () {
       });
   }
 
+  // Signature of the mounted transcript as of the last DURABLE state (saved,
+  // or confirmed identical to the stored record). Uses turns.fingerprintOf's
+  // per-element cache — invalidated per dirty turn by the reanchorer — so the
+  // no-change pre-check costs findTurns + cached lookups, never a full-text
+  // re-extraction or a record load. Turn count and total length join the
+  // signature to blunt hash collisions: this gates WRITES, a stricter use
+  // than anchor matching. Advances ONLY after a successful save (or a
+  // confirmed no-change against a loaded record) — a failed quota write must
+  // not turn every later capture into a false no-op.
+  let lastDurableSig = null;
+
+  function liveSignature() {
+    if (!GA.turns) return null;
+    const turns = GA.turns.findTurns();
+    if (!turns.length) return null;
+    let sig = turns.length + "|";
+    let total = 0;
+    for (const t of turns) {
+      const fp = GA.turns.fingerprintOf(t.el);
+      sig += fp.hash + ":" + fp.len + ",";
+      total += fp.len;
+    }
+    return sig + "|" + total;
+  }
+
+  // Cheap structural identity of an index (no blobs): enough to know whether
+  // a merge actually changed what would be stored.
+  function indexSig(list) {
+    return JSON.stringify(
+      list.map(function (t) {
+        return [t.role, t.fp.hash, t.fp.len, t.order, typeof t.head === "string" ? t.head : ""];
+      }),
+    );
+  }
+
   // One load-merge-save pass. Gated to annotated conversations (>= 1 thread)
   // with a real session id — a pre-id draft or an unannotated chat never gets
   // a convo bucket.
@@ -75,6 +110,8 @@ GA.convoCapture = (function () {
     if (!ctrl || ctrl.threads().length < 1) return; // annotated conversations only
     const session = GA.getSessionId();
     if (!session) return; // pre-id draft chat — never write a bogus bucket
+    const sig = liveSignature();
+    if (sig !== null && sig === lastDurableSig) return; // nothing changed since the last durable state
     const snap = snapshot();
     if (!snap.length) return; // nothing hydrated yet — nothing to add
     const existing = await GA.store.loadConvo(session); // RAW record: blobs stay compressed
@@ -91,9 +128,13 @@ GA.convoCapture = (function () {
         : null;
     const prior = storedTurns.filter(GA.core.convoMerge.wellFormed);
     const blobs = Object.assign({}, storedBlobs); // carried as-is
+    let blobsChanged = false;
     for (const t of snap) {
       const k = blobKey(t);
-      if (!(k in blobs)) blobs[k] = await GA.core.compress.gzipToB64(t.text);
+      if (!(k in blobs)) {
+        blobs[k] = await GA.core.compress.gzipToB64(t.text);
+        blobsChanged = true;
+      }
     }
     // Merging is licensed only when the snapshot's position against the
     // stored index is PROVABLE (the index is an ordered subsequence of the
@@ -142,8 +183,25 @@ GA.convoCapture = (function () {
         !turns.some(function (t) {
           return blobKey(t) === k;
         })
-      )
+      ) {
         delete blobs[k];
+        blobsChanged = true;
+      }
+    }
+    // Write only when the pass actually changed what would be stored — the
+    // merge itself is the change detector (no post-hoc deep compare of a
+    // multi-MB record). Healing (malformed entries filtered out) and a
+    // renamed/relocated conversation count as changes.
+    const changed =
+      !existing ||
+      blobsChanged ||
+      storedTurns.length !== prior.length ||
+      indexSig(turns) !== indexSig(prior) ||
+      existing.title !== document.title ||
+      existing.url !== location.href;
+    if (!changed) {
+      lastDurableSig = sig; // confirmed: DOM and stored record agree
+      return;
     }
     await GA.store.saveConvo(session, {
       // Schema version stamp. Readers must treat a record WITHOUT `v` as v1
@@ -158,6 +216,7 @@ GA.convoCapture = (function () {
       turns: turns,
       blobs: blobs,
     });
+    lastDurableSig = sig; // only after the save landed — a throw skips this
   }
 
   // Captures serialize through one promise chain (the store's own queue covers
@@ -192,7 +251,15 @@ GA.convoCapture = (function () {
     }, debounceMs());
   }
 
-  return { snapshot, capture, schedule };
+  // Another writer touched the stored record (convo-repair's head backfill on
+  // export): the "nothing changed" pre-check compares the DOM against the
+  // LAST STATE THIS MODULE saw, so an external write must clear it or the
+  // next capture would falsely no-op and never upgrade stale entries.
+  function invalidateBaseline() {
+    lastDurableSig = null;
+  }
+
+  return { snapshot, capture, schedule, invalidateBaseline };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.convoCapture;
