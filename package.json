@@ -19,6 +19,10 @@
     "build:firefox": "node build.js firefox && web-ext build --overwrite-dest --source-dir dist/firefox --artifacts-dir web-ext-artifacts/firefox",
     "build:chrome": "node build.js chrome && web-ext build --overwrite-dest --source-dir dist/chrome --artifacts-dir web-ext-artifacts/chrome"
   },
+  "overrides": {
+    "adm-zip": "^0.6.0",
+    "shell-quote": "^1.8.6"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.9",
@@ -29,6 +33,6 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.9.5",
     "vitest": "^4.1.9",
-    "web-ext": "^8.3.0"
+    "web-ext": "^10.5.0"
   }
 }
