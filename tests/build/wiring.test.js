@@ -177,6 +177,7 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
       "src/content/label-ui.js",
       "src/content/ask-flow.js",
       "src/content/ui-bits.js",
+      "src/content/calm-scroll.js",
       "src/content/panel-global.js",
     ]) {
       expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);

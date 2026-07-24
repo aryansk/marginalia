@@ -16,6 +16,7 @@ const els = {
   importReplace: document.getElementById("import-replace"),
   backupStatus: document.getElementById("backup-status"),
   adder: document.getElementById("adder"),
+  calmScroll: document.getElementById("calm-scroll"),
   debug: document.getElementById("debug"),
   apikeysStatus: document.getElementById("apikeys-status"),
 };
@@ -58,6 +59,7 @@ function render() {
     r.checked = r.value === settings.scope;
   });
   els.adder.checked = settings.adder !== false;
+  els.calmScroll.checked = !!settings.calmScroll;
   els.debug.checked = !!settings.debug;
   Object.keys(API_FIELDS).forEach((field) => {
     const input = document.getElementById(API_FIELDS[field]);
@@ -114,6 +116,11 @@ document.querySelectorAll('input[name="scope"]').forEach((r) => {
 
 els.adder.addEventListener("change", async () => {
   settings.adder = els.adder.checked;
+  await save();
+});
+
+els.calmScroll.addEventListener("change", async () => {
+  settings.calmScroll = els.calmScroll.checked;
   await save();
 });
 

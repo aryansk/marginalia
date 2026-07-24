@@ -23,6 +23,7 @@ function makeGA() {
       "src/content/undo-stack.js",
       "src/content/composer.js",
       "src/content/label-strip.js",
+      "src/content/calm-scroll.js",
       "src/content/thread-ui.js",
     ],
     {

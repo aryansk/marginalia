@@ -29,7 +29,11 @@ GA.ThreadBox = function (thread, handlers) {
   // cancel a pending frame. Hooks reference function declarations below —
   // safe, they only run once a turn is in flight.
   const streamView = GA.StreamView({
-    beginEl: () => appendMessage("model", ""),
+    beginEl: () => {
+      const el = appendMessage("model", "");
+      calm.answerStart();
+      return el;
+    },
     targetOf: (el) => bodyOf.get(el) || el,
     isLive: () => !state.destroyed,
     afterUpdate: () => {
@@ -43,7 +47,10 @@ GA.ThreadBox = function (thread, handlers) {
       // A reply landing in an unfocused/minimized thread gets an unread dot.
       if (!state.destroyed && (state.collapsed || !state.active)) setUnread(true);
     },
-    onEnd: () => updateChipCount(),
+    onEnd: () => {
+      updateChipCount();
+      calm.answerEnd();
+    },
     announce: (text) => announce(text),
   });
 
@@ -210,14 +217,9 @@ GA.ThreadBox = function (thread, handlers) {
   // area (the streamed element itself is rebuilt too often to be a live region).
   const messagesEl = GA.el("div", { class: "ga-messages", role: "log", "aria-label": "Messages" });
 
-  // Smart auto-scroll: only stick to the bottom while the user IS at the
-  // bottom — scrolling up to re-read must not be yanked back down mid-stream.
-  const STICK_SLACK_PX = 32;
-  let stick = true;
-  messagesEl.addEventListener("scroll", function () {
-    stick =
-      messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < STICK_SLACK_PX;
-  });
+  // Auto-scroll policy (stick-follow, plus the calm-scrolling hold when the
+  // setting is on) — shared with the modal and panel via GA.CalmScroll.
+  const calm = GA.CalmScroll(messagesEl);
 
   // ---- composer (shared GA.Composer: Enter-to-send, Ask↔Stop swap, local
   // undo with clear-on-send snapshot) ----
@@ -386,8 +388,9 @@ GA.ThreadBox = function (thread, handlers) {
   }
 
   function scrollToBottom(force) {
-    if (force) stick = true;
-    if (stick) messagesEl.scrollTop = messagesEl.scrollHeight;
+    if (force)
+      calm.toBottom(); // sending your own message re-sticks
+    else calm.follow();
   }
 
   function setLoading(v) {

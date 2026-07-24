@@ -17,6 +17,9 @@ GA.schema = {
     // Show the floating "Comment" pill when text is selected in an answer.
     adder: true,
     debug: false,
+    // Calm scrolling: while an answer streams, follow only the first few lines
+    // then hold still — a scroll-down button marks the content growing below.
+    calmScroll: false,
     // Optional per-provider API keys. When a key is set, that site's follow-ups go
     // through the official API instead of the logged-in web session. Empty = web
     // session (ChatGPT has no web fallback, so it needs a key). Models are free-text

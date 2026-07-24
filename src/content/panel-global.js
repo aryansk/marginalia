@@ -287,6 +287,9 @@ GA.panelGlobal = (function () {
     function buildFooter() {
       ui.selCount = GA.el("div", { class: "ga-panel-selcount", "aria-live": "polite" });
       ui.outputEl = GA.el("div", { class: "ga-panel-output", role: "log", "aria-label": "Output" });
+      // Auto-scroll policy (stick-follow + the calm-scrolling hold), shared
+      // with the box and modal via GA.CalmScroll.
+      ui.calm = GA.CalmScroll(ui.outputEl);
       // "Copy & open new chat" states the MECHANISM before the click: the
       // explanation can't follow the user to the new tab, so the label is the
       // only guidance guaranteed to be read.
@@ -380,12 +383,12 @@ GA.panelGlobal = (function () {
         beginEl: () => {
           const el = GA.el("div", { class: "ga-msg ga-msg-model" });
           ui.outputEl.appendChild(el);
+          ui.calm.answerStart();
           return el;
         },
         isLive: () => !closed,
-        afterUpdate: () => {
-          ui.outputEl.scrollTop = ui.outputEl.scrollHeight;
-        },
+        afterUpdate: () => ui.calm.follow(),
+        onEnd: () => ui.calm.answerEnd(),
         renderFinal: (el, text) => {
           el.textContent = "";
           el.appendChild(GA.markdown.render(text));
@@ -423,6 +426,7 @@ GA.panelGlobal = (function () {
         text: "Gathering the selected items…",
       });
       ui.outputEl.appendChild(resolving);
+      ui.calm.toBottom(); // running a synthesis is user-initiated — show its start
       const sv = makeOutputStream();
       state.cancelStream = () => sv.cancel();
       const el = sv.beginModel();

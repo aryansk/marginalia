@@ -34,6 +34,7 @@ function makeGA(browser) {
       "src/content/dialog.js",
       "src/content/undo-stack.js",
       "src/content/composer.js",
+      "src/content/calm-scroll.js",
       "src/content/panel-global.js",
       "src/content/panel.js",
     ],

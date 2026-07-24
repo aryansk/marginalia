@@ -33,6 +33,7 @@ function makeGA({ session = "gemini:abc", record = null, threads = [] } = {}) {
       "src/content/undo-stack.js",
       "src/content/composer.js",
       "src/content/convo-repair.js",
+      "src/content/calm-scroll.js",
       "src/content/panel-global.js",
       "src/content/panel.js",
     ],

@@ -969,6 +969,41 @@
   background: var(--ga-hover);
 }
 
+/* calm scrolling: a circled scroll-down button riding near the bottom edge
+   of a streaming scroll area. The pin is a zero-height sticky first child —
+   it takes no layout space, appended messages never move it, and it stays
+   visible near the scrollport's bottom while content grows below. */
+.ga-scroll-pin {
+  position: sticky;
+  top: calc(100% - 44px);
+  height: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.ga-scrolldown {
+  pointer-events: auto;
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ga-border);
+  background: var(--ga-surface);
+  color: var(--ga-fg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ga-scrolldown:hover {
+  background: var(--ga-hover);
+}
+.ga-scrolldown svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* the label strip inside the modal aligns with its 16px gutters */
 .ga-modal .ga-thread-labels {
   padding: 10px 16px;

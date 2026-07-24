@@ -30,6 +30,7 @@ function setup({ initial = {}, failSet = "", confirmResult = true } = {}) {
     <button id="shortcut-reset"></button>
     <p id="shortcut-status"></p>
     <input type="checkbox" id="adder" />
+    <input type="checkbox" id="calm-scroll" />
     <input type="checkbox" id="debug" />
     <p id="apikeys-status"></p>
     <button id="clear-btn"></button>

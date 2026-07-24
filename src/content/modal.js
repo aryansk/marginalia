@@ -44,6 +44,9 @@ GA.Modal = (function () {
 
     const body = GA.el("div", { class: "ga-modal-body", role: "log", "aria-label": "Messages" });
     const empty = GA.el("div", { class: "ga-modal-empty", text: "No messages yet." });
+    // Auto-scroll policy (stick-follow + the calm-scrolling hold), shared with
+    // the docked box and panel via GA.CalmScroll.
+    const calm = GA.CalmScroll(body);
 
     function appendMsg(role, text, meta) {
       empty.remove();
@@ -63,7 +66,7 @@ GA.Modal = (function () {
         el.textContent = text;
       }
       body.appendChild(el);
-      body.scrollTop = body.scrollHeight;
+      calm.toBottom();
       return el;
     }
 
@@ -106,11 +109,14 @@ GA.Modal = (function () {
     let streamView = null;
     if (handlers && handlers.ask) {
       streamView = GA.StreamView({
-        beginEl: () => appendMsg("model", ""),
-        isLive: isLive,
-        afterUpdate: () => {
-          body.scrollTop = body.scrollHeight;
+        beginEl: () => {
+          const el = appendMsg("model", "");
+          calm.answerStart();
+          return el;
         },
+        isLive: isLive,
+        afterUpdate: () => calm.follow(),
+        onEnd: () => calm.answerEnd(),
         renderFinal: (el, text) => {
           el.textContent = "";
           el.appendChild(GA.markdown.render(text));

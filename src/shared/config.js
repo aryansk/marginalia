@@ -32,6 +32,7 @@ GA.config = {
   MODAL_MAX_FRAC: 0.95, // drag-resize ceiling as a fraction of the viewport width
   MODAL_FALLBACK_PX: 820, // drag-start width when the modal has no measurable width yet (first paint / jsdom)
   BOX_MESSAGES_MIN_PX: 40, // layout clamp floor — a squeezed box keeps at least a sliver of messages visible
+  CALM_SCROLL_BUDGET_PX: 60, // calm scrolling: follow ~3 lines of a new answer, then hold still
   BUNDLE_ITEM_CHARS: 8000, // max chars each selected item contributes to a cross-conversation prompt
 };
 
