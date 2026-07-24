@@ -29,6 +29,7 @@ extension, made fast enough for conversations carrying 100+ comment threads.
   rewritten to storage.
 - Debug logging now includes performance summaries (`[marginalia perf]` in
   the console) for verifying all of the above.
+- The composer's Ask button is slimmer (half the vertical padding).
 
 ### Fixed
 

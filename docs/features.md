@@ -6,6 +6,36 @@ install and day-to-day usage instructions, see
 
 ---
 
+## Unreleased — Built for a hundred threads
+
+_The performance release: nothing new to learn, nothing moved — the same
+extension, made fast enough for conversations carrying 100+ comment threads._
+
+- **No more freezes.** Heavily-annotated conversations used to stutter and
+  eventually hang (even on reload). The extension now does work only for
+  what actually changed on the page, so streaming, scrolling, and loading
+  stay smooth however much you've annotated.
+- **The message box grows with you.** Type as much as you like — the input
+  keeps growing (up to 40% of the window) and the comment box rises to make
+  room, so everything you've typed stays visible. The Ask button also slimmed
+  down to give the text more room.
+
+## 0.3.2 — Read at your own pace
+
+- **Calm scrolling (optional).** AI answers often arrive faster than anyone
+  can read, dragging the view down with them. Turn on **Calm scrolling** in
+  Settings and an arriving answer scrolls just a couple of lines and then
+  holds still; a round scroll-down button marks the text piling up below.
+  Click it — or scroll down yourself — to catch up and follow along again.
+- **A full-width message box.** The **MD** toggle and **Ask** button moved to
+  their own slim row beneath the input, so typing room is never traded for
+  buttons.
+- **Labels everywhere.** The full-screen view now shows and edits a thread's
+  labels just like the margin box — chips, remove-×, and the pencil editor.
+- Fixes: closing the full-screen view no longer squashes the margin box's
+  input; the full-screen view and Across-chats panel now respect your scroll
+  position while an answer streams instead of yanking to the bottom.
+
 ## 0.3.1 — A comfier place to write
 
 - **Your half-typed message follows you.** Started writing in a margin box,

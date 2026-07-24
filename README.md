@@ -50,7 +50,8 @@ modal directly.
   export (with your comments) to NotebookLM/Obsidian-ready Markdown; full
   backup/restore from the options page.
 - **Comfortable reading** — markdown + math rendering, resizable full-screen
-  view, focus mode, keyboard navigation, per-site light/dark theming.
+  view, optional calm scrolling while answers stream, focus mode, keyboard
+  navigation, per-site light/dark theming.
 - **Your choice of plumbing** — official APIs (OpenAI / Google AI / Anthropic)
   with your keys, or your logged-in Gemini/Claude session with no key at all.
 
@@ -176,8 +177,12 @@ Click the toolbar icon (or open the extension's options page — Firefox: `about
   - model. Empty = use that site's logged-in web session; set = use the official API.
     ChatGPT needs a key (its web session is Turnstile-blocked). Keys are stored in
     `browser.storage.local` (this profile only, not synced) and sent only to the provider.
+- **Backup** — export/import all threads + transcripts as JSON.
+- **Comment button** — show/hide the floating pill on text selection.
+- **Calm scrolling** — hold the view steady while an answer streams; a
+  scroll-down button marks the text growing below (off by default).
 - **Delete all saved threads.**
-- **Debug logging.**
+- **Debug logging** — also emits `[marginalia perf]` hot-path timing summaries.
 
 ## Architecture
 
@@ -204,8 +209,23 @@ src/
     tokens.js                scrape session tokens from inline-script text (Gemini)
     prompt.js                compose the prompt (+ context-scope Strategy)
     anchor-match.js          TextQuoteSelector best-match scoring
-    markdown-ast.js          markdown -> AST (Interpreter; the grammar)
+    turn-id.js               turn fingerprints + fuzzy similarity (re-anchor identity)
+    markdown-ast.js          markdown -> AST, incl. incremental parseStream for streaming
+    tex-unicode.js           TeX -> Unicode prettifier (tex-tables.js is generated)
     layout-engine.js         margin layout math: placement, height-share, orphan cluster
+    live-stream.js           in-flight answer registry (modal late-joins a stream)
+    session-bindings.js      thread -> conversation pins (persists never cross buckets)
+    labels.js                label grammar: parse/merge/validate dotted names
+    thread-search.js         panel search matching
+    global-search.js         across-chats search over stored records
+    bundle-prompt.js         across-chats synthesis prompt bundling
+    transcript.js            stored record -> exportable transcript
+    convo-merge.js           transcript merge policy (provable merges, stale upgrades)
+    compress.js              per-message gzip <-> base64 blob codec
+    backup.js                export/import archive + order-preserving turn merge
+    cycle.js                 Alt+arrow thread-cycling order
+    adder-position.js        floating Comment-pill placement math
+    theme.js                 site light/dark detection logic
   gemini/ claude/           web-session backend per site (parser/payload/client)
     parser.js                PURE: that site's streaming response -> answer
     payload.js               PURE: build that site's request body + URLs
@@ -222,19 +242,39 @@ src/
   background.js            context menu + ask router; reads settings; Gemini web fetch + token read
   content/                 imperative shell (DOM/IO; GA-global)
     util.js                  namespace, settings load, GA.provider, DOM builder, toast
+    frame.js                 named rAF task coalescing (one pass per frame)
+    perf.js                  debug-gated hot-path timing ([marginalia perf] summaries)
+    icons.js                 inline-SVG icon factory (no innerHTML)
+    ui-bits.js               small shared widgets: pills, error card, confirm popover
     store.js                 storage.local, keyed by "<provider>:<id>" conversation
     markdown.js              render the markdown AST -> DOM (XSS-safe)
     anchor.js                Range <-> offset mapping + TreeWalker (uses anchor-match)
+    turns.js                 turn discovery + fingerprint cache over the page DOM
     selection.js             capture selection, wrap/unwrap highlight spans
+    adder.js                 floating Comment pill on text selection
+    composer.js              shared ask/stop input (autosize, MD toggle, undo)
+    undo-stack.js            composer-local undo (restore cleared/sent text)
+    stream-view.js           streaming-answer state machine (shared by box + modal)
+    calm-scroll.js           auto-scroll policy: stick-follow / calm hold + button
     thread-turn.js           presenter for one Q&A turn (testable with fakes)
     thread-ui.js             one comment box (view): minimize / normal / maximize
+    label-strip.js           shared label chips + inline editor (box + modal)
+    label-ui.js              standalone label-chip surface
+    dialog.js                modal dialog chrome (overlay, focus, Esc)
     modal.js                 full-screen thread view
+    panel.js                 all-threads panel (filters, search, jump)
+    panel-global.js          Across-chats tab: global search + synthesis runs
     gutter.js                margin VIEW: reads the page, applies layout-engine output
+    keyboard-nav.js          Alt+arrow cycling, collapse-all, focus moves
+    convo-capture.js         capture the page transcript into the convo record
+    convo-repair.js          heal + decode stored transcripts (export path)
+    theme-detector.js        live site light/dark observer
     token-provider.js        get session tokens (scrape + MAIN-world fallback + cache)
+    ask-flow.js              auth policy over askService: web tokens + one AUTH retry
     ask-service.js           Facade over the background ask port (tags each ask w/ provider)
     triggers.js              context-menu + keyboard shortcut
     navigation.js            SPA route-change detection
-    reanchorer.js            re-anchor orphans on mutation/scroll
+    reanchorer.js            re-anchor orphans on mutation/scroll (single scroll entry)
     thread-controller.js     thread lifecycle + ask round-trip
     content.js               entry point — wires the collaborators together
   options/                 settings page (shortcut, scope, API keys, data, debug)
