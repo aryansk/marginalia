@@ -232,7 +232,7 @@ describe("GA.fitTextarea", () => {
     expect(GA.fitTextarea(ta)).toBe("48px");
   });
 
-  it("returns the measured height, capped at TEXTAREA_MAX_PX", () => {
+  it("returns the measured height, capped at a viewport fraction (floor TEXTAREA_MAX_PX)", () => {
     const GA = makeGA();
     const ta = document.createElement("textarea");
     document.body.appendChild(ta);
@@ -240,7 +240,18 @@ describe("GA.fitTextarea", () => {
     Object.defineProperty(ta, "scrollHeight", { value: 64, configurable: true });
     expect(GA.fitTextarea(ta)).toBe("64px");
 
+    // grow-to-fit: the cap is a viewport fraction so typed text stays visible
+    const cap = Math.max(
+      GA.config.TEXTAREA_MAX_PX,
+      Math.round(window.innerHeight * GA.config.TEXTAREA_GROW_MAX_FRAC),
+    );
     Object.defineProperty(ta, "scrollHeight", { value: 5000, configurable: true });
+    expect(GA.fitTextarea(ta)).toBe(cap + "px");
+
+    // short viewports keep the fixed floor
+    const origH = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { value: 200, configurable: true });
     expect(GA.fitTextarea(ta)).toBe(GA.config.TEXTAREA_MAX_PX + "px");
+    Object.defineProperty(window, "innerHeight", { value: origH, configurable: true });
   });
 });

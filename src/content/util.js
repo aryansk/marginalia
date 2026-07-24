@@ -122,7 +122,15 @@ GA.fitTextarea = function (textarea) {
   // A hidden textarea (display:none ancestor) measures 0 — keep whatever
   // height it had rather than pinning 0px that survives un-hiding.
   if (!sh) return prev;
-  return Math.min(sh, GA.config.TEXTAREA_MAX_PX) + "px";
+  // Grow-to-fit: everything typed stays visible (no internal scroll) up to a
+  // viewport fraction — the gutter's corridor math absorbs the growth by
+  // pinning the box bottom and raising its top. TEXTAREA_MAX_PX is the floor
+  // so short viewports keep a usable input.
+  const cap = Math.max(
+    GA.config.TEXTAREA_MAX_PX,
+    Math.round(window.innerHeight * (GA.config.TEXTAREA_GROW_MAX_FRAC || 0)),
+  );
+  return Math.min(sh, cap) + "px";
 };
 
 // Whether the browser supports CSS Anchor Positioning WELL ENOUGH to glue the

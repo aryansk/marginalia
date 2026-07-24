@@ -1072,7 +1072,9 @@
   border: 1px solid var(--ga-border);
   border-radius: var(--ga-r-md);
   padding: 8px 10px;
-  max-height: 120px;
+  /* mirrors the JS auto-grow cap (fitTextarea): grow-to-fit up to a viewport
+     fraction so typed text never scrolls out of its own input */
+  max-height: 40vh;
   outline: none;
 }
 .ga-input:focus {

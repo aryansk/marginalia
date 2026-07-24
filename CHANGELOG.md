@@ -30,6 +30,13 @@ extension, made fast enough for conversations carrying 100+ comment threads.
 - Debug logging now includes performance summaries (`[marginalia perf]` in
   the console) for verifying all of the above.
 
+### Fixed
+
+- **The composer grows to fit what you type.** The input used to stop at
+  ~6 lines and scroll internally, hiding earlier lines; it now keeps
+  growing (up to 40% of the window) while the thread box rises to make
+  room — everything you've typed stays visible.
+
 ## 0.3.2 — 2026-07-23
 
 The reading comfort release.
