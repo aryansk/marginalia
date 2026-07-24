@@ -139,6 +139,19 @@ OFF for feel:
    looks and behaves exactly as it did before the program. The only change
    you should be able to detect is speed.
 
+## UI fixes riding the same release (verify alongside)
+
+1. **Streaming grow-up flicker** — stream a long answer into a small docked
+   box whose bottom sits at the reserved strip: the box grows and its top
+   lifts in the same repaint — no sagging into the strip, no jerk back up,
+   no eased "slide" mid-stream, and no one-frame sag when the answer
+   finishes (final rebuild). Check both Chrome (anchored mode) and Firefox.
+2. **Multi-bullet highlight** — on live ChatGPT/Gemini, highlight a passage
+   spanning 2+ bullets (and once via triple-click): list markers, spacing
+   and numbering stay intact, no stray highlighted slivers between items;
+   deleting the thread restores the list exactly. In Chrome, the comment
+   box must anchor level with visible text (not an invisible sliver).
+
 ## Recording results
 
 Append to `docs/pending/perf.md` → Measurements, per phase:
