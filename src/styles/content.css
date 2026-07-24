@@ -1016,6 +1016,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex-shrink: 0; /* the box column must squeeze messages, never the input */
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--ga-border);
@@ -1062,7 +1063,13 @@
   max-height: none; /* a hand-set height wins over the auto-grow cap */
 }
 .ga-input {
-  flex: 1;
+  /* NOT a flex-sized item. `flex: 1` was the ROW layout's "take the
+     remaining width"; in the column composer the main axis is vertical, so
+     it made the browser size the HEIGHT by flex (intrinsic rows-based ≈ two
+     lines) and discard the inline height autosize writes on every keystroke.
+     flex:none makes the autosized height authoritative; width comes from the
+     composer's align-items: stretch. */
+  flex: none;
   resize: none;
   font-family: inherit;
   font-size: 13px;
