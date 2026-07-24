@@ -32,10 +32,10 @@ transparency bug — file it, don't rationalize it.
 
 ## Phase 0 — instrumentation
 
-| Step | Expect |
-| --- | --- |
-| Debug OFF, browse + stream an answer | zero `[marginalia perf]` output; `GA.perf.snapshot()` stays `{}` |
-| Debug ON, repeat | summaries appear; snapshot has `reanchor.frame`, `gutter.relayout`, etc. |
+| Step                                 | Expect                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| Debug OFF, browse + stream an answer | zero `[marginalia perf]` output; `GA.perf.snapshot()` stays `{}`         |
+| Debug ON, repeat                     | summaries appear; snapshot has `reanchor.frame`, `gutter.relayout`, etc. |
 
 ## Phase 1 — re-anchor hot path
 
