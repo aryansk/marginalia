@@ -41,9 +41,8 @@ Then: version bump + CHANGELOG ("performance release"), single entry.
   of per frame (P1).
 - ≤250ms message-append persist window on hard tab crash (P3) — comparable
   to today's crash-mid-write exposure.
-- Cue badges refresh on scroll-pause (~200ms) rather than per scroll frame
-  in anchored mode (P5) — fallback noted in plan if it ever reads as a
-  change.
+- Cue badges refresh at ~4Hz (250ms throttle) rather than per scroll frame
+  in anchored mode (P5); exact counts land with every settle relayout.
 
 ## Deferred (not transparent — revisit deliberately)
 
@@ -55,6 +54,13 @@ Then: version bump + CHANGELOG ("performance release"), single entry.
 - Rejected by inversion: scroll-delta anchor tracking (inner scroller +
   nested scrollers make delta math unsound); dirty-turn _filtering_
   (correctness — replaced with search ordering).
+- Dropped during P5 implementation: the frame-local rect cache with a
+  generation counter — after the cue throttle + relayout-yield, anchored-mode
+  frames have ~no duplicate rect reads left to share, and JS-positioned mode
+  must read fresh rects each pass (it writes positions from them); a
+  cross-frame cache there would be incorrect. The relayout/render-window
+  alignment is subsumed by P4's flush cadence (streaming relayouts are
+  triggered by renders, which are already batched).
 - Dropped during P3 implementation (both would have added risk for ~no win):
   background-worker gzip — compression is already per-NEW-message only and
   CompressionStream-async; the sync residue (base64 of a few new messages) is

@@ -26,8 +26,11 @@ GA.gutter = (function () {
     anchored: false, // CSS Anchor Positioning verified working (behavior probe) — see init()
     animateNext: false, // next relayout is a deliberate shift -> ease it
     settleTimer: null, // anchored mode: debounced engine pass after scrolling
+    layoutQueued: false, // a full relayout is scheduled this frame (it publishes cues)
+    lastCueSweep: -250, // throttle stamp for the light cue sweep
   };
   const SETTLE_MS = 200;
+  const CUE_SWEEP_MS = 250; // cue refresh cadence during sustained scroll/stream
 
   function init() {
     if (container) return;
@@ -242,6 +245,7 @@ GA.gutter = (function () {
   // listener, so `opts` may be an Event — only an explicit flag counts.)
   function scheduleLayout(opts) {
     if (opts && opts.animate === true) state.animateNext = true;
+    state.layoutQueued = true;
     GA.frame.schedule("layout", relayout);
   }
 
@@ -254,7 +258,16 @@ GA.gutter = (function () {
       scheduleLayout();
       return;
     }
-    GA.frame.schedule("cues", updateCuesLight);
+    // Throttled cue sweep: a per-frame O(N) rect read bought nothing a 4Hz
+    // refresh doesn't, and the settle relayout publishes exact counts the
+    // moment movement stops. (Throttle, not settle-only: ChatGPT's own long
+    // streams keep resetting the settle timer, and counts should stay
+    // live-ish while the page grows under the boxes.)
+    const now = performance.now();
+    if (now - state.lastCueSweep >= CUE_SWEEP_MS) {
+      state.lastCueSweep = now;
+      GA.frame.schedule("cues", updateCuesLight);
+    }
     if (state.settleTimer) clearTimeout(state.settleTimer);
     state.settleTimer = setTimeout(function () {
       state.settleTimer = null;
@@ -264,6 +277,9 @@ GA.gutter = (function () {
 
   // Cue counts without touching geometry: cheap reads only, no engine run.
   function updateCuesLight() {
+    // A queued full relayout publishes exact cue counts itself — running the
+    // light sweep too would just double-read every anchor rect this frame.
+    if (state.layoutQueued) return;
     if (!registry.size || state.mode === "hidden") return;
     const H = window.innerHeight;
     let above = 0;
@@ -280,6 +296,7 @@ GA.gutter = (function () {
   }
 
   function relayout() {
+    state.layoutQueued = false;
     if (!container) return;
     const timed = GA.perf ? GA.perf.time : (n, fn) => fn();
     timed("gutter.relayout", relayoutNow);
