@@ -63,6 +63,24 @@ GA.selection = (function () {
     };
   }
 
+  // Containers whose direct text children are inter-ELEMENT whitespace only —
+  // never rendered. Wrapping those nodes puts <span> children inside
+  // <ul>/<table>/…, which breaks host list/table CSS (li:first-child, li + li,
+  // flex/grid lists, markers) and can hand spans[0] — the layout anchor — to a
+  // zero-rect sliver. Whitespace inside an <li>/<p> IS rendered and stays
+  // wrapped (skipping it would leave gaps in the highlight).
+  const WS_ONLY_PARENTS = new Set([
+    "UL",
+    "OL",
+    "MENU",
+    "DL",
+    "TABLE",
+    "THEAD",
+    "TBODY",
+    "TFOOT",
+    "TR",
+  ]);
+
   // Wrap each text-node slice intersecting `range` in a highlight span.
   // Returns the list of created spans (first one is the anchor for layout).
   function highlightRange(range, threadId) {
@@ -74,9 +92,13 @@ GA.selection = (function () {
     const textNodes = [];
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(n) {
-        return range.intersectsNode(n) && n.nodeValue && n.nodeValue.length
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
+        if (!range.intersectsNode(n) || !n.nodeValue || !n.nodeValue.length)
+          return NodeFilter.FILTER_REJECT;
+        // Unrendered inter-element whitespace (between <li>s, <tr>s, …):
+        // nothing visible to highlight, and the span itself is the damage.
+        if (!n.nodeValue.trim() && n.parentElement && WS_ONLY_PARENTS.has(n.parentElement.tagName))
+          return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
       },
     });
     let n;

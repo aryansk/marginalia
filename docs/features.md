@@ -20,7 +20,9 @@ extension, made fast enough for conversations carrying 100+ comment threads._
   room, so everything you've typed stays visible. The Ask button also slimmed
   down to give the text more room.
 - Fixes: answers streaming into a small comment box near the bottom of the
-  window no longer make the box flicker while it grows.
+  window no longer make the box flicker while it grows; highlighting a
+  passage that spans several bullets no longer disturbs the page's own
+  list formatting.
 
 ## 0.3.2 — Read at your own pace
 

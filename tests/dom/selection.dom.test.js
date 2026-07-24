@@ -48,6 +48,84 @@ describe("selection.highlightRange", () => {
   });
 });
 
+// Live ChatGPT/Gemini markdown HTML carries newlines between <li>s (our
+// captured fixtures are minified, so only these tests exercise them). Wrapping
+// that unrendered whitespace put <span> children inside <ul>/<ol>/<table>,
+// breaking host list CSS (li:first-child, li + li, flex/grid lists, markers).
+describe("highlightRange across list items (host list styling)", () => {
+  function listFixture() {
+    const root = document.createElement("div");
+    root.innerHTML = "<ol>\n  <li>first bullet</li>\n  <li>second bullet</li>\n</ol>";
+    document.body.appendChild(root);
+    const ol = root.querySelector("ol");
+    return { root, ol, li1: ol.children[0], li2: ol.children[1] };
+  }
+
+  it("skips inter-<li> whitespace: the <ol> keeps only LI children; unhighlight restores", () => {
+    const { root, ol, li1, li2 } = listFixture();
+    const before = root.textContent;
+
+    const range = document.createRange();
+    range.setStart(li1.firstChild, 2);
+    range.setEnd(li2.firstChild, 6);
+    const spans = GA.selection.highlightRange(range, "L1");
+
+    expect(spans).toHaveLength(2); // the whitespace node between the LIs was not wrapped
+    expect(Array.from(ol.children).every((c) => c.tagName === "LI")).toBe(true);
+    expect(li1.querySelector(".ga-highlight").textContent).toBe("rst bullet");
+    expect(li2.querySelector(".ga-highlight").textContent).toBe("second");
+    expect(root.textContent).toBe(before);
+
+    GA.selection.unhighlight("L1");
+    expect(document.querySelector(".ga-highlight")).toBeNull();
+    expect(root.textContent).toBe(before);
+    expect(Array.from(ol.children).every((c) => c.tagName === "LI")).toBe(true);
+  });
+
+  it("an element-boundary start (triple-click shape) never anchors to a whitespace sliver", () => {
+    const { ol, li2 } = listFixture();
+    const range = document.createRange();
+    range.setStart(ol, 0); // boundary before the leading "\n  " text node
+    range.setEnd(li2.firstChild, 6);
+    const spans = GA.selection.highlightRange(range, "L2");
+
+    expect(spans[0].textContent).toBe("first bullet"); // not the whitespace node
+    expect(spans[0].style.getPropertyValue("anchor-name")).toBe("--ga-L2");
+  });
+
+  it("keeps rendered whitespace inside an <li> (space between inline elements)", () => {
+    const root = document.createElement("div");
+    root.innerHTML = "<ul><li><b>foo</b> <i>bar</i></li></ul>";
+    document.body.appendChild(root);
+    const li = root.querySelector("li");
+    const range = document.createRange();
+    range.setStart(li.querySelector("b").firstChild, 0);
+    range.setEnd(li.querySelector("i").firstChild, 3);
+
+    const spans = GA.selection.highlightRange(range, "L3");
+    expect(spans).toHaveLength(3); // "foo", " ", "bar" — the visible space IS wrapped
+    expect(spans[1].textContent).toBe(" ");
+    expect(root.textContent).toBe("foo bar");
+  });
+
+  it("skips inter-row whitespace in tables", () => {
+    const root = document.createElement("div");
+    // The parser auto-wraps rows in <tbody> and keeps ws-only text in table
+    // contexts — assert on tbody.children.
+    root.innerHTML = "<table>\n<tr><td>alpha</td></tr>\n<tr><td>beta</td></tr>\n</table>";
+    document.body.appendChild(root);
+    const cells = root.querySelectorAll("td");
+    const range = document.createRange();
+    range.setStart(cells[0].firstChild, 0);
+    range.setEnd(cells[1].firstChild, 4);
+
+    const spans = GA.selection.highlightRange(range, "L4");
+    expect(spans).toHaveLength(2);
+    const tbody = root.querySelector("tbody");
+    expect(Array.from(tbody.children).every((c) => c.tagName === "TR")).toBe(true);
+  });
+});
+
 describe("selection.unhighlight", () => {
   it("removes the spans and restores the original text", () => {
     const root = document.createElement("div");

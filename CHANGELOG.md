@@ -42,6 +42,11 @@ extension, made fast enough for conversations carrying 100+ comment threads.
   the box's bottom edge down into the reserved strip and jerk back up
   whenever an unrelated relayout happened to run — and could randomly
   inherit an easing meant for a deliberate shift, mixing slides with snaps.
+- **Highlighting across several bullets no longer disturbs the page's list
+  styling.** Invisible whitespace between list items (and table rows) used
+  to get wrapped in highlight spans, confusing the host page's list CSS and
+  occasionally rendering stray highlighted slivers — and on triple-click
+  selections the box could anchor to one of those invisible slivers.
 
 ## 0.3.2 — 2026-07-23
 
