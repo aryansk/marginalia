@@ -24,6 +24,7 @@ function makeGA() {
     "src/content/stream-view.js",
     "src/content/undo-stack.js",
     "src/content/composer.js",
+    "src/content/label-strip.js",
     "src/content/thread-ui.js",
     "src/content/gutter.js",
   ]);

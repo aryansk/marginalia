@@ -969,6 +969,11 @@
   background: var(--ga-hover);
 }
 
+/* the label strip inside the modal aligns with its 16px gutters */
+.ga-modal .ga-thread-labels {
+  padding: 10px 16px;
+}
+
 /* composer: full-width textarea over a slim controls row (MD left, Ask
    right) — the input never gives up horizontal space to buttons */
 .ga-composer {

@@ -75,6 +75,7 @@
         "src/content/dialog.js",
         "src/content/undo-stack.js",
         "src/content/composer.js",
+        "src/content/label-strip.js",
         "src/content/thread-ui.js",
         "src/content/label-ui.js",
         "src/content/modal.js",

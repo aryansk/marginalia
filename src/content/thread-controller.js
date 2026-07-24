@@ -291,21 +291,26 @@ GA.threadController = (function () {
   function expandThread(thread) {
     const it = GA.gutter.get(thread.id);
     const wasCompact = !!(it && it.box.isCompact());
-    if (it && !wasCompact) it.box.setCollapsed(true, { persist: false });
     // The in-progress draft follows the user into the modal and, if still
-    // unsent when the modal closes, comes back to the docked box.
+    // unsent when the modal closes, comes back to the docked box. Taken
+    // BEFORE collapsing: the clear re-fits the textarea, which must be
+    // visible to measure.
     const draft = it && it.box.takeDraft ? it.box.takeDraft() : "";
-    // A standalone label has no conversation to continue — open read-only
-    // (no composer) rather than let a modal question graft messages onto it.
+    if (it && !wasCompact) it.box.setCollapsed(true, { persist: false });
+    // A standalone label has no conversation to continue — open without a
+    // composer (ask: null) rather than let a modal question graft messages
+    // onto it; the label strip still gets persist/onLabel for editing.
     GA.Modal.open(
       thread,
-      thread.kind === "label" ? null : makeHandlers(),
+      thread.kind === "label" ? { ...makeHandlers(), ask: null } : makeHandlers(),
       function (modalDraft) {
         const cur = GA.gutter.get(thread.id);
         if (cur) {
           if (!wasCompact) cur.box.setCollapsed(false, { persist: false });
           if (cur.box.refreshMessages) cur.box.refreshMessages();
-          if (modalDraft && cur.box.setDraft) cur.box.setDraft(modalDraft);
+          // Unconditional: an empty draft still re-fits the textarea, healing
+          // any height measured while the box was hidden.
+          if (cur.box.setDraft) cur.box.setDraft(modalDraft || "");
         }
         GA.gutter.scheduleLayout();
       },

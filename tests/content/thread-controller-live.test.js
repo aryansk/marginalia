@@ -161,11 +161,19 @@ describe("expandThread minimize/restore", () => {
     expect(box.setDraft).toHaveBeenCalledWith("edited in the modal, still unsent");
   });
 
-  it("an empty modal draft is not pushed back into the box", async () => {
+  it("an empty modal draft still writes back (the setDraft re-fits the textarea)", async () => {
     await restoreOne(GA, "t1");
     GA.threadController.expandThreadById("t1");
     GA.Modal.open.mock.calls[0][2]("");
-    expect(box.setDraft).not.toHaveBeenCalled();
+    expect(box.setDraft).toHaveBeenCalledWith("");
+  });
+
+  it("takes the draft before collapsing the box (a hidden textarea measures 0)", async () => {
+    await restoreOne(GA, "t1");
+    GA.threadController.expandThreadById("t1");
+    expect(box.takeDraft.mock.invocationCallOrder[0]).toBeLessThan(
+      box.setCollapsed.mock.invocationCallOrder[0],
+    );
   });
 
   it("an already-minimized box is left alone (and stays minimized on close)", async () => {

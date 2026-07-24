@@ -22,6 +22,7 @@ function makeGA() {
       "src/content/dialog.js",
       "src/content/undo-stack.js",
       "src/content/composer.js",
+      "src/content/label-strip.js",
       "src/content/modal.js",
     ],
     {
@@ -256,5 +257,94 @@ describe("draft handoff + composer upgrades", () => {
     expect(msgs[0].querySelector("pre, code")).toBeTruthy();
     expect(msgs[1].querySelector("h1, pre, code")).toBeFalsy();
     expect(msgs[1].textContent).toBe("# not a heading");
+  });
+});
+
+describe("Modal — label strip", () => {
+  const labeledThread = (labels) => ({ ...makeThread(), labels });
+
+  it("renders the thread's labels between header and body", () => {
+    const GA = makeGA();
+    GA.Modal.open(labeledThread(["project.ux", "todo"]), baseHandlers(), () => {});
+
+    const strip = document.querySelector(".ga-modal .ga-thread-labels");
+    expect(strip).toBeTruthy();
+    expect(Array.from(strip.querySelectorAll(".ga-label-pill"), (p) => p.textContent)).toEqual([
+      "project.ux",
+      "todo",
+    ]);
+    expect(strip.previousElementSibling.classList.contains("ga-modal-header")).toBe(true);
+    expect(strip.nextElementSibling.classList.contains("ga-modal-body")).toBe(true);
+  });
+
+  it("editing in the modal strip removes a label and persists to the record", () => {
+    const GA = makeGA();
+    const handlers = baseHandlers();
+    const thread = labeledThread(["a", "b"]);
+    GA.Modal.open(thread, handlers, () => {});
+
+    document.querySelector(".ga-modal .ga-label-editbtn").click();
+    document.querySelector(".ga-modal .ga-label-remove").click();
+    expect(thread.labels).toEqual(["b"]);
+    expect(handlers.persist).toHaveBeenCalledWith(thread);
+  });
+
+  it("/label in the modal composer updates the strip live (no toast, no LLM turn)", () => {
+    const GA = makeGA();
+    const runSpy = vi.spyOn(GA.threadTurn, "run");
+    const thread = { ...makeThread([{ role: "user", text: "q" }]), labels: [] };
+    const handlers = {
+      ...baseHandlers(),
+      onLabel: vi.fn((t, labels) => {
+        t.labels = GA.core.labels.merge(t.labels, labels); // controller policy
+      }),
+    };
+    GA.Modal.open(thread, handlers, () => {});
+
+    const ta = document.querySelector(".ga-modal .ga-input");
+    ta.value = "/label project.ux";
+    document.querySelector(".ga-modal .ga-send").click();
+
+    expect(handlers.onLabel).toHaveBeenCalledWith(thread, ["project.ux"]);
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(document.querySelector(".ga-modal .ga-thread-labels .ga-label-pill")).toBeTruthy();
+    expect(document.querySelector(".ga-toast")).toBeFalsy();
+  });
+
+  it("/label converting an empty thread still closes the modal", () => {
+    const GA = makeGA();
+    const thread = { ...makeThread(), labels: [] };
+    const handlers = {
+      ...baseHandlers(),
+      onLabel: vi.fn((t, labels) => {
+        t.kind = "label"; // controller converted the empty record
+        t.labels = labels;
+      }),
+    };
+    const onClosed = vi.fn();
+    GA.Modal.open(thread, handlers, onClosed);
+
+    const ta = document.querySelector(".ga-modal .ga-input");
+    ta.value = "/label todo";
+    document.querySelector(".ga-modal .ga-send").click();
+    expect(onClosed).toHaveBeenCalled();
+    expect(document.querySelector(".ga-modal")).toBeFalsy();
+  });
+
+  it("a label record opened with ask:null gets the strip but no composer", () => {
+    const GA = makeGA();
+    const thread = { ...labeledThread(["todo"]), kind: "label" };
+    GA.Modal.open(thread, { ...baseHandlers(), ask: null }, () => {});
+
+    expect(document.querySelector(".ga-modal .ga-thread-labels .ga-label-pill")).toBeTruthy();
+    expect(document.querySelector(".ga-modal .ga-composer")).toBeFalsy();
+    expect(document.querySelector(".ga-modal")).toBeTruthy(); // did not self-close
+  });
+
+  it("no handlers -> no strip, no crash (legacy read-only open)", () => {
+    const GA = makeGA();
+    GA.Modal.open(labeledThread(["todo"]), null, () => {});
+    expect(document.querySelector(".ga-modal")).toBeTruthy();
+    expect(document.querySelector(".ga-modal .ga-thread-labels")).toBeFalsy();
   });
 });

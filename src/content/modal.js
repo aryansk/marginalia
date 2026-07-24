@@ -12,8 +12,9 @@ GA.Modal = (function () {
   let endDrag = null; // active drag teardown (also run on close)
   let detachFeed = null; // live-stream unsubscribe (open-mid-stream case)
 
-  // handlers: the thread's box handlers (ask/persist/onStop) — optional; the
-  // composer is omitted when absent (read-only legacy behavior).
+  // handlers: the thread's box handlers (ask/persist/onLabel/onStop) —
+  // optional; the composer is omitted when `ask` is absent (read-only
+  // surfaces), the label strip when handlers are absent entirely.
   // opts.draft seeds the composer (the docked box's in-progress text follows
   // the user into the modal); onClosed receives the unsent modal draft so the
   // controller can hand it back.
@@ -69,8 +70,6 @@ GA.Modal = (function () {
     (thread.messages || []).forEach((m) => appendMsg(m.role, m.text, m));
     if (!thread.messages || !thread.messages.length) body.appendChild(empty);
 
-    const parts = [header, body];
-
     // Assigned once GA.dialog.open returns below; the stream hooks and the
     // late-join closure read it lazily, so "is this modal still open?" always
     // consults THIS open's dialog, not whichever one is current. While the
@@ -79,11 +78,31 @@ GA.Modal = (function () {
     let myDlg = null;
     const isLive = () => !myDlg || myDlg.isOpen();
 
+    // Label strip: the same shared editor the docked box mounts, so labels
+    // read and edit identically in both surfaces (same thread object — edits
+    // here appear in the box via refreshMessages on close). An in-strip add
+    // that converts an empty thread to a standalone label closes the modal
+    // (the chip is its surface now) — but only when a composer exists; a
+    // read-only label-record modal must not close itself on initial render.
+    let composer = null; // assigned below; the strip's onChange reads it lazily
+    let strip = null;
+    if (handlers) {
+      strip = GA.LabelStrip(thread, {
+        persist: handlers.persist,
+        onLabel: handlers.onLabel,
+        isLive: isLive,
+        onChange: () => {
+          if (composer && thread.kind === "label") close();
+        },
+      });
+      strip.render();
+    }
+    const parts = strip ? [header, strip.el, body] : [header, body];
+
     // Composer: same turn orchestration as the docked box. The streaming
     // machine is the shared GA.StreamView; the modal deliberately passes no
     // announce/onFinish/onEnd hooks — it has no live region, unread dot or
     // chip count, and its error cards carry no Retry.
-    let composer = null;
     let streamView = null;
     if (handlers && handlers.ask) {
       streamView = GA.StreamView({
@@ -116,14 +135,13 @@ GA.Modal = (function () {
         markdownToggle: true,
         resizable: true, // the maximized view has room — let the input grow
         onSubmit: (q, sendOpts) => {
-          // Same shared /label intercept as the docked box. The modal has no
-          // label section, so a toast is the feedback; converting an empty
-          // thread closes the modal (the chip is its surface now).
+          // Same shared /label intercept as the docked box; the strip
+          // updating is the feedback (parity with the box). Converting an
+          // empty thread closes the modal (the chip is its surface now) —
+          // the controller's conversion toast explains why.
           const handled = GA.tryLabelCommand(q, thread, handlers, () => {
-            // Conversion already toasts from the controller — don't overwrite
-            // its "now a tag" explanation with a plainer message.
             if (thread.kind === "label") close();
-            else GA.toast("Labeled: " + thread.labels.join(", "));
+            else if (strip) strip.render();
           });
           if (handled) return;
           GA.threadTurn.run(thread, q, ops, sendOpts);

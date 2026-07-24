@@ -23,6 +23,7 @@ function makeGA() {
       "src/content/stream-view.js",
       "src/content/undo-stack.js",
       "src/content/composer.js",
+      "src/content/label-strip.js",
       "src/content/thread-ui.js",
     ],
     {
@@ -140,5 +141,26 @@ describe("ThreadBox.destroy()", () => {
     box.destroy();
     expect(box.el.isConnected).toBe(false);
     expect(box.el.querySelectorAll(".ga-msg")).toHaveLength(0);
+  });
+});
+
+describe("draft handoff while collapsed", () => {
+  it("takeDraft on a collapsed box never pins the textarea to 0px", () => {
+    const GA = makeGA();
+    const box = GA.ThreadBox(
+      { id: "h1", selector: { exact: "x" }, messages: [] },
+      { persist: () => {} },
+    );
+    document.body.appendChild(box.el);
+    const ta = box.el.querySelector(".ga-input");
+    ta.style.height = "40px"; // a previously-fitted height
+
+    // The wasCompact expand path: the composer is display:none when the
+    // draft is taken, so fitTextarea measures scrollHeight 0 — the guard
+    // must keep the prior height instead of writing 0px.
+    box.setCollapsed(true, { persist: false });
+    box.takeDraft();
+    box.setCollapsed(false, { persist: false });
+    expect(ta.style.height).toBe("40px");
   });
 });

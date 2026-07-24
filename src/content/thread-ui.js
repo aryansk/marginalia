@@ -99,8 +99,7 @@ GA.ThreadBox = function (thread, handlers) {
       "aria-label": "Add label",
       onclick: function (e) {
         e.stopPropagation();
-        editingLabels = true;
-        renderLabels();
+        labelStrip.edit();
       },
     },
     GA.icons.make("tag"),
@@ -190,84 +189,21 @@ GA.ThreadBox = function (thread, handlers) {
 
   // ---- labels ----
   // Shown right under the header when the thread has labels (hidden while
-  // collapsed — the chip's tag glyph carries the signal there). The editor is
-  // the SAME pill-by-pill model the standalone chip uses (× removes one,
-  // add-input merges) — one mental model for label editing everywhere.
-  const labelsEl = GA.el("div", { class: "ga-thread-labels" });
-  let editingLabels = false;
-
-  function removeLabel(name) {
-    thread.labels = (thread.labels || []).filter((l) => l !== name);
-    root.classList.toggle("ga-has-labels", thread.labels.length > 0);
-    handlers.persist && handlers.persist(thread);
-    renderLabels();
-  }
-
-  function addLabels(text) {
-    const parsed = GA.core.labels.parseList(text);
-    if (parsed.invalid.length) {
-      GA.toast(GA.core.labels.invalidMessage(parsed.invalid[0]));
-      return; // stay in the editor — the typed text is still on screen
-    }
-    if (!parsed.labels.length) {
-      editingLabels = false; // empty Enter = done editing
-      renderLabels();
-      return;
-    }
-    // Route through the controller: on an EMPTY thread this converts the
-    // record to a standalone label (destroying this box) — same policy as
-    // the /label command.
-    handlers.onLabel && handlers.onLabel(thread, parsed.labels);
-    if (!state.destroyed) renderLabels();
-  }
-
-  function renderLabels() {
-    const labels = thread.labels || [];
-    root.classList.toggle("ga-has-labels", labels.length > 0);
-    labelsEl.textContent = "";
-    if (editingLabels) {
-      labels.forEach((l) => labelsEl.appendChild(GA.labelPill(l, { onRemove: removeLabel })));
-      const input = GA.el("input", {
-        class: "ga-label-edit",
-        type: "text",
-        placeholder: "Add label…",
-        "aria-label": "Add labels (space-separated; quote names with spaces)",
-      });
-      input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          addLabels(input.value);
-        } else if (e.key === "Escape") {
-          e.stopPropagation(); // don't bubble into the box's delete/Esc guard
-          editingLabels = false;
-          renderLabels();
-        }
-      });
-      labelsEl.appendChild(input);
-      input.focus();
-    } else if (labels.length) {
-      labelsEl.appendChild(GA.labelGlyph({ on: true }));
-      labels.forEach((l) => labelsEl.appendChild(GA.labelPill(l)));
-      labelsEl.appendChild(
-        GA.el(
-          "button",
-          {
-            class: "ga-iconbtn ga-label-editbtn",
-            title: "Edit labels",
-            "aria-label": "Edit labels",
-            onclick: function (e) {
-              e.stopPropagation();
-              editingLabels = true;
-              renderLabels();
-            },
-          },
-          GA.icons.make("pencil"),
-        ),
-      );
-    }
-    invalidateHeight();
-    handlers.onResize && handlers.onResize();
-  }
+  // collapsed — the chip's tag glyph carries the signal there). The strip
+  // itself is the shared GA.LabelStrip (same one the modal mounts). Adds
+  // route through the controller: on an EMPTY thread that converts the
+  // record to a standalone label (destroying this box) — the isLive guard
+  // skips the re-render then.
+  const labelStrip = GA.LabelStrip(thread, {
+    persist: (t) => handlers.persist && handlers.persist(t),
+    onLabel: (t, labels) => handlers.onLabel && handlers.onLabel(t, labels),
+    isLive: () => !state.destroyed,
+    onChange: () => {
+      root.classList.toggle("ga-has-labels", (thread.labels || []).length > 0);
+      invalidateHeight();
+      handlers.onResize && handlers.onResize();
+    },
+  });
 
   // ---- messages ----
   // role=log: screen readers announce additions without re-reading the whole
@@ -334,7 +270,7 @@ GA.ThreadBox = function (thread, handlers) {
 
   root.appendChild(liveRegion);
   root.appendChild(header);
-  root.appendChild(labelsEl);
+  root.appendChild(labelStrip.el);
   root.appendChild(messagesEl);
   root.appendChild(composer.el);
   root.appendChild(reopenBar);
@@ -363,7 +299,7 @@ GA.ThreadBox = function (thread, handlers) {
   // render any existing history (restored threads)
   (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
   updateChipCount();
-  renderLabels();
+  labelStrip.render();
 
   // restore persisted view state (don't persist — nothing changed)
   if (thread.collapsed) setCollapsed(true, { persist: false });
@@ -536,7 +472,8 @@ GA.ThreadBox = function (thread, handlers) {
     // /label is a command, not a question — the shared intercept keeps it
     // away from the LLM. Append-vs-convert policy lives in the controller;
     // conversion destroys this box, hence the destroyed guard on the tail.
-    if (GA.tryLabelCommand(q, thread, handlers, () => !state.destroyed && renderLabels())) return;
+    if (GA.tryLabelCommand(q, thread, handlers, () => !state.destroyed && labelStrip.render()))
+      return;
     GA.threadTurn
       .run(thread, q, makeTurnOps(), sendOpts)
       .then(() => !state.destroyed && handlers.onResize && handlers.onResize());
@@ -594,9 +531,8 @@ GA.ThreadBox = function (thread, handlers) {
       messagesEl.textContent = "";
       (thread.messages || []).forEach((m) => appendMessage(m.role, m.text, m));
       updateChipCount();
-      // The modal can also have APPENDED LABELS (/label there persists to the
-      // record but renders nothing here) — refresh means the whole record.
-      renderLabels();
+      // The modal can also have EDITED LABELS — refresh means the whole record.
+      labelStrip.render();
       invalidateHeight();
     },
     setOrphan: GA.makeOrphanToggle({ root, header, snippet, onChange: invalidateHeight }),

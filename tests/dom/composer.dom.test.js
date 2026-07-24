@@ -221,3 +221,26 @@ describe("GA.Composer resize grip", () => {
     expect(c.el.classList.contains("ga-composer-manual")).toBe(false);
   });
 });
+
+describe("GA.fitTextarea", () => {
+  it("keeps the current height when the element is hidden (scrollHeight 0)", () => {
+    const GA = makeGA();
+    const ta = document.createElement("textarea");
+    document.body.appendChild(ta);
+    ta.style.height = "48px";
+    // jsdom has no layout, so scrollHeight is natively 0 — the hidden case.
+    expect(GA.fitTextarea(ta)).toBe("48px");
+  });
+
+  it("returns the measured height, capped at TEXTAREA_MAX_PX", () => {
+    const GA = makeGA();
+    const ta = document.createElement("textarea");
+    document.body.appendChild(ta);
+
+    Object.defineProperty(ta, "scrollHeight", { value: 64, configurable: true });
+    expect(GA.fitTextarea(ta)).toBe("64px");
+
+    Object.defineProperty(ta, "scrollHeight", { value: 5000, configurable: true });
+    expect(GA.fitTextarea(ta)).toBe(GA.config.TEXTAREA_MAX_PX + "px");
+  });
+});

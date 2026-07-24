@@ -111,6 +111,7 @@ GA.truncate = function (s, n) {
 // override it anyway. So measure the placeholder as if it were the value
 // (.value writes fire no events).
 GA.fitTextarea = function (textarea) {
+  const prev = textarea.style.height;
   textarea.style.height = "auto";
   let sh = textarea.scrollHeight;
   if (!textarea.value && textarea.placeholder) {
@@ -118,6 +119,9 @@ GA.fitTextarea = function (textarea) {
     sh = Math.max(sh, textarea.scrollHeight);
     textarea.value = "";
   }
+  // A hidden textarea (display:none ancestor) measures 0 — keep whatever
+  // height it had rather than pinning 0px that survives un-hiding.
+  if (!sh) return prev;
   return Math.min(sh, GA.config.TEXTAREA_MAX_PX) + "px";
 };
 
