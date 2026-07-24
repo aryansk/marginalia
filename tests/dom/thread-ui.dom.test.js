@@ -165,3 +165,34 @@ describe("draft handoff while collapsed", () => {
     expect(ta.style.height).toBe("40px");
   });
 });
+
+describe("height measurement (naturalHeight / chromeHeight)", () => {
+  it("serves both values from one cached pass; invalidateHeight refreshes", () => {
+    const GA = makeGA();
+    const box = GA.ThreadBox(
+      { id: "m1", selector: { exact: "x" }, messages: [] },
+      { persist: () => {} },
+    );
+    document.body.appendChild(box.el);
+    const messagesEl = box.el.querySelector(".ga-messages");
+    let offsetH = 300;
+    let clientH = 150;
+    let scrollH = 500;
+    Object.defineProperty(box.el, "offsetHeight", { get: () => offsetH, configurable: true });
+    Object.defineProperty(messagesEl, "clientHeight", { get: () => clientH, configurable: true });
+    Object.defineProperty(messagesEl, "scrollHeight", { get: () => scrollH, configurable: true });
+    box.invalidateHeight();
+
+    expect(box.chromeHeight()).toBe(150); // offsetHeight - clientHeight
+    expect(box.naturalHeight()).toBe(650); // chrome + scrollHeight
+
+    // same cache: geometry changes are invisible until invalidated
+    offsetH = 340; // composer grew 40px
+    expect(box.chromeHeight()).toBe(150);
+    expect(box.naturalHeight()).toBe(650);
+
+    box.invalidateHeight();
+    expect(box.chromeHeight()).toBe(190);
+    expect(box.naturalHeight()).toBe(690);
+  });
+});

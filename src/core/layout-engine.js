@@ -3,9 +3,13 @@
 // the viewport, decide which boxes go in the margin (and where) vs. into the
 // orphan drawer, and how the available height is shared.
 //
-// Input:  { items: [{ id, order, anchorTop|null, naturalHeight, collapsed? }],
-//           viewport: { height }, activeId, config? }
+// Input:  { items: [{ id, order, anchorTop|null, naturalHeight, chrome?,
+//           collapsed? }], viewport: { height }, activeId, config? }
 //   anchorTop === null  => the box's highlight isn't in the DOM (an "orphan").
+//   chrome               => the box's measured non-messages height (header +
+//                           labels + LIVE composer); falls back to the CHROME
+//                           constant when absent. Keeps the engine's height
+//                           prediction honest while the composer autosizes.
 //   anchorTop <  0       => the highlight has scrolled above the viewport.
 //   anchorTop >  height  => the highlight has scrolled below the viewport.
 //   collapsed            => a minimized/resolved chip: keeps its (small)
@@ -32,7 +36,8 @@ GA.core.layout = (function () {
     NARROW_BREAKPOINT: 1024, // below this the gutter becomes a chip rail
     HIDE_BREAKPOINT: 600, // below this the gutter hides (highlights open the modal)
     RAIL_WIDTH: 220, // chip-rail column width
-    CHROME: 104, // header + composer height; box height − CHROME = message-area cap
+    CHROME: 104, // fallback header+composer allowance for items that carry no
+    // measured `chrome`; real callers pass per-box chrome (thread-ui measures it)
     WIDTH_FRACTION: 0.32, // gutter width as a fraction of the viewport
     MAX_NATURAL_FRACTION: 0.85, // a box may claim at most this fraction of the viewport
     ACTIVE_BUDGET_FRACTION: 0.6, // the focused box gets up to this much when crowded
@@ -72,6 +77,7 @@ GA.core.layout = (function () {
       order: it.order || 0,
       anchorTop: it.anchorTop == null ? null : it.anchorTop,
       naturalHeight: it.naturalHeight || 0,
+      chrome: it.chrome == null ? c.CHROME : it.chrome,
       collapsed: !!it.collapsed,
     }));
     const orphans = all.filter((it) => it.anchorTop == null);
@@ -113,15 +119,29 @@ GA.core.layout = (function () {
 
   function place(items, H, activeId, c) {
     if (!items.length) return [];
-    const maxNatural = Math.floor(H * c.MAX_NATURAL_FRACTION);
-    const work = items.map((it) => ({
-      id: it.id,
-      order: it.order,
-      orphan: it.anchorTop == null,
-      collapsed: it.collapsed,
-      desiredTop: it.anchorTop == null ? Infinity : it.anchorTop,
-      natural: it.collapsed ? it.naturalHeight : Math.min(it.naturalHeight, maxNatural),
-    }));
+    // A box may never outgrow the vertical corridor between the top boundary
+    // (GAP) and the bottom reserve — composer growth is absorbed by the
+    // messages cap once both edges are pinned.
+    const maxBox = Math.min(Math.floor(H * c.MAX_NATURAL_FRACTION), H - c.GAP - c.BOTTOM_GAP);
+    const work = items.map((it) => {
+      // The true minimum realized height: chrome is incompressible and the
+      // messages area never caps below MIN_MSG_HEIGHT — but a near-empty
+      // thread (scrollHeight < the floor) renders at its natural height, and
+      // the floor itself must stay inside the corridor.
+      const minBox = Math.min(it.naturalHeight, it.chrome + c.MIN_MSG_HEIGHT, maxBox);
+      return {
+        id: it.id,
+        order: it.order,
+        orphan: it.anchorTop == null,
+        collapsed: it.collapsed,
+        chrome: it.chrome,
+        minBox,
+        desiredTop: it.anchorTop == null ? Infinity : it.anchorTop,
+        natural: it.collapsed
+          ? it.naturalHeight
+          : Math.max(minBox, Math.min(it.naturalHeight, maxBox)),
+      };
+    });
     work.sort((a, b) => a.desiredTop - b.desiredTop || a.order - b.order);
 
     const heights = distribute(work, H, activeId, c);
@@ -131,7 +151,7 @@ GA.core.layout = (function () {
       id: it.id,
       top: tops[it.id],
       height: heights[it.id],
-      maxHeight: it.collapsed ? null : Math.max(c.MIN_MSG_HEIGHT, heights[it.id] - c.CHROME),
+      maxHeight: it.collapsed ? null : Math.max(c.MIN_MSG_HEIGHT, heights[it.id] - it.chrome),
     }));
   }
 
@@ -192,11 +212,12 @@ GA.core.layout = (function () {
   // focused box getting a reserved budget first. Collapsed chips always keep
   // their natural height — no MIN_BOX_HEIGHT floor, no active budget.
   //
-  // Overflow policy: the MIN_BOX_HEIGHT floor is unconditional, so with enough
-  // boxes the floors alone can exceed the budget (`avail` goes negative and
-  // every remaining box still gets the floor). The summed heights then overflow
-  // the viewport, which is ACCEPTED — computeTops lets the stack run past the
-  // bottom edge rather than shrink boxes below usability.
+  // Overflow policy: the MIN_BOX_HEIGHT and per-item minBox (chrome +
+  // messages floor) floors are unconditional, so with enough boxes the floors
+  // alone can exceed the budget (`avail` goes negative and every remaining
+  // box still gets its floor). The summed heights then overflow the viewport,
+  // which is ACCEPTED — computeTops lets the stack run past the bottom edge
+  // rather than shrink boxes below usability.
   function distribute(work, H, activeId, c) {
     const n = work.length;
     const totalGaps = c.GAP * n + c.BOTTOM_GAP; // top gap + (n-1) inner gaps + bottom clearance
@@ -216,7 +237,10 @@ GA.core.layout = (function () {
     let pool = work.filter((it) => !it.collapsed);
     const active = activeId != null ? pool.find((it) => it.id === activeId) : null;
     if (active) {
-      const ah = Math.min(active.natural, Math.floor(avail * c.ACTIVE_BUDGET_FRACTION));
+      const ah = Math.max(
+        active.minBox,
+        Math.min(active.natural, Math.floor(avail * c.ACTIVE_BUDGET_FRACTION)),
+      );
       heights[active.id] = ah;
       avail -= ah;
       pool = pool.filter((it) => it.id !== activeId);
@@ -224,7 +248,11 @@ GA.core.layout = (function () {
     pool.sort((a, b) => a.natural - b.natural);
     for (let i = 0; i < pool.length; i++) {
       const share = avail / (pool.length - i);
-      const h = Math.max(c.MIN_BOX_HEIGHT, Math.min(pool[i].natural, Math.floor(share)));
+      const h = Math.max(
+        c.MIN_BOX_HEIGHT,
+        pool[i].minBox,
+        Math.min(pool[i].natural, Math.floor(share)),
+      );
       heights[pool[i].id] = h;
       avail -= h;
     }
@@ -259,6 +287,7 @@ GA.core.layout = (function () {
         x.order !== y.order ||
         x.anchorTop !== y.anchorTop ||
         x.naturalHeight !== y.naturalHeight ||
+        x.chrome !== y.chrome ||
         x.collapsed !== y.collapsed
       )
         return false;

@@ -57,9 +57,16 @@ GA.ThreadBox = function (thread, handlers) {
   // naturalHeight() is read every relayout for every box; measuring live forces
   // a reflow per box. Cache it and invalidate only when this box's content
   // actually changed (new message, stream growth, collapse, composer resize).
-  let cachedNaturalHeight = null;
+  let cachedHeights = null;
   function invalidateHeight() {
-    cachedNaturalHeight = null;
+    cachedHeights = null;
+  }
+  function measureHeights() {
+    if (cachedHeights == null) {
+      const chrome = root.offsetHeight - messagesEl.clientHeight;
+      cachedHeights = { chrome, natural: chrome + messagesEl.scrollHeight };
+    }
+    return cachedHeights;
   }
 
   const snippetText = GA.truncate(
@@ -539,14 +546,16 @@ GA.ThreadBox = function (thread, handlers) {
       invalidateHeight();
     },
     setOrphan: GA.makeOrphanToggle({ root, header, snippet, onChange: invalidateHeight }),
-    // Height the box would take unconstrained: current height minus the
-    // (possibly clamped) messages viewport plus the messages' full scroll
-    // height. Pure reads — no style write/restore, so measuring N boxes in the
-    // relayout read phase doesn't force N reflows.
+    // Height the box would take unconstrained (chrome + full messages scroll
+    // height), and the chrome alone (header + labels + live composer — the
+    // incompressible part the layout engine must plan around). One cached
+    // measurement pass serves both; pure reads — no style write/restore, so
+    // measuring N boxes in the relayout read phase doesn't force N reflows.
     naturalHeight() {
-      if (cachedNaturalHeight == null)
-        cachedNaturalHeight = root.offsetHeight - messagesEl.clientHeight + messagesEl.scrollHeight;
-      return cachedNaturalHeight;
+      return measureHeights().natural;
+    },
+    chromeHeight() {
+      return measureHeights().chrome;
     },
     invalidateHeight,
     setMaxHeight(px) {

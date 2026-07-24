@@ -313,6 +313,7 @@ GA.gutter = (function () {
         order: it.order,
         anchorTop: a ? a.getBoundingClientRect().top : null,
         naturalHeight: it.box.naturalHeight(),
+        chrome: it.box.chromeHeight ? it.box.chromeHeight() : null,
         // rail mode renders every box as a chip
         collapsed: gb.mode === "rail" || (it.box.isCompact ? it.box.isCompact() : false),
       };

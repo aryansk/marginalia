@@ -222,6 +222,14 @@ describe("inputsEqual (relayout skip)", () => {
     fewer.items = fewer.items.slice(0, 1);
     expect(layout.inputsEqual(a, fewer)).toBe(false);
   });
+
+  it("a chrome change alone (composer grew, messages unchanged) breaks equality", () => {
+    const a = sig();
+    a.items = a.items.map((it) => ({ ...it, chrome: 120 }));
+    const grown = sig();
+    grown.items = grown.items.map((it) => ({ ...it, chrome: it.id === "a" ? 140 : 120 }));
+    expect(layout.inputsEqual(a, grown)).toBe(false);
+  });
 });
 
 describe("computeLayout — pinned active box (Docs-style alignment)", () => {
@@ -290,5 +298,96 @@ describe("computeLayout — collapsed chips", () => {
       { activeId: "chip" },
     );
     expect(placements.find((p) => p.id === "chip").height).toBe(32);
+  });
+});
+
+describe("computeLayout — per-item chrome (bottom-pinned composer growth)", () => {
+  // Simulates typing into a focused box near the bottom: chrome (header +
+  // labels + live composer) is measured per box; the engine must keep the
+  // bottom edge at H - BOTTOM_GAP and push the TOP up as the box grows,
+  // never past the top boundary.
+  const BOTTOM = VP.height - DEFAULTS.BOTTOM_GAP;
+
+  it("items without chrome fall back to the CHROME constant", () => {
+    const { placements } = run([{ id: "a", order: 0, anchorTop: 100, naturalHeight: 200 }]);
+    expect(placements[0].maxHeight).toBe(200 - DEFAULTS.CHROME);
+  });
+
+  it("measured chrome drives the message-area cap", () => {
+    const { placements } = run([
+      { id: "a", order: 0, anchorTop: 100, naturalHeight: 400, chrome: 180 },
+    ]);
+    expect(placements[0]).toMatchObject({ top: 100, height: 400, maxHeight: 220 });
+  });
+
+  it("cap-clamped regime: growing chrome shrinks the messages cap, bottom stays pinned", () => {
+    const at = (chrome) =>
+      run([{ id: "a", order: 0, anchorTop: 790, naturalHeight: 900, chrome }], {
+        activeId: "a",
+      }).placements[0];
+    const p150 = at(150);
+    const p200 = at(200);
+    // height capped by MAX_NATURAL_FRACTION (680); pin lifts the box fully above the reserve
+    expect(p150.height).toBe(680);
+    expect(p150.top + p150.height).toBe(BOTTOM);
+    expect(p150.maxHeight).toBe(530);
+    // +50px of composer: same top/height, the messages area absorbs it
+    expect(p200.top).toBe(p150.top);
+    expect(p200.height).toBe(p150.height);
+    expect(p200.maxHeight).toBe(480);
+  });
+
+  it("grow-up regime: as the box grows (typing), top climbs while the bottom edge never moves", () => {
+    // chrome and naturalHeight grow together, as they do in the DOM
+    const steps = [
+      [150, 400],
+      [250, 500],
+      [350, 600],
+      [450, 700],
+      [550, 800],
+    ];
+    let prevTop = Infinity;
+    for (const [chrome, naturalHeight] of steps) {
+      const p = run([{ id: "a", order: 0, anchorTop: 790, naturalHeight, chrome }], {
+        activeId: "a",
+      }).placements[0];
+      expect(p.top + p.height).toBe(BOTTOM); // bottom pinned at the reserve
+      expect(p.top).toBeLessThanOrEqual(prevTop); // grows upward only
+      expect(p.top).toBeGreaterThanOrEqual(DEFAULTS.GAP); // never past the top boundary
+      prevTop = p.top;
+    }
+  });
+
+  it("top boundary: an oversized box clamps to the corridor, messages floor absorbs the rest", () => {
+    const p = run([{ id: "a", order: 0, anchorTop: 790, naturalHeight: 900, chrome: 700 }], {
+      activeId: "a",
+    }).placements[0];
+    expect(p.height).toBe(680); // min(maxNatural, corridor) at H=800
+    expect(p.top + p.height).toBe(BOTTOM);
+    expect(p.top).toBeGreaterThanOrEqual(DEFAULTS.GAP);
+    expect(p.maxHeight).toBe(DEFAULTS.MIN_MSG_HEIGHT);
+  });
+
+  it("tiny viewport: the box fills the corridor exactly — top at GAP, bottom at the reserve", () => {
+    const H = 300;
+    const { placements } = computeLayout({
+      items: [{ id: "a", order: 0, anchorTop: 290, naturalHeight: 400, chrome: 260 }],
+      viewport: { height: H },
+      activeId: "a",
+    });
+    const p = placements[0];
+    expect(p.height).toBe(H - DEFAULTS.GAP - DEFAULTS.BOTTOM_GAP); // 230
+    expect(p.top).toBe(DEFAULTS.GAP);
+    expect(p.top + p.height).toBe(H - DEFAULTS.BOTTOM_GAP);
+    expect(p.maxHeight).toBe(DEFAULTS.MIN_MSG_HEIGHT);
+  });
+
+  it("a near-empty thread is not lifted past its natural height when crowded", () => {
+    const { placements } = run([
+      { id: "small", order: 0, anchorTop: 100, naturalHeight: 200, chrome: 180 },
+      { id: "big", order: 1, anchorTop: 400, naturalHeight: 700 },
+    ]);
+    const small = placements.find((p) => p.id === "small");
+    expect(small.height).toBeLessThanOrEqual(200);
   });
 });
