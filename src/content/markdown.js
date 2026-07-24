@@ -15,11 +15,15 @@ GA.markdown = (function () {
   // per block, matching renderAst's output shape).
   function makeStreamRenderer(el) {
     let blocks = [];
+    let parseState = null; // parseStream's carry — makes each update O(tail)
     const timed = (name, fn) => (GA.perf ? GA.perf.time(name, fn) : fn());
     return {
       update(text) {
         timed("stream.render", function () {
-          const ast = GA.core.markdownAst.parse(text);
+          const r = GA.core.markdownAst.parseStream(parseState, text);
+          parseState = r.state;
+          const ast = r.blocks;
+          // Reused prefix blocks keep identity, so this diff is O(tail) too.
           const from = GA.core.markdownAst.firstChangedBlock(blocks, ast);
           while (el.childNodes.length > from) el.removeChild(el.lastChild);
           for (let i = from; i < ast.length; i++) el.appendChild(renderBlock(ast[i]));

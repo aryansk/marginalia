@@ -268,3 +268,64 @@ describe("GA.errorCard", () => {
     document.body.removeEventListener("click", outer);
   });
 });
+
+describe("adaptive flush cadence (long answers batch, short ones don't)", () => {
+  function withClock() {
+    vi.useFakeTimers();
+    const origNow = performance.now.bind(performance);
+    let offset = 0;
+    const spy = vi.spyOn(performance, "now").mockImplementation(() => origNow() + offset);
+    return {
+      tick(ms) {
+        offset += ms;
+        vi.advanceTimersByTime(ms);
+      },
+      done() {
+        spy.mockRestore();
+        vi.useRealTimers();
+      },
+    };
+  }
+
+  it("short answers render on every flush; long answers hold within the window", () => {
+    const clock = withClock();
+    const GA = makeGA();
+    const { view, calls } = makeView(GA);
+    const el = view.beginModel();
+
+    view.renderModel(el, "one");
+    view.renderModel(el, "one two");
+    expect(calls.afterUpdate).toBe(2); // short: every frame renders
+
+    const long = "x".repeat(3000);
+    view.renderModel(el, long + " a"); // window elapsed since lastRender? offset 0 — due
+    clock.tick(80); // move past the window so the next long render is due
+    view.renderModel(el, long + " ab");
+    const rendered = calls.afterUpdate;
+    view.renderModel(el, long + " abc"); // inside the fresh window -> held
+    view.renderModel(el, long + " abcd"); // still held
+    expect(calls.afterUpdate).toBe(rendered);
+
+    clock.tick(80); // trailing hold fires — stalled text still paints
+    expect(calls.afterUpdate).toBe(rendered + 1);
+    view.endModel(el);
+    expect(calls.finals).toEqual([long + " abcd"]);
+    clock.done();
+  });
+
+  it("endModel renders the exact final text and kills any pending hold", () => {
+    const clock = withClock();
+    const GA = makeGA();
+    const { view, calls } = makeView(GA);
+    const el = view.beginModel();
+    const long = "y".repeat(3000);
+    view.renderModel(el, long);
+    view.renderModel(el, long + " tail"); // held (inside window)
+    view.endModel(el);
+    expect(calls.finals).toEqual([long + " tail"]); // last chunk never dropped
+    const renders = calls.afterUpdate;
+    clock.tick(300); // the cancelled hold must not fire a stale render
+    expect(calls.afterUpdate).toBe(renders);
+    clock.done();
+  });
+});

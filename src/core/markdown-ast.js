@@ -55,6 +55,47 @@ GA.core.markdownAst = (function () {
     return parseBlocks(text.split("\n"));
   }
 
+  // Incremental parse for a growing (streaming) text. Reuses the previous
+  // parse's blocks for the stable source prefix and re-parses only the tail,
+  // so total stream cost is O(answer) instead of O(answer²).
+  //
+  // Stability rule (proved against this grammar; see the incremental test):
+  // reuse only blocks strictly BEFORE the last two, and only when the reused
+  // source ends at a blank line. Why that is airtight here:
+  //  - an UNCLOSED fence/math block consumes every remaining line, so it is
+  //    always the LAST block — closed constructs only, in the reused prefix;
+  //  - every other construct (paragraph, list, table, quote) stops at a blank
+  //    line, and no parsing decision looks past one (the table lookahead sees
+  //    at most the next line, which at the cut is the blank itself);
+  //  - late-forming constructs (a paragraph becoming a table when its
+  //    separator row streams in, a list gaining items) live in the re-parsed
+  //    last-two-block tail.
+  // Any prefix mismatch (mid-stream rewrite) falls back to a full parse.
+  //
+  // parseStream(prevState|null, md) -> { blocks, state } — state is opaque;
+  // reused blocks keep identity, so firstChangedBlock's `===` fast path makes
+  // the renderer's diff O(tail) too.
+  function parseStream(prev, md) {
+    const text = String(md == null ? "" : md).replace(/\r\n/g, "\n");
+    const full = () => {
+      const starts = [];
+      const blocks = parseBlocks(text.split("\n"), starts);
+      return { blocks, state: { text, blocks, starts } };
+    };
+    if (!prev || prev.blocks.length < 3) return full();
+    const cut = prev.starts[prev.blocks.length - 2]; // first line of the unstable tail
+    const lines = prev.text.split("\n");
+    if (cut <= 0 || !/^\s*$/.test(lines[cut - 1])) return full();
+    const prefix = lines.slice(0, cut).join("\n") + "\n";
+    if (!text.startsWith(prefix)) return full(); // rewrite — correctness net
+    const tailStarts = [];
+    const tailBlocks = parseBlocks(text.slice(prefix.length).split("\n"), tailStarts);
+    const keep = prev.blocks.length - 2;
+    const blocks = prev.blocks.slice(0, keep).concat(tailBlocks);
+    const starts = prev.starts.slice(0, keep).concat(tailStarts.map((s) => s + cut));
+    return { blocks, state: { text, blocks, starts } };
+  }
+
   function isBlockStart(line) {
     return (
       FENCE.test(line) ||
@@ -66,21 +107,41 @@ GA.core.markdownAst = (function () {
     );
   }
 
-  function mathNode(tex, display) {
-    tex = tex.trim();
-    return {
-      type: "math",
-      display: !!display,
-      tex,
-      inline: texUnicode ? texUnicode.toInline(tex) : [{ type: "text", value: tex }],
-    };
+  // TeX→inline conversion is pure in the formula text (display mode only
+  // tags the node — toInline never sees it), so memoize per formula: a
+  // streaming re-parse re-converts every formula seen so far on every flush
+  // otherwise. Clear-on-full cap: worst case degrades to exactly the no-memo
+  // cost, never worse. Cached inline arrays are shared between nodes — the
+  // renderer treats the AST as immutable.
+  const texMemo = new Map();
+  const TEX_MEMO_MAX = 500;
+  function texInline(tex) {
+    let inline = texMemo.get(tex);
+    if (inline === undefined) {
+      if (texMemo.size >= TEX_MEMO_MAX) texMemo.clear();
+      inline = texUnicode ? texUnicode.toInline(tex) : [{ type: "text", value: tex }];
+      texMemo.set(tex, inline);
+    }
+    return inline;
   }
 
-  function parseBlocks(lines) {
+  function mathNode(tex, display) {
+    tex = tex.trim();
+    return { type: "math", display: !!display, tex, inline: texInline(tex) };
+  }
+
+  // `startsOut`, when given, records each top-level block's starting line
+  // index (parseStream's cut points). Nested calls (blockquote children)
+  // don't pass it — inner structure is irrelevant to the cut.
+  function parseBlocks(lines, startsOut) {
     const blocks = [];
+    const mark = (at) => {
+      if (startsOut) startsOut.push(at);
+    };
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
+      const blockStart = i;
 
       const fence = line.match(FENCE);
       if (fence) {
@@ -89,6 +150,7 @@ GA.core.markdownAst = (function () {
         i++;
         while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
         i++; // consume closing fence (no-op if we ran off the end — unclosed fence)
+        mark(blockStart);
         blocks.push({ type: "code", lang, text: buf.join("\n") });
         continue;
       }
@@ -98,11 +160,13 @@ GA.core.markdownAst = (function () {
       }
       const h = line.match(HEADING);
       if (h) {
+        mark(blockStart);
         blocks.push({ type: "heading", level: h[1].length, inline: parseInlineLines(h[2]) });
         i++;
         continue;
       }
       if (HR.test(line)) {
+        mark(blockStart);
         blocks.push({ type: "hr" });
         i++;
         continue;
@@ -110,12 +174,14 @@ GA.core.markdownAst = (function () {
       if (QUOTE.test(line)) {
         const buf = [];
         while (i < lines.length && QUOTE.test(lines[i])) buf.push(lines[i++].replace(QUOTE, ""));
+        mark(blockStart);
         blocks.push({ type: "blockquote", children: parseBlocks(buf) });
         continue;
       }
       if (LIST.test(line)) {
         const listLines = [];
         while (i < lines.length && LIST.test(lines[i])) listLines.push(lines[i++]);
+        mark(blockStart);
         blocks.push(parseList(listLines));
         continue;
       }
@@ -132,6 +198,7 @@ GA.core.markdownAst = (function () {
         while (i < lines.length && lines[i].indexOf("|") !== -1 && !/^\s*$/.test(lines[i])) {
           rows.push(splitTableRow(lines[i++]).map(inlineChildren));
         }
+        mark(blockStart);
         blocks.push({ type: "table", header, rows });
         continue;
       }
@@ -144,6 +211,7 @@ GA.core.markdownAst = (function () {
         const closeAt = rest.indexOf(close);
         if (closeAt !== -1) {
           if (/^\s*$/.test(rest.slice(closeAt + close.length))) {
+            mark(blockStart);
             blocks.push(mathNode(rest.slice(0, closeAt), true));
             i++;
             continue;
@@ -161,6 +229,7 @@ GA.core.markdownAst = (function () {
             if (/^\s*$/.test(after)) i++;
             else lines[i] = after; // rare: prose after the closer — reprocess it
           }
+          mark(blockStart);
           blocks.push(mathNode(buf.join("\n"), true));
           continue;
         }
@@ -169,6 +238,7 @@ GA.core.markdownAst = (function () {
       i++;
       while (i < lines.length && !/^\s*$/.test(lines[i]) && !isBlockStart(lines[i]))
         buf.push(lines[i++]);
+      mark(blockStart);
       blocks.push({ type: "paragraph", inline: parseInlineLines(buf.join("\n")) });
     }
     return blocks;
@@ -297,7 +367,7 @@ GA.core.markdownAst = (function () {
     return n; // one is a prefix of the other (or they're identical)
   }
 
-  return { parse, firstChangedBlock };
+  return { parse, parseStream, firstChangedBlock };
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = GA.core.markdownAst;

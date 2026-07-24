@@ -34,6 +34,8 @@ GA.StreamView = function (hooks) {
     el: null,
     pending: null,
     frame: 0,
+    hold: 0, // trailing-flush timer while batching a long answer
+    lastRenderAt: 0,
     renderer: null,
     lastText: null,
     errored: false,
@@ -42,6 +44,31 @@ GA.StreamView = function (hooks) {
   function flush() {
     state.frame = 0;
     if (state.pending == null) return;
+    // Adaptive cadence: short answers render every frame (the snappy start is
+    // where per-frame rendering is visible AND cheap); once the answer grows
+    // past SMALL, batch to one render per MAX_MS window — that is where the
+    // per-flush parse cost lives. The hold timer guarantees a trailing flush,
+    // so a stalled stream never leaves text unrendered.
+    const smallCap = (GA.config && GA.config.STREAM_RENDER_SMALL_CHARS) || 2048;
+    const windowMs = (GA.config && GA.config.STREAM_RENDER_MAX_MS) || 70;
+    const now = performance.now();
+    if (state.pending.length >= smallCap && now - state.lastRenderAt < windowMs) {
+      if (!state.hold) {
+        state.hold = setTimeout(
+          function () {
+            state.hold = 0;
+            flush();
+          },
+          windowMs - (now - state.lastRenderAt),
+        );
+      }
+      return;
+    }
+    if (state.hold) {
+      clearTimeout(state.hold);
+      state.hold = 0;
+    }
+    state.lastRenderAt = now;
     state.lastText = state.pending;
     state.pending = null;
     if (state.renderer && hooks.isLive() && !state.errored) {
@@ -53,6 +80,10 @@ GA.StreamView = function (hooks) {
   function cancelFrame() {
     if (state.frame) cancelAnimationFrame(state.frame);
     state.frame = 0;
+    if (state.hold) {
+      clearTimeout(state.hold);
+      state.hold = 0;
+    }
   }
 
   function beginModel() {
@@ -62,6 +93,7 @@ GA.StreamView = function (hooks) {
     state.el = el;
     state.renderer = GA.markdown.makeStreamRenderer(targetOf(el));
     state.lastText = null;
+    state.lastRenderAt = 0; // each answer starts at full render rate
     state.errored = false;
     announce("Reply started");
     return el;
