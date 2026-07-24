@@ -2,6 +2,35 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
+## 0.3.2 — 2026-07-23
+
+The reading comfort release.
+
+### Added
+
+- **Calm scrolling** (off by default, options page). While an answer
+  streams, the view follows only its first few lines and then holds still —
+  no more text racing past faster than you can read. A circled scroll-down
+  button inside the thread marks the text growing below; click it (or
+  scroll to the bottom yourself) to jump to the newest text and follow
+  along again. Works in margin boxes, the maximized view, and Across-chats
+  synthesis.
+- **Full-width input.** The composer's input now spans the whole box; the
+  MD toggle and Ask button moved to a slim row underneath, so typing room
+  is never traded for buttons.
+- **Labels in the maximized view.** The label section (chips, ×-remove,
+  pencil editor) now appears under the maximized view's header too, and
+  `/label` typed there updates it in place — full parity with the margin
+  box.
+
+### Fixed
+
+- Minimizing the maximized view with an empty input no longer collapses the
+  margin box's input to a sliver.
+- With calm scrolling off, the maximized view and the synthesis panel now
+  respect your scroll position while streaming (stick-follow, like the
+  margin boxes) instead of yanking to the bottom on every update.
+
 ## 0.3.1 — 2026-07-22
 
 The composer comfort release.
