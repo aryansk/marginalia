@@ -2,6 +2,34 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
+## Unreleased
+
+The performance release: no new features, no changed behavior — the same
+extension, made fast enough for conversations carrying 100+ comment threads.
+(Pending verification against `docs/perf-test.md` before this ships.)
+
+### Changed
+
+- **No more freezes on heavily-annotated conversations.** Re-anchoring now
+  does work proportional to what actually changed on the page instead of
+  rescanning every thread against the whole conversation on every frame —
+  and the extension no longer wakes itself up for its own UI's mutations
+  and scrolls.
+- **Fast page loads, however much you've annotated.** Loading a conversation
+  no longer reads every stored transcript to find drafts, anchors all
+  threads in a single shared pass, and renders each box's visible messages
+  first — older history fills in quietly behind the scroll.
+- **Streaming stays smooth to the end of long answers.** Streamed markdown
+  is parsed incrementally (only the growing tail), formulas are converted
+  once instead of on every frame, and long answers batch their repaints
+  imperceptibly. What you see stream is pixel-identical to what a reload
+  renders.
+- **Transcript capture only works when there's work.** Scrolling around an
+  already-captured conversation costs nothing; unchanged records are never
+  rewritten to storage.
+- Debug logging now includes performance summaries (`[marginalia perf]` in
+  the console) for verifying all of the above.
+
 ## 0.3.2 — 2026-07-23
 
 The reading comfort release.
