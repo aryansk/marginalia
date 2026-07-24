@@ -62,6 +62,10 @@ Then: version bump + CHANGELOG ("performance release"), single entry.
   the futile-retry skip in reanchorOrphans (same turns + same text + same
   orphans ⇒ provably same failure ⇒ skip).
 
+## Verification
+
+Full manual test script (per-phase + end-to-end): `docs/perf-test.md`.
+
 ## Measurements
 
 (recorded per phase as they ship; baseline first)
