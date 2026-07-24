@@ -19,6 +19,8 @@ extension, made fast enough for conversations carrying 100+ comment threads._
   keeps growing (up to 40% of the window) and the comment box rises to make
   room, so everything you've typed stays visible. The Ask button also slimmed
   down to give the text more room.
+- Fixes: answers streaming into a small comment box near the bottom of the
+  window no longer make the box flicker while it grows.
 
 ## 0.3.2 — Read at your own pace
 

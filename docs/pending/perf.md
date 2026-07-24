@@ -61,6 +61,11 @@ Then: version bump + CHANGELOG ("performance release"), single entry.
   cross-frame cache there would be incorrect. The relayout/render-window
   alignment is subsumed by P4's flush cadence (streaming relayouts are
   triggered by renders, which are already batched).
+  _Correction (2026-07-24):_ that last claim was aspirational — stream
+  flushes triggered no relayout at all (the sag-then-jerk flicker bug). The
+  alignment landed literally with the streaming-flicker fix: each flush that
+  changes the box's height drives exactly one synchronous same-frame
+  relayout, and the scheduled follow-ups no-op via the input signature.
 - Dropped during P3 implementation (both would have added risk for ~no win):
   background-worker gzip — compression is already per-NEW-message only and
   CompressionStream-async; the sync residue (base64 of a few new messages) is

@@ -31,7 +31,12 @@ GA.threadController = (function () {
       onExpand: (t) => expandThread(t),
       onStop: (t) => stopAsk(t.id),
       onLabel: (t, labels) => applyLabelCommand(t, labels),
-      onResize: (opts) => GA.gutter.scheduleLayout(opts),
+      // {now:true}: relayout synchronously in the caller's frame — stream
+      // growth must reposition in the same paint as the DOM write, or the
+      // bottom-pinned box sags before the scheduled pass lifts it. Everything
+      // else coalesces into the shared frame task.
+      onResize: (opts) =>
+        opts && opts.now ? GA.gutter.relayout({ instant: true }) : GA.gutter.scheduleLayout(opts),
       liveStream: (id) => liveStreams.get(id),
       // Rail mode = narrow viewport, every box a chip; the box asks instead of
       // sniffing the gutter's DOM classes from inside.

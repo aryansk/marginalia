@@ -302,3 +302,83 @@ describe("lazy history rendering", () => {
     expect(messagesEl.querySelectorAll(".ga-msg")).toHaveLength(8);
   });
 });
+
+// The engine pins a bottom-heavy box's bottom edge, so stream growth must lift
+// the top in the SAME frame as the DOM write — a scheduled relayout lands a
+// frame late and the box sags into the bottom gap, then jerks back up.
+describe("streaming drives a same-frame relayout", () => {
+  function streamSetup(GA) {
+    let onChunk;
+    let resolveAsk;
+    let box; // onResize can fire during construction, before the binding exists
+    const events = [];
+    const thread = { id: "s1", selector: { exact: "hl" }, messages: [] };
+    box = GA.ThreadBox(thread, {
+      ask: (t, opts) =>
+        new Promise((res) => {
+          resolveAsk = res;
+          onChunk = opts.onChunk;
+        }),
+      persist: () => {},
+      onResize: (opts) =>
+        events.push({ kind: "resize", opts, natural: box ? box.naturalHeight() : null }),
+    });
+    document.body.appendChild(box.el);
+    const messagesEl = box.el.querySelector(".ga-messages");
+    const geo = { scrollH: 500 };
+    Object.defineProperty(box.el, "offsetHeight", { get: () => 300, configurable: true });
+    Object.defineProperty(messagesEl, "clientHeight", { get: () => 150, configurable: true });
+    Object.defineProperty(messagesEl, "scrollHeight", {
+      get: () => geo.scrollH,
+      configurable: true,
+    });
+    Object.defineProperty(messagesEl, "scrollTop", {
+      get: () => 0,
+      set: () => {
+        events.push({ kind: "scroll" });
+      },
+      configurable: true,
+    });
+    box.el.querySelector(".ga-input").value = "q";
+    box.el.querySelector(".ga-send").click();
+    return { box, events, geo, chunk: (t) => onChunk(t), finish: (t) => resolveAsk(t) };
+  }
+
+  it("a growth flush calls onResize({now:true}) with the fresh height, before the scroll", async () => {
+    const GA = makeGA();
+    const s = streamSetup(GA);
+    await tick(); // turn reaches ask()
+    s.chunk("first"); // model bubble + first flush (sync rAF stub)
+    s.events.length = 0;
+
+    s.geo.scrollH = 800; // this flush grows the content
+    s.chunk("first plus a new line");
+    expect(s.events.map((e) => e.kind)).toEqual(["resize", "scroll"]);
+    expect(s.events[0].opts).toEqual({ now: true }); // same-frame request
+    expect(s.events[0].natural).toBe(150 + 800); // cache refreshed BEFORE the resize fired
+  });
+
+  it("a flush that doesn't change the height skips the relayout", async () => {
+    const GA = makeGA();
+    const s = streamSetup(GA);
+    await tick();
+    s.chunk("first");
+    s.events.length = 0;
+
+    s.chunk("first!"); // same rendered height (scrollH unchanged)
+    expect(s.events.filter((e) => e.kind === "resize")).toHaveLength(0);
+    expect(s.events.filter((e) => e.kind === "scroll")).toHaveLength(1); // still follows
+  });
+
+  it("turn completion drives one final same-frame relayout on a live box", async () => {
+    const GA = makeGA();
+    const s = streamSetup(GA);
+    await tick();
+    s.chunk("partial");
+    s.events.length = 0;
+
+    s.finish("final answer");
+    await tick(); // endModel -> renderFinal -> onEnd
+    expect(s.events.some((e) => e.kind === "resize" && e.opts && e.opts.now === true)).toBe(true);
+  });
+});

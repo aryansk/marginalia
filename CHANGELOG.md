@@ -37,6 +37,11 @@ extension, made fast enough for conversations carrying 100+ comment threads.
   ~6 lines and scroll internally, hiding earlier lines; it now keeps
   growing (up to 40% of the window) while the thread box rises to make
   room — everything you've typed stays visible.
+- **No more flicker while an answer streams into a bottom-pinned box.** The
+  box now grows and lifts in the same frame: streamed content used to push
+  the box's bottom edge down into the reserved strip and jerk back up
+  whenever an unrelated relayout happened to run — and could randomly
+  inherit an easing meant for a deliberate shift, mixing slides with snaps.
 
 ## 0.3.2 — 2026-07-23
 

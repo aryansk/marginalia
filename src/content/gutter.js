@@ -295,14 +295,23 @@ GA.gutter = (function () {
     updateScrollCues(above, below);
   }
 
-  function relayout() {
+  // opts.instant: a same-frame relayout driven by content growth (a stream
+  // flush). Never eased — an eased transform write mid-stream rubber-bands the
+  // box against its own growth (see the .ga-box transition comment in the CSS).
+  function relayout(opts) {
     state.layoutQueued = false;
+    if (opts && opts.instant === true) state.animateNext = false;
     if (!container) return;
     const timed = GA.perf ? GA.perf.time : (n, fn) => fn();
     timed("gutter.relayout", relayoutNow);
   }
 
   function relayoutNow() {
+    // Consume the animate request up front: if this pass skips (no boxes,
+    // hidden mode, inputs unchanged) the deliberate shift it belonged to is
+    // moot, and a later unrelated relayout must not inherit the easing.
+    const animate = state.animateNext;
+    state.animateNext = false;
     panelBtn.style.display = registry.size ? "flex" : "none";
     if (!registry.size) {
       state.lastSig = null;
@@ -365,8 +374,7 @@ GA.gutter = (function () {
     });
 
     // WRITE phase
-    container.classList.toggle("ga-animate", state.animateNext);
-    state.animateNext = false;
+    container.classList.toggle("ga-animate", animate);
     if (container.style.left !== gb.left + "px") container.style.left = gb.left + "px";
     if (container.style.width !== gb.width + "px") container.style.width = gb.width + "px";
     if (state.anchored) {

@@ -7,7 +7,10 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 
 // handlers: { ask(thread,{onChunk})->Promise<string>, persist(thread),
 //             onDelete(thread), onFocus(thread), onExpand(thread),
-//             onStop(thread), onResize(), inRail()->bool }
+//             onStop(thread), onResize(opts? {animate?, now?}), inRail()->bool }
+// onResize opts: {animate:true} = deliberate shift, ease it; {now:true} =
+// relayout synchronously in the caller's frame (stream growth must reposition
+// in the same paint as the DOM write).
 // inRail: is the gutter in its narrow-viewport rail mode (every box a chip)?
 // Injected so the box never sniffs its ancestors for gutter classes.
 GA.ThreadBox = function (thread, handlers) {
@@ -49,8 +52,17 @@ GA.ThreadBox = function (thread, handlers) {
     targetOf: (el) => bodyOf.get(el) || el,
     isLive: () => !state.destroyed,
     afterUpdate: () => {
+      // The engine pins a bottom-heavy box's bottom edge, so growth must lift
+      // the top BEFORE this frame paints — a scheduled relayout lands a frame
+      // late and the box sags into the bottom gap, then jerks back up. Only
+      // ask for the synchronous pass when the height actually moved (text
+      // growing within a line changes nothing and the relayout reads every
+      // box's anchor rect).
+      const before = cachedHeights && cachedHeights.natural;
       invalidateHeight();
-      scrollToBottom();
+      if (before !== measureHeights().natural)
+        handlers.onResize && handlers.onResize({ now: true });
+      scrollToBottom(); // last: reads geometry the relayout may have clamped
     },
     renderFinal: (el, text) => renderModelInto(el, text),
     renderError: (el, message) => renderErrorInto(el, message),
@@ -61,6 +73,11 @@ GA.ThreadBox = function (thread, handlers) {
     },
     onEnd: () => {
       updateChipCount();
+      // The final one-shot rebuild can change height vs the last incremental
+      // render (an unclosed fence closing, say) — close that out in this frame
+      // too. onEnd deliberately still runs for destroyed boxes (bookkeeping),
+      // which must not relayout for a dead box.
+      if (!state.destroyed) handlers.onResize && handlers.onResize({ now: true });
       calm.answerEnd();
     },
     announce: (text) => announce(text),
