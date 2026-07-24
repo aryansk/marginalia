@@ -1097,7 +1097,7 @@
   color: var(--ga-on-accent);
   font-weight: 600;
   font-size: 13px;
-  padding: 8px 14px;
+  padding: 4px 14px;
   border-radius: var(--ga-r-md);
   cursor: pointer;
   display: inline-flex;
