@@ -64,11 +64,42 @@ describe("reanchorer.observe — wiring", () => {
   it("schedules the SAME named frame task for mutations and scrolls (coalescing key)", () => {
     const h = makeGA();
     h.GA.reanchorer.observe(h.ctx);
-    h.observer().cb([]);
+    h.observer().cb([{ target: document.body }]);
     window.dispatchEvent(new Event("scroll"));
     expect(h.GA.frame.schedule).toHaveBeenCalledTimes(2);
     expect(h.scheduled.map((s) => s.name)).toEqual(["reanchor", "reanchor"]);
     expect(h.scheduled[0].fn).toBe(h.scheduled[1].fn); // one frame fn, not forks
+  });
+
+  it("mutations confined to our own UI schedule nothing (self-wake filter)", () => {
+    const h = makeGA();
+    h.GA.reanchorer.observe(h.ctx);
+    const gutter = document.createElement("div");
+    gutter.className = "ga-gutter";
+    const inner = document.createElement("div");
+    gutter.appendChild(inner);
+    document.body.appendChild(gutter);
+    h.observer().cb([{ target: inner }, { target: gutter }]);
+    expect(h.GA.frame.schedule).not.toHaveBeenCalled();
+    // mixed batch: one page mutation is enough to schedule
+    h.observer().cb([{ target: inner }, { target: document.body }]);
+    expect(h.GA.frame.schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls originating inside our own UI schedule nothing; page scrolls pass", () => {
+    const h = makeGA();
+    h.GA.reanchorer.observe(h.ctx);
+    const overlay = document.createElement("div");
+    overlay.className = "ga-modal-overlay";
+    const body = document.createElement("div");
+    overlay.appendChild(body);
+    document.body.appendChild(overlay);
+    body.dispatchEvent(new Event("scroll", { bubbles: true })); // capture sees it
+    expect(h.GA.frame.schedule).not.toHaveBeenCalled();
+    const pageScroller = document.createElement("div");
+    document.body.appendChild(pageScroller);
+    pageScroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+    expect(h.GA.frame.schedule).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -76,7 +107,7 @@ describe("reanchorer — the per-frame sweep", () => {
   it("no orphans: refreshes anchors instead of re-anchoring, checks nav, pings settle", () => {
     const h = makeGA();
     h.GA.reanchorer.observe(h.ctx);
-    fireMutation(h, []);
+    fireMutation(h, [{ target: document.body }]);
     expect(h.ctx.checkNav).toHaveBeenCalledTimes(1);
     expect(h.ctx.reanchor).not.toHaveBeenCalled();
     expect(h.GA.gutter.onAnchorsMoved).toHaveBeenCalledTimes(1);
@@ -87,8 +118,10 @@ describe("reanchorer — the per-frame sweep", () => {
     const h = makeGA();
     h.ctx.hasOrphans.mockReturnValue(true);
     h.GA.reanchorer.observe(h.ctx);
-    fireMutation(h, []);
+    fireMutation(h, [{ target: document.body }]);
     expect(h.ctx.reanchor).toHaveBeenCalledTimes(1);
+    // the pass receives the fingerprint-invalidation hint (futile-skip input)
+    expect(h.ctx.reanchor).toHaveBeenCalledWith({ textChanged: false });
     expect(h.GA.gutter.onAnchorsMoved).not.toHaveBeenCalled();
     expect(h.ctx.onSettled).toHaveBeenCalledTimes(1);
   });
@@ -96,7 +129,7 @@ describe("reanchorer — the per-frame sweep", () => {
   it("works without the optional checkNav/onSettled hooks", () => {
     const h = makeGA();
     h.GA.reanchorer.observe({ reanchor: h.ctx.reanchor, hasOrphans: () => false });
-    expect(() => fireMutation(h, [])).not.toThrow();
+    expect(() => fireMutation(h, [{ target: document.body }])).not.toThrow();
     expect(h.GA.gutter.onAnchorsMoved).toHaveBeenCalledTimes(1);
   });
 });
@@ -157,11 +190,14 @@ describe("reanchorer — stale-fingerprint invalidation", () => {
     expect(h.GA.turns.turnOf).not.toHaveBeenCalled();
   });
 
-  it("records without a target are ignored", () => {
+  it("records without a target are ignored (and alone schedule no frame)", () => {
     const h = makeGA();
     h.GA.turns = { turnOf: vi.fn(), invalidate: vi.fn() };
     h.GA.reanchorer.observe(h.ctx);
-    fireMutation(h, [{ target: null }, {}]);
+    h.observer().cb([{ target: null }, {}]);
+    expect(h.GA.frame.schedule).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event("scroll"));
+    runFrame(h);
     expect(h.GA.turns.turnOf).not.toHaveBeenCalled();
   });
 });

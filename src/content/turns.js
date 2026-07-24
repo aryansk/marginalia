@@ -59,15 +59,18 @@ GA.turns = (function () {
       } catch (e) {
         return [];
       }
-      return els
-        .filter(function (el) {
-          return !els.some(function (o) {
-            return o !== el && o.contains(el);
-          });
-        })
-        .map(function (el) {
-          return { el: el, role: roleOf(el) };
-        });
+      // Outermost-only in ONE pass: querySelectorAll returns pre-order, so an
+      // ancestor always precedes its descendants and a descendant run follows
+      // its outermost contiguously — checking the LAST accepted element is
+      // equivalent to checking every accepted one (was O(T²) via els.some).
+      const outermost = [];
+      for (const el of els) {
+        const last = outermost[outermost.length - 1];
+        if (!last || !last.contains(el)) outermost.push(el);
+      }
+      return outermost.map(function (el) {
+        return { el: el, role: roleOf(el) };
+      });
     });
   }
 

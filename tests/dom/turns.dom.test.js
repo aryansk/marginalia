@@ -184,3 +184,43 @@ describe("the reported bug, on real markup", () => {
     expect(candidates.map((t) => t.el.tagName.toLowerCase())).not.toContain("user-query");
   });
 });
+
+describe("findTurns — linear outermost dedup equivalence", () => {
+  // The one-pass dedup (check the LAST accepted outermost) must produce
+  // exactly what the old O(T²) filter (any other match contains el) did.
+  const quadratic = (els) => els.filter((el) => !els.some((o) => o !== el && o.contains(el)));
+
+  for (const provider of Object.keys(FIXTURES)) {
+    it(`matches the quadratic filter on real ${provider} markup`, () => {
+      const GA = mount(provider);
+      const sel = GA.core.sites.turnSelector(provider);
+      const els = Array.from(document.querySelectorAll(sel));
+      expect(GA.turns.findTurns().map((t) => t.el)).toEqual(quadratic(els));
+    });
+  }
+
+  it("matches on adversarial synthetic nesting (chains + interleaved siblings)", () => {
+    const GA = mount("chatgpt");
+    // deep matched chain: turn > turn > turn, followed by siblings
+    document.body.innerHTML = `
+      <div data-testid="conversation-turn-1" class="a">
+        <div data-testid="conversation-turn-1b" class="b">
+          <div data-testid="conversation-turn-1c" class="c"></div>
+        </div>
+      </div>
+      <div data-testid="conversation-turn-2" class="d"></div>
+      <div data-testid="conversation-turn-3" class="e">
+        <div data-testid="conversation-turn-3b" class="f"></div>
+      </div>`;
+    const sel = '[data-testid^="conversation-turn"]';
+    const els = Array.from(document.querySelectorAll(sel));
+    // run the dedup shape directly (same algorithm findTurns uses)
+    const outermost = [];
+    for (const el of els) {
+      const last = outermost[outermost.length - 1];
+      if (!last || !last.contains(el)) outermost.push(el);
+    }
+    expect(outermost).toEqual(quadratic(els));
+    expect(outermost.map((e) => e.className)).toEqual(["a", "d", "e"]);
+  });
+});

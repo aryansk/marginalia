@@ -99,7 +99,8 @@ GA.gutter = (function () {
     container.appendChild(belowCue);
     container.appendChild(panelBtn);
     document.body.appendChild(container);
-    window.addEventListener("scroll", onAnchorsMoved, true);
+    // No scroll listener of our own: the reanchorer owns the single scroll
+    // entry point and calls onAnchorsMoved from its coalesced frame.
     if (state.anchored) {
       // The compositor followed the anchors all through the scroll; run one
       // eased engine pass at the end to restore clamping/stacking/buckets.

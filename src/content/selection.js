@@ -184,10 +184,12 @@ GA.selection = (function () {
     return null;
   }
 
-  // → { range, turnEl } or null (orphan).
-  function locateThread(thread, textFor) {
+  // → { range, turnEl } or null (orphan). `turns` lets a batch pass share one
+  // findTurns() across every thread; its lifetime is that one pass — never
+  // hold a turn list across frames (elements go stale with re-renders).
+  function locateThread(thread, textFor, turns) {
     textFor = textFor || textCache();
-    const turns = GA.turns.findTurns();
+    turns = turns || GA.turns.findTurns();
     if (!turns.length) return null; // nothing hydrated yet — orphan and retry
 
     // Role is a hard gate: a thread born in an answer is never offered a
@@ -269,15 +271,16 @@ GA.selection = (function () {
   // document per thread, per frame. Wrapping a match in highlight spans doesn't
   // change any extracted text, so the cache stays valid across threads.
   // Returns Map(threadId -> spans).
-  function reanchorAll(threads) {
+  function reanchorAll(threads, turns) {
     const result = new Map();
     if (!threads.length) return result;
     if (noTurnAdapter()) {
       threads.forEach((t) => result.set(t.id, highlightSelector(t.selector, t.id)));
     } else {
       const textFor = textCache();
+      const turnList = turns || GA.turns.findTurns();
       threads.forEach(function (thread) {
-        const hit = locateThread(thread, textFor);
+        const hit = locateThread(thread, textFor, turnList);
         let spans = [];
         if (hit) {
           spans = highlightRange(hit.range, thread.id);
@@ -312,6 +315,17 @@ GA.selection = (function () {
   function hasRects(el) {
     if (rectsWork === null) rectsWork = document.documentElement.getClientRects().length > 0;
     return !rectsWork || el.getClientRects().length > 0;
+  }
+
+  // Connectivity-only probe for the per-frame orphan check: no layout reads.
+  // A connected-but-hidden (zero-rect) span still counts as live here — that
+  // rare, transient case is caught by anchorEl on the controller's throttled
+  // rect sweep instead of forcing layout every frame.
+  function hasLiveSpan(threadId) {
+    const spans = spansByThread.get(threadId);
+    if (!spans) return false;
+    for (const s of spans) if (s.isConnected) return true;
+    return false;
   }
 
   // The thread's live anchor span (first visible one), or null when the thread
@@ -370,6 +384,7 @@ GA.selection = (function () {
     reanchorAll,
     unhighlight,
     anchorEl,
+    hasLiveSpan,
     ensureAnchorName,
     setActiveHighlight,
     setHighlightState,

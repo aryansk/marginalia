@@ -208,23 +208,82 @@ GA.threadController = (function () {
     await restoreForSession(next);
   }
 
-  function reanchorOrphans() {
+  // Signature of the last fully/partially failed re-anchor pass. Locating is
+  // deterministic in (turn elements, turn text, orphan set): if none of the
+  // three changed since a failed pass, the same scan fails again — skip it.
+  // This is what stops a persistent orphan from re-scanning the whole
+  // conversation on every mutation frame while ChatGPT streams.
+  let lastFutilePass = null;
+
+  function sameTurnEls(els, turns) {
+    if (els.length !== turns.length) return false;
+    for (let i = 0; i < els.length; i++) if (els[i] !== turns[i].el) return false;
+    return true;
+  }
+
+  function reanchorOrphans(hint) {
     // Collect every orphan first, then re-anchor them in ONE batch pass —
-    // section text is extracted once per pass instead of once per thread.
+    // the turn list and section text are computed once per pass, not per
+    // thread. Hint-less calls (retry timers, restore) always attempt.
     const orphans = [];
     threadsById.forEach((thread) => {
       if (!GA.selection.anchorEl(thread.id)) orphans.push(thread);
     });
     if (orphans.length) {
+      const turns = GA.turns ? GA.turns.findTurns() : [];
+      const textChanged = !hint || hint.textChanged !== false;
+      const ids = orphans
+        .map((t) => t.id)
+        .sort()
+        .join(",");
+      // The skip applies only with a real turn adapter (turns.length > 0):
+      // legacy-site anchoring doesn't consume the turn list, so its result
+      // isn't a function of this signature.
+      if (
+        !textChanged &&
+        turns.length &&
+        lastFutilePass &&
+        lastFutilePass.ids === ids &&
+        sameTurnEls(lastFutilePass.els, turns)
+      ) {
+        GA.gutter.scheduleLayout();
+        return;
+      }
       // Drop stale spans (dead or hidden subtrees) before re-wrapping, so a
       // re-render can't leave duplicates behind.
       orphans.forEach((t) => GA.selection.unhighlight(t.id));
-      GA.selection.reanchorAll(orphans);
+      const results =
+        GA.selection.reanchorAll(orphans, turns.length ? turns : undefined) || new Map();
+      const still = orphans.filter((t) => !(results.get(t.id) || []).length);
+      lastFutilePass =
+        still.length && turns.length
+          ? {
+              ids: still
+                .map((t) => t.id)
+                .sort()
+                .join(","),
+              els: turns.map((t) => t.el),
+            }
+          : null;
+    } else {
+      lastFutilePass = null;
     }
     GA.gutter.scheduleLayout();
   }
 
+  // Per-frame orphan probe: connectivity only (no forced layout). The rare
+  // connected-but-hidden (zero-rect) orphan is still caught — by the full
+  // rect-reading sweep, throttled to RECT_SWEEP_MS so a fold is noticed
+  // within a beat instead of forcing layout on ChatGPT's DOM every frame.
+  const RECT_SWEEP_MS = 250;
+  let lastRectSweep = -RECT_SWEEP_MS; // first sweep is always allowed
   function hasOrphans() {
+    for (const t of threadsById.values()) {
+      if (!GA.selection.hasLiveSpan(t.id)) return true;
+    }
+    const now = performance.now();
+    if (now - lastRectSweep < RECT_SWEEP_MS) return false;
+    lastRectSweep = now;
     for (const t of threadsById.values()) {
       if (!GA.selection.anchorEl(t.id)) return true;
     }

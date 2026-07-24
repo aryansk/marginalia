@@ -13,14 +13,14 @@ rect reads per frame. No leaks; session memory is clean.
 
 ## Phases
 
-| #   | Phase                                                                                                                                                                                                                                                                             | Status      | Acceptance                                                       |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------- |
-| 0   | Perf instrumentation (`GA.perf`, debug-gated)                                                                                                                                                                                                                                     | shipped     | numbers visible with debug on; zero overhead off                 |
-| 1   | Re-anchor hot path O(changed): linear findTurns dedup, shared per-pass turns+text cache, self-mutation filter, dirty-turn search ordering (never a filter), isConnected orphan probe, single scroll entry (+ignore extension-internal scrolls, passive listeners)                 | pending     | reanchor measure ≈0 on stable frames; O(changed) during streams  |
-| 2   | Startup proportional to visible: sweepDrafts getKeys (guarded), shared-cache restore, lazy message render (chips none; expanded sync-until-cap + idle fill, flush on scroll-up/refresh/destroy)                                                                                   | pending     | load marks O(T + visible); no perceptible load stall             |
-| 3   | Delta capture + off-thread gzip: fingerprint no-op pre-check (baseline advances only after successful save), merge-reported changed flag, background compression inside the existing serialize chain, debounced message-append persist (structural ops immediate; pagehide flush) | pending     | capture ≈O(new turns); zero capture work on scroll               |
-| 4   | Streaming render O(answer): tail-only re-parse (stable = blocks before last two at a blank-line boundary; equivalence fuzz test lands FIRST), TeX memo (mode+tex key), adaptive flush cadence with trailing flush                                                                 | pending     | flush time flat as answer grows                                  |
-| 5   | Layout reads O(change): frame-local rect cache with mutation generation counter, anchored-mode settle-only cues, relayout aligned to render window                                                                                                                                | pending     | ~0 rect reads on scroll frames (anchored); ≤N on mutation frames |
+| #   | Phase                                                                                                                                                                                                                                                                             | Status  | Acceptance                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------- |
+| 0   | Perf instrumentation (`GA.perf`, debug-gated)                                                                                                                                                                                                                                     | shipped | numbers visible with debug on; zero overhead off                 |
+| 1   | Re-anchor hot path O(changed): linear findTurns dedup, shared per-pass turns+text cache, futile-retry skip, self-mutation filter, connectivity-first orphan probe (throttled rect sweep), single scroll entry (+ignore extension-internal scrolls, passive listeners)             | shipped | reanchor measure ≈0 on stable frames; O(changed) during streams  |
+| 2   | Startup proportional to visible: sweepDrafts getKeys (guarded), shared-cache restore, lazy message render (chips none; expanded sync-until-cap + idle fill, flush on scroll-up/refresh/destroy)                                                                                   | pending | load marks O(T + visible); no perceptible load stall             |
+| 3   | Delta capture + off-thread gzip: fingerprint no-op pre-check (baseline advances only after successful save), merge-reported changed flag, background compression inside the existing serialize chain, debounced message-append persist (structural ops immediate; pagehide flush) | pending | capture ≈O(new turns); zero capture work on scroll               |
+| 4   | Streaming render O(answer): tail-only re-parse (stable = blocks before last two at a blank-line boundary; equivalence fuzz test lands FIRST), TeX memo (mode+tex key), adaptive flush cadence with trailing flush                                                                 | pending | flush time flat as answer grows                                  |
+| 5   | Layout reads O(change): frame-local rect cache with mutation generation counter, anchored-mode settle-only cues, relayout aligned to render window                                                                                                                                | pending | ~0 rect reads on scroll frames (anchored); ≤N on mutation frames |
 
 Then: version bump + CHANGELOG ("performance release"), single entry.
 
@@ -55,6 +55,12 @@ Then: version bump + CHANGELOG ("performance release"), single entry.
 - Rejected by inversion: scroll-delta anchor tracking (inner scroller +
   nested scrollers make delta math unsound); dirty-turn _filtering_
   (correctness — replaced with search ordering).
+- Dropped during P1 implementation: dirty-turn search ORDERING too — rung 1
+  (fingerprint match) is already cheap via the WeakMap fingerprint cache, and
+  rung 2's two-hits-refuse uniqueness rule requires an exhaustive scan, so
+  early-accept would weaken correctness. Its benefit is delivered instead by
+  the futile-retry skip in reanchorOrphans (same turns + same text + same
+  orphans ⇒ provably same failure ⇒ skip).
 
 ## Measurements
 
