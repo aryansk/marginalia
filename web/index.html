@@ -69,6 +69,8 @@ img{display:block}
 .hero-cta-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .cta-primary{background:var(--ink);color:#fff;padding:16px 28px;border-radius:14px;font-weight:700;font-size:16px;box-shadow:4px 4px 0 var(--violet)}
 .cta-primary:hover{color:#fff}
+.cta-secondary{background:#fff;color:var(--ink);padding:16px 28px;border-radius:14px;font-weight:700;font-size:16px;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--yellow)}
+.cta-secondary:hover{color:var(--ink)}
 .cta-note{font-size:13px;line-height:1.4;color:var(--body)}
 .chips{display:flex;gap:8px;margin-top:26px;flex-wrap:wrap}
 .chip{border:2px solid var(--ink);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600}
@@ -125,8 +127,11 @@ figcaption strong{color:var(--ink)}
 .footer-privacy{font-size:14px;line-height:1.6;color:var(--muted-on-dark);max-width:520px;margin:0 auto 24px}
 .footer-privacy a{color:var(--yellow)}
 .footer-privacy a:hover{color:#fff}
+.cta-footer-row{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
 .cta-footer{display:inline-block;background:var(--yellow);color:var(--ink);padding:16px 32px;border-radius:14px;font-weight:700;font-size:16px;border:2px solid #fff;box-shadow:4px 4px 0 var(--violet)}
 .cta-footer:hover{color:var(--ink)}
+.cta-footer-alt{display:inline-block;background:transparent;color:#fff;padding:16px 32px;border-radius:14px;font-weight:700;font-size:16px;border:2px solid var(--yellow);box-shadow:4px 4px 0 var(--violet)}
+.cta-footer-alt:hover{color:var(--yellow)}
 .footer-links{display:flex;justify-content:center;gap:20px;font-size:12.5px;color:var(--faint-on-dark);margin-top:32px}
 .footer-links a{color:var(--faint-on-dark)}
 .footer-links a:hover{color:#fff}
@@ -182,6 +187,7 @@ figcaption strong{color:var(--ink)}
       <p class="hero-sub">Comment threads for ChatGPT, Claude &amp; Gemini — like Google Docs, but for AI answers. Highlight it, ask about it, right there in the margin.</p>
       <div class="hero-cta-row">
         <a class="cta-primary" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Add to Chrome — free</a>
+        <a class="cta-secondary" href="https://addons.mozilla.org/en-US/firefox/addon/marginalia-notes-ai-chats/">Add to Firefox</a>
         <div class="cta-note">Free forever<br>Open source 🔓</div>
       </div>
       <div class="chips">
@@ -211,13 +217,13 @@ figcaption strong{color:var(--ink)}
       <div class="grid3">
         <div class="step">
           <div class="step-num">1</div>
-          <div class="step-title">Open the Web Store</div>
-          <div class="step-body">Go to <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Marginalia's listing</a> — free, no account needed.</div>
+          <div class="step-title">Open your store</div>
+          <div class="step-body">Go to Marginalia's listing on the <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Chrome Web Store</a> or <a href="https://addons.mozilla.org/en-US/firefox/addon/marginalia-notes-ai-chats/">Firefox Add-ons</a> — free, no account needed.</div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <div class="step-title">Click "Add to Chrome"</div>
-          <div class="step-body">Confirm with "Add extension". That's the whole setup.</div>
+          <div class="step-title">Add it to your browser</div>
+          <div class="step-body">Confirm the prompt — "Add extension" on Chrome, "Add" on Firefox. That's the whole setup.</div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
@@ -275,11 +281,15 @@ figcaption strong{color:var(--ink)}
   <div class="footer-inner">
     <div class="footer-headline">Your next "wait, what?" deserves a margin.</div>
     <div class="footer-privacy">No server, no tracking. Threads live in your browser; questions go only to your AI. <a href="https://github.com/midhunkrishna/marginalia">Check the code yourself</a>.</div>
-    <a class="cta-footer" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Add to Chrome — ten seconds, no account</a>
+    <div class="cta-footer-row">
+      <a class="cta-footer" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Add to Chrome — ten seconds, no account</a>
+      <a class="cta-footer-alt" href="https://addons.mozilla.org/en-US/firefox/addon/marginalia-notes-ai-chats/">Add to Firefox — same ten seconds</a>
+    </div>
     <div class="footer-links">
       <span>© 2026 Marginalia</span>
       <a href="https://github.com/midhunkrishna/marginalia">GitHub</a>
       <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Chrome Web Store</a>
+      <a href="https://addons.mozilla.org/en-US/firefox/addon/marginalia-notes-ai-chats/">Firefox Add-ons</a>
     </div>
   </div>
 </footer>
