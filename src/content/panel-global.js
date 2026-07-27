@@ -139,8 +139,16 @@ GA.panelGlobal = (function () {
       });
       box.checked = !!opts.checked;
       box.addEventListener("change", () => opts.onToggle(box.checked));
-      const row = GA.el("div", { class: "ga-panel-row ga-panel-row-select" }, [
+      // Themed box: the input IS the square (appearance:none in CSS); the
+      // check mark is a real svg sibling, not a CSS image — a host page's CSP
+      // can block url() images in injected stylesheets, and pseudo-elements
+      // on inputs are historically unreliable.
+      const check = GA.el("span", { class: "ga-panel-checkwrap" }, [
         box,
+        GA.icons.make("check", 10),
+      ]);
+      const row = GA.el("div", { class: "ga-panel-row ga-panel-row-select" }, [
+        check,
         GA.el("div", { class: "ga-panel-row-main" }, opts.main),
         GA.el("div", { class: "ga-panel-row-meta" }, opts.meta || []),
       ]);

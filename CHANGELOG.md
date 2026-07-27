@@ -4,9 +4,17 @@ Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https:/
 
 ## Unreleased
 
-The performance release: no new features, no changed behavior — the same
-extension, made fast enough for conversations carrying 100+ comment threads.
-(Pending verification against `docs/perf-test.md` before this ships.)
+The performance release, plus a threads-panel polish wave: the same extension
+made fast enough for conversations carrying 100+ comment threads, with a
+calmer, roomier panel on top. (Pending verification against
+`docs/perf-test.md` before this ships.)
+
+### Added
+
+- **Themed checkboxes in the threads panel.** The selection checkboxes
+  (labels picker, thread rows, matched items) now match the extension's flat
+  look — a rounded accent-filled box with a proper check mark — instead of
+  the browser's native square.
 
 ### Changed
 

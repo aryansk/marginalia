@@ -8,8 +8,13 @@ install and day-to-day usage instructions, see
 
 ## Unreleased — Built for a hundred threads
 
-_The performance release: nothing new to learn, nothing moved — the same
-extension, made fast enough for conversations carrying 100+ comment threads._
+_The performance release plus a threads-panel polish pass: the same extension
+made fast enough for conversations carrying 100+ comment threads, with a
+calmer, roomier panel on top._
+
+- **Checkboxes that belong.** The tick-boxes in the threads panel (labels,
+  threads, matched items) now wear the extension's own look instead of the
+  browser's bare native square.
 
 - **No more freezes.** Heavily-annotated conversations used to stutter and
   eventually hang (even on reload). The extension now does work only for

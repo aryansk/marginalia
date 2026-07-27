@@ -210,6 +210,21 @@ describe("All chats — labels mode", () => {
     expect(footer().textContent).toContain("1 item selected");
   });
 
+  it("checkboxes are the themed box + DOM check glyph (no CSS image, no native square)", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    const wrap = rowByText("physics.qft").querySelector(".ga-panel-checkwrap");
+    expect(wrap).toBeTruthy();
+    const box = wrap.querySelector("input.ga-panel-check");
+    expect(box).toBeTruthy();
+    expect(wrap.querySelector("svg[aria-hidden]")).toBeTruthy(); // the check mark
+    expect(box.checked).toBe(false);
+    rowByText("physics.qft").click(); // row click still toggles through the wrapper
+    expect(box.checked).toBe(true);
+  });
+
   it("changing the label pick resets curation — no ghost exclusions", async () => {
     const GA = makeGA();
     await openGlobal(GA);
