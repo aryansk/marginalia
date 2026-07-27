@@ -1594,6 +1594,40 @@
 .ga-panel-group:first-child {
   padding-top: 0;
 }
+/* namespace headers double as collapse toggles — the reset is scoped to
+   -btn so the matched-items header (a plain div) keeps the quiet look */
+.ga-panel-group-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: inherit; /* only family — size/weight come from .ga-panel-group */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.ga-panel-group-btn:hover {
+  color: var(--ga-fg);
+}
+.ga-panel-group-btn svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  transition: transform 0.12s ease;
+}
+.ga-panel-group-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.ga-panel-group-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* matches .ga-panel-body's 6px — expanded rhythm is unchanged */
+}
+.ga-panel-group-rows.ga-panel-group-closed {
+  display: none;
+}
 /* keyboard path: tabbing lands on the checkbox — ring the whole row */
 .ga-panel-row-select:focus-within {
   outline: 2px solid var(--ga-accent);
@@ -1759,6 +1793,7 @@
 .ga-panel-tab:focus-visible,
 .ga-panel-action:focus-visible,
 .ga-panel-seg-btn:focus-visible,
+.ga-panel-group-btn:focus-visible,
 .ga-label-remove:focus-visible,
 .ga-box:focus-visible {
   outline: 2px solid var(--ga-accent);
@@ -1783,6 +1818,7 @@
   .ga-panel-search-input,
   .ga-panel-check,
   .ga-panel-checkwrap svg,
+  .ga-panel-group-btn svg,
   .ga-label-remove,
   .ga-label-edit,
   .ga-highlight {

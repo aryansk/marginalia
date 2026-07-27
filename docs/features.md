@@ -15,6 +15,10 @@ calmer, roomier panel on top._
 - **Checkboxes that belong.** The tick-boxes in the threads panel (labels,
   threads, matched items) now wear the extension's own look instead of the
   browser's bare native square.
+- **Label groups that fold away.** In the Across-chats label picker, each
+  namespace is now a little collapsible section — closed until you open it,
+  already open where your picks live, and opened up by a search so results
+  are never hidden behind a closed header.
 
 - **No more freezes.** Heavily-annotated conversations used to stutter and
   eventually hang (even on reload). The extension now does work only for

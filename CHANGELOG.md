@@ -15,6 +15,11 @@ calmer, roomier panel on top. (Pending verification against
   (labels picker, thread rows, matched items) now match the extension's flat
   look — a rounded accent-filled box with a proper check mark — instead of
   the browser's native square.
+- **Collapsible label sections.** The Across-chats label picker's namespace
+  groups fold behind chevron headers instead of spending a line per label.
+  Sections start closed, except the ones holding your current picks; a live
+  search opens whatever it matched; your own opens/closes stick for the rest
+  of the panel visit.
 
 ### Changed
 

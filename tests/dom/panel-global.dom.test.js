@@ -241,6 +241,110 @@ describe("All chats — labels mode", () => {
   });
 });
 
+describe("All chats — collapsible label sections", () => {
+  const groupBtn = (name) =>
+    Array.from(document.querySelectorAll(".ga-panel-group-btn")).find(
+      (b) => b.textContent === name,
+    );
+  const groupRows = (name) => groupBtn(name).nextElementSibling;
+  const isOpen = (name) =>
+    groupBtn(name).getAttribute("aria-expanded") === "true" &&
+    !groupRows(name).classList.contains("ga-panel-group-closed");
+  const search = (q) => {
+    const input = document.querySelector(".ga-panel-search-input");
+    input.value = q;
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+  };
+
+  it("sections start collapsed with nothing picked; the matched header stays a plain div", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    expect(document.querySelectorAll(".ga-panel-group-btn")).toHaveLength(2);
+    expect(isOpen("physics")).toBe(false);
+    expect(isOpen("labels")).toBe(false);
+    // rows are hidden by CSS, never removed — re-anchor/search keep working
+    expect(rowByText("physics.qft")).toBeTruthy();
+
+    rowByText("physics.qft").click(); // pick — matched list appears below
+    const matchedHeader = Array.from(document.querySelectorAll(".ga-panel-group")).find((g) =>
+      g.textContent.includes("Matched items"),
+    );
+    expect(matchedHeader.tagName).toBe("DIV"); // curation header is not a toggle
+  });
+
+  it("header click expands and collapses in place (no rebuild — same element)", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    const btn = groupBtn("physics");
+    btn.click();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    expect(groupBtn("physics")).toBe(btn); // same element — no re-render
+    expect(isOpen("physics")).toBe(true);
+    expect(isOpen("labels")).toBe(false);
+    btn.click();
+    expect(isOpen("physics")).toBe(false);
+  });
+
+  it("a section holding a picked label opens by default after a re-render", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    rowByText("physics.qft").click(); // triggers a full body re-render
+    expect(isOpen("physics")).toBe(true);
+    expect(isOpen("labels")).toBe(false);
+  });
+
+  it("an explicit collapse beats the picked default across re-renders", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    rowByText("physics.qft").click(); // picked -> open
+    groupBtn("physics").click(); // explicitly close it
+    rowByText("todo").click(); // another toggle re-renders the body
+    expect(rowByText("physics.qft").closest(".ga-panel-group-rows")).toBeTruthy();
+    expect(isOpen("physics")).toBe(false); // still closed, still picked
+  });
+
+  it("unpicking a section's last label does not slam it shut", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    rowByText("physics.qft").click();
+    rowByText("physics.qft").click(); // unpick — section was touched, stays open
+    expect(isOpen("physics")).toBe(true);
+  });
+
+  it("searching expands the matching sections; clearing restores the defaults", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    search("phys");
+    expect(isOpen("physics")).toBe(true); // no picks needed — search opens
+    search("");
+    expect(isOpen("physics")).toBe(false);
+  });
+
+  it("a search-time collapse is per-query — a changed query re-expands", async () => {
+    const GA = makeGA();
+    await openGlobal(GA);
+    setSearchType("labels");
+
+    search("phys");
+    groupBtn("physics").click(); // collapse within this query
+    expect(isOpen("physics")).toBe(false);
+    search("physics.q"); // new query -> fresh expanded view
+    expect(isOpen("physics")).toBe(true);
+  });
+});
+
 describe("All chats — synthesis", () => {
   async function selectAndAsk(GA, instruction = "summarize the bundle") {
     await openGlobal(GA);

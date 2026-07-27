@@ -31,6 +31,9 @@ GA.panelGlobal = (function () {
       pickedThreads: new Map(), // threads mode: record id -> { session, record }
       pickedLabels: new Set(), // labels mode: the label picker
       curatedOut: new Set(), // labels mode: explicitly unchecked record ids
+      groupOpen: new Map(), // picker sections: ns -> explicit open/closed (this open)
+      searchOpen: new Map(), // …same, but per-query while searching (cleared on change)
+      lastPickerQuery: "", // detects query changes to reset searchOpen
       askHandle: null, // in-flight synthesis ask (stop/abort)
       cancelStream: null, // drop pending stream frames on close
       instruction: "",
@@ -226,24 +229,61 @@ GA.panelGlobal = (function () {
     }
 
     function renderLabelPicker(bodyEl) {
+      const q = ctx.query();
+      // Search-time toggles are per-query, not per-open: a new query gets a
+      // fresh expanded view. Runs before any early return so the bookkeeping
+      // never skips.
+      if (q !== state.lastPickerQuery) {
+        state.lastPickerQuery = q;
+        state.searchOpen.clear();
+      }
       const labels = GA.core.globalSearch
         .collectLabels(state.buckets)
-        .filter((l) => GA.core.labels.searchMatch(l, ctx.query()));
+        .filter((l) => GA.core.labels.searchMatch(l, q));
       if (!labels.length) {
         bodyEl.appendChild(
           GA.el("div", {
             class: "ga-modal-empty",
-            text: ctx.query()
+            text: q
               ? "No labels match your search."
               : 'No labels yet — type /label "name" in any thread.',
           }),
         );
         return;
       }
+      // Effective open: an explicit toggle (this open, or this query) wins;
+      // otherwise closed unless the section carries a current pick. While a
+      // query is live the default flips to open — a collapsed section would
+      // hide the very rows the search just matched.
+      function isOpen(group) {
+        const map = q ? state.searchOpen : state.groupOpen;
+        if (map.has(group.ns)) return map.get(group.ns);
+        return !!q || group.labels.some((l) => state.pickedLabels.has(l));
+      }
       GA.core.labels.groupByNamespace(labels).forEach((group) => {
-        bodyEl.appendChild(GA.el("div", { class: "ga-panel-group", text: group.ns || "labels" }));
+        const open = isOpen(group);
+        const rowsEl = GA.el("div", {
+          class: "ga-panel-group-rows" + (open ? "" : " ga-panel-group-closed"),
+        });
+        const header = GA.el(
+          "button",
+          {
+            type: "button",
+            class: "ga-panel-group ga-panel-group-btn",
+            "aria-expanded": open ? "true" : "false",
+            // Local flip, no requestRender: nothing data-derived changes, and
+            // a rebuild would drop keyboard focus from the clicked header.
+            onclick: function () {
+              const now = header.getAttribute("aria-expanded") !== "true";
+              (ctx.query() ? state.searchOpen : state.groupOpen).set(group.ns, now);
+              header.setAttribute("aria-expanded", now ? "true" : "false");
+              rowsEl.classList.toggle("ga-panel-group-closed", !now);
+            },
+          },
+          [GA.icons.make("chevron-down", 12), group.ns || "labels"],
+        );
         group.labels.forEach((l) => {
-          bodyEl.appendChild(
+          rowsEl.appendChild(
             checkboxRow({
               checked: state.pickedLabels.has(l),
               label: "Label " + l,
@@ -251,6 +291,9 @@ GA.panelGlobal = (function () {
               onToggle: (on) => {
                 if (on) state.pickedLabels.add(l);
                 else state.pickedLabels.delete(l);
+                // Touching a row pins its section open — otherwise unpicking
+                // a section's last label re-collapses it under the cursor.
+                state.groupOpen.set(group.ns, true);
                 // A new picker composition is a new curation: stale exclusions
                 // from a previous pick would silently drop items that LOOK
                 // checked-by-default under the new labels.
@@ -260,6 +303,8 @@ GA.panelGlobal = (function () {
             }),
           );
         });
+        bodyEl.appendChild(header);
+        bodyEl.appendChild(rowsEl);
       });
     }
 
