@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marginalia features — threads, labels &amp; answers across chats</title>
+<meta name="description" content="Everything Marginalia does: margin threads that hold real conversations, labels that reach across every chat, answers you can query and export — plus the small fixes that make it comfortable.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236c3df4'/%3E%3Crect x='30' y='34' width='40' height='10' rx='4' fill='%23ffd803'/%3E%3Crect x='30' y='50' width='40' height='6' rx='3' fill='%23fff' opacity='.6'/%3E%3Crect x='30' y='60' width='28' height='6' rx='3' fill='%23fff' opacity='.6'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ===== SHARED WITH index.html — keep byte-identical; extract to site.css when a 3rd page appears ===== */
+@font-face{
+  font-family:'Space Grotesk';
+  font-style:normal;
+  font-weight:400 700;
+  font-display:swap;
+  src:url(fonts/space-grotesk-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Space Grotesk';
+  font-style:normal;
+  font-weight:400 700;
+  font-display:swap;
+  src:url(fonts/space-grotesk-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+:root{
+  --ink:#17141f;
+  --violet:#6c3df4;
+  --yellow:#ffd803;
+  --body:#4c4661;
+  --lavender:#f4f2fb;
+  --lavender-2:#e2ddf2;
+  --muted-on-violet:#d9d0fb;
+  --muted-on-dark:#a89fc4;
+  --faint-on-dark:#8d86a8;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:#fff;font-family:'Space Grotesk',system-ui,sans-serif;color:var(--ink)}
+a{color:var(--violet);text-decoration:none}
+a:hover{color:var(--ink)}
+img{display:block}
+
+/* ---------- Nav ---------- */
+.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:2px solid var(--ink)}
+.nav-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:15px 32px}
+.logo{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.logo:hover{color:var(--ink)}
+.logo-mark{width:32px;height:32px;background:var(--violet);border-radius:10px 10px 10px 2px;display:flex;align-items:center;justify-content:center}
+.logo-mark span{display:block;width:13px;height:4px;background:var(--yellow);border-radius:2px}
+.logo-word{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.nav-links{display:flex;align-items:center;gap:22px;font-size:14px;font-weight:600}
+.nav-link{color:var(--body)}
+.nav-link:hover{color:var(--violet)}
+.nav-cta{background:var(--violet);color:#fff;padding:10px 19px;border-radius:999px;box-shadow:3px 3px 0 var(--ink)}
+.nav-cta:hover{color:#fff}
+.burger{display:none;align-items:center;justify-content:center;width:44px;height:44px;background:#fff;border:2px solid var(--ink);border-radius:12px;font-size:18px;cursor:pointer;color:var(--ink);padding:0;font-family:inherit}
+.mobile-menu{display:none;flex-direction:column;background:#fff;border-bottom:2px solid var(--ink)}
+.mobile-menu.open{display:flex}
+.mobile-menu a{padding:16px 20px;font-size:16px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--lavender-2)}
+.mobile-menu a:last-child{border-bottom:none}
+
+/* ---------- Hero ---------- */
+.hero{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.05fr 1fr;gap:40px;padding:60px 32px;align-items:center}
+.hero h1{font-size:54px;line-height:1.02;font-weight:700;letter-spacing:-.03em;margin:0;text-wrap:balance}
+.hl{background:var(--yellow);padding:0 8px;border-radius:6px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.hero-sub{font-size:17px;line-height:1.55;color:var(--body);margin:20px 0 28px;max-width:440px;text-wrap:pretty}
+.hero-cta-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.cta-primary{background:var(--ink);color:#fff;padding:16px 28px;border-radius:14px;font-weight:700;font-size:16px;box-shadow:4px 4px 0 var(--violet)}
+.cta-primary:hover{color:#fff}
+.cta-note{font-size:13px;line-height:1.4;color:var(--body)}
+.chips{display:flex;gap:8px;margin-top:26px;flex-wrap:wrap}
+.chip{border:2px solid var(--ink);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600}
+.demo{position:relative}
+.demo-answer{background:var(--lavender);border:2px solid var(--ink);border-radius:16px;padding:24px 26px;font-size:14.5px;line-height:1.65;color:#33304a}
+.demo-answer-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--faint-on-dark);margin-bottom:10px}
+.demo-answer mark{background:var(--yellow);padding:1px 3px;border-radius:4px;font-weight:600;color:inherit;cursor:pointer;transition:box-shadow .15s ease}
+.demo.popped .demo-answer mark{box-shadow:0 0 0 2px var(--ink)}
+.demo-skel{margin-top:12px;height:7px;background:var(--lavender-2);border-radius:4px;width:90%}
+.demo-skel + .demo-skel{margin-top:7px;width:64%}
+.demo-thread{position:relative;margin:-18px 0 0 60px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:16px 18px;box-shadow:5px 5px 0 var(--yellow);max-width:330px;transition:transform .15s ease,box-shadow .15s ease}
+.demo.popped .demo-thread{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--yellow)}
+@media (prefers-reduced-motion:reduce){
+  .demo-thread,.demo-answer mark{transition:none}
+}
+.demo-thread-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--violet);margin-bottom:7px}
+.demo-thread-q{font-size:13.5px;font-weight:700}
+.demo-thread-a{font-size:13.5px;line-height:1.5;color:var(--body);margin-top:8px}
+
+/* ---------- Install ---------- */
+.install{background:var(--violet);color:#fff;scroll-margin-top:80px}
+.section-inner{max-width:1080px;margin:0 auto;padding:52px 32px}
+.install h2,.section h2{font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0 0 24px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.step{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:14px;padding:22px 24px}
+.step-num{width:32px;height:32px;background:var(--yellow);color:var(--ink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px}
+.step-title{font-weight:700;font-size:16px;margin:12px 0 5px}
+.step-body{font-size:13.5px;line-height:1.55;color:var(--muted-on-violet)}
+.step-body a{color:var(--yellow)}
+.step-body a:hover{color:#fff}
+
+/* ---------- Content sections ---------- */
+.section{max-width:1080px;margin:0 auto;padding:56px 32px;scroll-margin-top:80px}
+.section h2{margin:0 0 8px}
+.section-sub{font-size:15px;color:var(--body);margin:0 0 30px;max-width:560px}
+.hl-sm{background:var(--yellow);padding:0 5px;border-radius:4px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.grid2.top{align-items:start}
+figure{margin:0;display:flex;flex-direction:column;gap:10px}
+figure.wide{grid-column:1 / -1}
+figure img{width:100%;border:2px solid var(--ink);border-radius:14px;box-shadow:5px 5px 0 var(--lavender-2)}
+figcaption{font-size:13.5px;line-height:1.5;color:var(--body)}
+figcaption strong{color:var(--ink)}
+.configure{background:var(--lavender);border-top:2px solid var(--ink);scroll-margin-top:80px}
+.configure .section{margin:0 auto}
+.configure .section-sub{max-width:620px}
+.configure figure img{box-shadow:5px 5px 0 var(--yellow)}
+.stack{display:flex;flex-direction:column;gap:18px}
+
+/* ---------- Footer ---------- */
+.footer{background:var(--ink);color:#fff}
+.footer-inner{max-width:1080px;margin:0 auto;padding:52px 32px;text-align:center}
+.footer-headline{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px;text-wrap:balance}
+.footer-privacy{font-size:14px;line-height:1.6;color:var(--muted-on-dark);max-width:520px;margin:0 auto 24px}
+.footer-privacy a{color:var(--yellow)}
+.footer-privacy a:hover{color:#fff}
+.cta-footer{display:inline-block;background:var(--yellow);color:var(--ink);padding:16px 32px;border-radius:14px;font-weight:700;font-size:16px;border:2px solid #fff;box-shadow:4px 4px 0 var(--violet)}
+.cta-footer:hover{color:var(--ink)}
+.footer-links{display:flex;justify-content:center;gap:20px;font-size:12.5px;color:var(--faint-on-dark);margin-top:32px}
+.footer-links a{color:var(--faint-on-dark)}
+.footer-links a:hover{color:#fff}
+
+/* ---------- Responsive ---------- */
+@media (max-width:880px){
+  .hero{grid-template-columns:1fr;padding:40px 20px;gap:36px}
+  .hero h1{font-size:38px}
+  .grid3{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+  .section,.section-inner,.footer-inner{padding-left:20px;padding-right:20px;padding-top:44px;padding-bottom:44px}
+  .nav-inner{padding:12px 20px}
+}
+@media (max-width:720px){
+  .nav-link{display:none}
+  .nav-cta{padding:7px 14px;font-size:13px;box-shadow:2px 2px 0 var(--ink)}
+  .burger{display:flex}
+  .demo-thread{margin:-12px 0 0 16px}
+}
+/* ===== end shared ===== */
+</style>
+<style>
+/* ---------- Features page ---------- */
+.nav-link[aria-current]{color:var(--ink)}
+.hero.solo{display:block;padding-bottom:28px}
+.hero.solo .hero-sub{max-width:560px}
+
+/* feature rows */
+.frows{display:flex;flex-direction:column;gap:56px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center;scroll-margin-top:80px}
+.frow h3{font-size:23px;font-weight:700;letter-spacing:-.02em;margin:0 0 10px}
+.frow-body{font-size:15px;line-height:1.6;color:var(--body);margin:0}
+.frow-body code,.mini code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;background:var(--lavender);padding:1px 5px;border-radius:5px}
+.frow.flip .frow-viz{order:-1}
+
+/* CSS mockups (the .demo-thread vocabulary, generalized) */
+.mock{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:16px 18px;box-shadow:5px 5px 0 var(--yellow);max-width:360px;margin:0 auto;transition:transform .15s ease,box-shadow .15s ease}
+.mock:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--yellow)}
+@media (prefers-reduced-motion:reduce){
+  .mock{transition:none}
+  .mock:hover{transform:none;box-shadow:5px 5px 0 var(--yellow)}
+}
+.mock-kicker{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--violet);margin-bottom:8px}
+.mock-chiprow{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.mock-chip{border:1.5px solid var(--ink);border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:600}
+.mock-chip.tag{background:var(--violet);border-color:var(--violet);color:#fff}
+.mt-q{font-size:13.5px;font-weight:700;margin-top:10px}
+.mt-a{font-size:13.5px;line-height:1.5;color:var(--body);margin-top:6px}
+.mp-search{background:var(--lavender);border:2px solid var(--ink);border-radius:10px;padding:6px 10px;font-size:12.5px;color:var(--body)}
+.mp-head{font-weight:700;font-size:13px;margin-top:10px}
+.mp-item{display:flex;align-items:center;gap:8px;font-size:13px;margin:7px 0 0 14px}
+.mp-check{width:16px;height:16px;flex:none;border:2px solid var(--ink);border-radius:5px;font-size:10px;line-height:12px;text-align:center;color:transparent}
+.mp-check.on{background:var(--violet);border-color:var(--violet);color:#fff}
+.ms-prompt{background:var(--lavender);border:2px solid var(--ink);border-radius:10px;padding:7px 11px;font-size:13px;font-weight:600;margin-top:12px}
+.ms-answer{border-left:3px solid var(--violet);padding-left:11px;margin-top:10px;font-size:13px;line-height:1.55;color:var(--body)}
+.mh-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.mh-skel{height:22px;background:var(--lavender-2);border-radius:999px;display:inline-block}
+.mh-note{margin-top:12px;font-size:13px;font-weight:600}
+.md-h{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:700;margin-bottom:10px}
+.md-skel{height:7px;background:var(--lavender-2);border-radius:4px;margin-top:7px}
+.md-note{border-left:3px solid var(--yellow);background:var(--lavender);border-radius:0 8px 8px 0;padding:6px 10px;font-size:12.5px;margin:10px 0;color:var(--ink)}
+
+/* pain strip (violet band) */
+.pains{background:var(--violet);color:#fff;border-top:2px solid var(--ink);scroll-margin-top:80px}
+.pains h2{font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
+.pains-sub{font-size:15px;color:var(--muted-on-violet);margin:0 0 26px;max-width:560px}
+.pains-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.pain{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:14px;padding:20px 22px}
+.pain-q{font-weight:700;font-size:16.5px;line-height:1.4}
+.pain-ver{display:inline-block;background:var(--yellow);color:var(--ink);font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:3px 10px;margin:10px 0 8px}
+.pain-fix{font-size:13.5px;line-height:1.55;color:var(--muted-on-violet)}
+.pain-fix code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:rgba(255,255,255,.14);color:#fff;padding:1px 5px;border-radius:5px}
+
+/* everything-else (lavender band) */
+.more{background:var(--lavender);border-top:2px solid var(--ink)}
+.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mini{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:16px 18px}
+.mini-title{font-weight:700;font-size:15px;margin:0 0 4px}
+.mini-body{font-size:13px;line-height:1.5;color:var(--body)}
+
+@media (max-width:880px){
+  .frow{grid-template-columns:1fr;gap:22px}
+  .frow.flip .frow-viz{order:0}
+  .pains-grid{grid-template-columns:1fr}
+  .mini-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:720px){
+  .mini-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-mark"><span></span></span>
+      <span class="logo-word">marginalia</span>
+    </a>
+    <nav class="nav-links">
+      <a class="nav-link" href="features.html" aria-current="page">Features</a>
+      <a class="nav-link" href="index.html#install">Install</a>
+      <a class="nav-link" href="index.html#use">How to use</a>
+      <a class="nav-link" href="index.html#configure">Configure</a>
+      <a class="nav-link" href="https://github.com/midhunkrishna/marginalia">GitHub ↗</a>
+      <a class="nav-cta" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">＋ Add to Chrome</a>
+      <button class="burger" id="burger" aria-label="Menu" aria-expanded="false" aria-controls="mobileMenu">☰</button>
+    </nav>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="features.html">Features</a>
+    <a href="index.html#install">Install</a>
+    <a href="index.html#use">How to use</a>
+    <a href="index.html#configure">Configure</a>
+    <a href="https://github.com/midhunkrishna/marginalia">GitHub ↗</a>
+  </div>
+</header>
+
+<main>
+  <section id="top" class="hero solo">
+    <h1>The highlight is just <span class="hl">the beginning.</span></h1>
+    <p class="hero-sub">You've seen the gesture — highlight, ask, read the answer in the margin. Here's everything that grows out of it: threads that hold real conversations, labels that reach across chats, and answers you can take with you.</p>
+    <div class="hero-cta-row">
+      <a class="cta-primary" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Add to Chrome — free</a>
+      <div class="cta-note">Free forever<br>Open source 🔓</div>
+    </div>
+  </section>
+
+  <section id="big-five" class="section">
+    <h2>What the margin can do 🧵</h2>
+    <p class="section-sub">Five things worth knowing before your next long answer.</p>
+    <div class="frows">
+
+      <div class="frow" id="threads">
+        <div class="frow-copy">
+          <h3>Threads, not sticky notes 💬</h3>
+          <p class="frow-body">Highlight any part of an answer and ask about <span class="hl-sm">just that part</span> — the reply streams into a box beside the page while your main chat stays untouched. And a thread is a real conversation: ask follow-ups, minimize it to a chip, resolve it when it's settled, reopen it next week. Everything is saved per conversation and finds its exact sentence again after a reload.</p>
+        </div>
+        <div class="frow-viz">
+          <div class="mock" aria-hidden="true">
+            <div class="mock-kicker">💬 MARGIN THREAD · 2 QUESTIONS</div>
+            <div class="mt-q">wait — how long is that in California?</div>
+            <div class="mt-a">In California it's 3 business days for most contracts (Civil Code §1689.5).</div>
+            <div class="mt-q">and if the landlord already cashed the cheque?</div>
+            <div class="mt-a">Cashing it doesn't waive your right to cancel — the refund clock keeps▍</div>
+            <div class="mock-chiprow">
+              <span class="mock-chip">✓ resolve</span>
+              <span class="mock-chip">– minimize</span>
+              <span class="mock-chip tag">🏷 renting.deposits</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow flip" id="labels">
+        <div class="frow-copy">
+          <h3>Label it now, find it in any chat 🏷️</h3>
+          <p class="frow-body">Tag a highlight without starting a discussion, or add labels to a thread — dots make families, so <code>project.ux</code> and <code>project.research</code> both answer to <code>project</code>. Then open the <span class="hl-sm">Across chats</span> tab: it searches every conversation you've ever annotated on that site. Pick a few labels and everything carrying them lines up, ready to check on or off.</p>
+        </div>
+        <div class="frow-viz">
+          <div class="mock" aria-hidden="true">
+            <div class="mock-kicker">🏷 ACROSS CHATS · PICK LABELS</div>
+            <div class="mp-search">🔍 proj</div>
+            <div class="mp-head">▾ project</div>
+            <div class="mp-item"><span class="mp-check on">✓</span> project.ux</div>
+            <div class="mp-item"><span class="mp-check on">✓</span> project.research</div>
+            <div class="mp-item"><span class="mp-check"></span> project.pricing</div>
+            <div class="mp-head">▸ thesis</div>
+            <div class="mp-head">▸ travel</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow" id="ask-across">
+        <div class="frow-copy">
+          <h3>Ask one question across all of them 🧠</h3>
+          <p class="frow-body">This is where your annotations quietly become a knowledge base. Check a few threads and labeled answers, type a prompt — <em>"what patterns keep coming up?"</em> — and Marginalia bundles them up, asks the AI you're on, and streams the answer right in the panel. Ask follow-ups; earlier answers stay on screen. Then <span class="hl-sm">download it as Markdown</span> with a note of which items went in, or copy it and open a fresh chat.</p>
+        </div>
+        <div class="frow-viz">
+          <div class="mock" aria-hidden="true">
+            <div class="mock-kicker">🧠 ASK ACROSS YOUR SELECTION</div>
+            <div class="mp-item"><span class="mp-check on">✓</span> "statutory cooling-off period" · renting.deposits</div>
+            <div class="mp-item"><span class="mp-check on">✓</span> "small-claims filing limit" · renting.deposits</div>
+            <div class="ms-prompt">what patterns keep coming up?</div>
+            <div class="ms-answer">Both threads circle the same problem: your rights exist, but they expire quietly. Three patterns stand out —▍</div>
+            <div class="mock-chiprow">
+              <span class="mock-chip">⬇ Download .md</span>
+              <span class="mock-chip">Copy &amp; open new chat</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow flip" id="hundred-threads">
+        <div class="frow-copy">
+          <h3>Built for a hundred threads 🧘</h3>
+          <p class="frow-body">Annotate as much as you like. Marginalia does work only for <span class="hl-sm">what actually changed</span> on the page — so heavily-annotated conversations load fast, scroll without a stutter, and stay smooth to the last word of a long streamed answer. The same extension, made boring-fast.</p>
+        </div>
+        <div class="frow-viz">
+          <div class="mock" aria-hidden="true">
+            <div class="mock-kicker">💬 ONE CONVERSATION · 100 THREADS</div>
+            <div class="mh-chips">
+              <span class="mock-chip tag">🏷 thesis.ch2</span>
+              <span class="mh-skel" style="width:52px"></span>
+              <span class="mock-chip">💬 3</span>
+              <span class="mh-skel" style="width:38px"></span>
+              <span class="mh-skel" style="width:64px"></span>
+              <span class="mock-chip tag">🏷 api.limits</span>
+              <span class="mh-skel" style="width:44px"></span>
+              <span class="mh-skel" style="width:57px"></span>
+              <span class="mock-chip">💬 7</span>
+              <span class="mh-skel" style="width:35px"></span>
+              <span class="mh-skel" style="width:48px"></span>
+              <span class="mh-skel" style="width:61px"></span>
+              <span class="mock-chip">💬 2</span>
+              <span class="mh-skel" style="width:42px"></span>
+              <span class="mh-skel" style="width:55px"></span>
+              <span class="mock-chip tag">🏷 travel.jp</span>
+              <span class="mh-skel" style="width:39px"></span>
+              <span class="mh-skel" style="width:50px"></span>
+            </div>
+            <div class="mh-note">Scrolling stays smooth. Reloads stay quick. Nothing to configure.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow" id="export">
+        <div class="frow-copy">
+          <h3>Take everything with you 📦</h3>
+          <p class="frow-body">Every conversation you annotate is quietly kept as a transcript on your computer — filling in as you scroll, even on sites that only show part of a long chat at a time. One click exports the conversation <span class="hl-sm">plus your comments</span> as clean Markdown, ready for NotebookLM or Obsidian. And from Settings you can back up everything — threads and transcripts — to a single file, and bring it back on any machine.</p>
+        </div>
+        <div class="frow-viz">
+          <div class="mock" aria-hidden="true">
+            <div class="mock-kicker">📦 EXPORT · CONVERSATION + YOUR NOTES</div>
+            <div class="md-h"># Security deposit — what I can actually claim</div>
+            <div class="md-skel" style="width:90%"></div>
+            <div class="md-skel" style="width:74%"></div>
+            <div class="md-note"><b>Your note:</b> check the 21-day itemization rule first</div>
+            <div class="md-skel" style="width:82%"></div>
+            <div class="md-skel" style="width:55%"></div>
+            <div class="mock-chiprow">
+              <span class="mock-chip">⬇ conversation.md</span>
+              <span class="mock-chip">Copied to clipboard ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="fixes" class="pains">
+    <div class="section-inner">
+      <h2>Sound familiar? ✋</h2>
+      <p class="pains-sub">Six little frustrations we kept hitting ourselves — each one already fixed in a release you have.</p>
+      <div class="pains-grid">
+        <div class="pain">
+          <div class="pain-q">"The answer arrives faster than I can read — and drags the page down with it."</div>
+          <span class="pain-ver">fixed in 0.3.2</span>
+          <div class="pain-fix">Turn on Calm scrolling: the view follows a couple of lines, then holds still. A round arrow marks the text piling up below — click it, or scroll yourself, to catch up.</div>
+        </div>
+        <div class="pain">
+          <div class="pain-q">"I typed half a question, opened the full-screen view — gone."</div>
+          <span class="pain-ver">fixed in 0.3.1</span>
+          <div class="pain-fix">Drafts follow you now. Margin box to full-screen and back — your half-typed message is right there, ready to finish.</div>
+        </div>
+        <div class="pain">
+          <div class="pain-q">"Enter sent my message in the middle of a code block."</div>
+          <span class="pain-ver">fixed in 0.3.1</span>
+          <div class="pain-fix">Inside an unclosed <code>```</code> fence, Enter makes a new line instead of sending. Ctrl/Cmd&nbsp;+&nbsp;Enter always sends.</div>
+        </div>
+        <div class="pain">
+          <div class="pain-q">"I know I asked this before… but in which chat?"</div>
+          <span class="pain-ver">fixed in 0.3.0</span>
+          <div class="pain-fix">The Across-chats tab searches every conversation you've annotated — by any word in a highlight, a question, or an answer.</div>
+        </div>
+        <div class="pain">
+          <div class="pain-q">"The input box swallowed the first line of my question."</div>
+          <span class="pain-ver">fixed in 0.4.0</span>
+          <div class="pain-fix">The composer keeps growing as you type — up to 40% of the window — and the comment box rises to make room, so everything stays visible.</div>
+        </div>
+        <div class="pain">
+          <div class="pain-q">"I scrolled up to reread something and the stream yanked me back down."</div>
+          <span class="pain-ver">fixed in 0.3.2</span>
+          <div class="pain-fix">The full-screen view and the panel respect your scroll position while an answer streams. Reading beats following.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="everything-else" class="more">
+    <div class="section">
+      <h2>And the rest of it 🧰</h2>
+      <p class="section-sub">Small things you'll notice on day two.</p>
+      <div class="mini-grid">
+        <div class="mini">
+          <div class="mini-title">Math that reads like math</div>
+          <div class="mini-body"><code>\frac{a}{b}</code> shows up as real fractions, Greek letters, and superscripts — in margin boxes and full-screen alike.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Markdown when you mean it</div>
+          <div class="mini-body">A per-message MD toggle decides whether what you send renders formatted or plain. It lights up when it's on.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Resize anything</div>
+          <div class="mini-body">Drag the threads panel by any edge or corner, and the full-screen view by its edges — your size sticks for the visit.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Minimize, resolve, reopen</div>
+          <div class="mini-body">Boxes shrink to chips, and opening one thread neatly tucks the others away.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Search inside a chat</div>
+          <div class="mini-body">Find any thread by any word in a highlight, a question, or an answer.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Ctrl+Z, even after sending</div>
+          <div class="mini-body">Undo in every composer brings back text you deleted or already sent.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Labels, editable everywhere</div>
+          <div class="mini-body">Chips with a ×, a pencil on threads, or <code>/label</code> right in the message field.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Dressed for each site</div>
+          <div class="mini-body">A flat look that borrows ChatGPT's, Claude's, and Gemini's own colors.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Your session or your keys</div>
+          <div class="mini-body">Logged-in Claude and Gemini need zero setup; add API keys in Settings when you want them (ChatGPT uses one).</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Backup &amp; restore</div>
+          <div class="mini-body">Export threads and transcripts to a single file; restoring merges safely and never touches your keys.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">No server, no tracking</div>
+          <div class="mini-body">Everything lives in your browser; questions go only to your AI.</div>
+        </div>
+        <div class="mini">
+          <div class="mini-title">Firefox &amp; Chrome</div>
+          <div class="mini-body">The same extension, both browsers.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-headline">Your next "wait, what?" deserves a margin.</div>
+    <div class="footer-privacy">No server, no tracking. Threads live in your browser; questions go only to your AI. <a href="https://github.com/midhunkrishna/marginalia">Check the code yourself</a>.</div>
+    <a class="cta-footer" href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Add to Chrome — ten seconds, no account</a>
+    <div class="footer-links">
+      <span>© 2026 Marginalia</span>
+      <a href="https://github.com/midhunkrishna/marginalia">GitHub</a>
+      <a href="https://chromewebstore.google.com/detail/marginalia/lkondngonkokanegbiaphkjehphhjdha">Chrome Web Store</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var burger = document.getElementById('burger');
+  var menu = document.getElementById('mobileMenu');
+  burger.addEventListener('click', function () {
+    var open = menu.classList.toggle('open');
+    burger.textContent = open ? '✕' : '☰';
+    burger.setAttribute('aria-expanded', String(open));
+  });
+  menu.addEventListener('click', function (e) {
+    if (e.target.tagName === 'A') {
+      menu.classList.remove('open');
+      burger.textContent = '☰';
+      burger.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
