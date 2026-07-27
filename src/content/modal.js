@@ -9,7 +9,7 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.Modal = (function () {
   let dlg = null; // current dialog handle — module close() targets it
   let sessionWidth = 0; // drag-resized width, remembered for this page session
-  let endDrag = null; // active drag teardown (also run on close)
+  let resizer = null; // shared drag-resize handle (util.js GA.dragResize) — ends an in-flight drag on close
   let detachFeed = null; // live-stream unsubscribe (open-mid-stream case)
 
   // handlers: the thread's box handlers (ask/persist/onLabel/onStop) —
@@ -194,7 +194,7 @@ GA.Modal = (function () {
       content: panel,
       initialFocus: composer ? composer.textarea : closeBtn,
       onClose: function () {
-        if (endDrag) endDrag();
+        if (resizer) resizer.end();
         if (detachFeed) {
           detachFeed();
           detachFeed = null;
@@ -205,52 +205,22 @@ GA.Modal = (function () {
         if (onClosed) onClosed(composer ? composer.draft() : "");
       },
     });
-    attachResize(panel, myDlg.overlay);
+    resizer = attachResize(panel, myDlg.overlay);
   }
 
-  // Edge drag handles: the modal is flex-centered, so to keep the edge under
-  // the cursor the width changes by 2*dx. Mouse events (not pointer) — no
-  // capture needed, and they run in jsdom. Width clamps to
-  // [MODAL_MIN_PX, MODAL_MAX_FRAC * viewport]; the result is remembered for
-  // the rest of the page session only.
+  // Width-only drag resize (see util.js GA.dragResize for the 2*dx rationale);
+  // the dragged width is remembered for the rest of the page session.
   function attachResize(panel, overlay) {
-    function start(side) {
-      return function (e) {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        const startX = e.clientX;
-        const startW =
-          parseInt(panel.style.width, 10) ||
-          panel.getBoundingClientRect().width ||
-          GA.config.MODAL_FALLBACK_PX;
-        const max = Math.round(window.innerWidth * GA.config.MODAL_MAX_FRAC);
-        function move(ev) {
-          const dx = ev.clientX - startX;
-          const w = Math.max(
-            GA.config.MODAL_MIN_PX,
-            Math.min(max, Math.round(startW + side * 2 * dx)),
-          );
-          panel.style.width = w + "px";
-        }
-        function up() {
-          document.removeEventListener("mousemove", move);
-          document.removeEventListener("mouseup", up);
-          overlay.classList.remove("ga-modal-resizing");
-          sessionWidth = parseInt(panel.style.width, 10) || sessionWidth;
-          endDrag = null;
-        }
-        document.addEventListener("mousemove", move);
-        document.addEventListener("mouseup", up);
-        overlay.classList.add("ga-modal-resizing");
-        endDrag = up;
-      };
-    }
-    panel.appendChild(
-      GA.el("div", { class: "ga-modal-resize ga-modal-resize-left", onmousedown: start(-1) }),
-    );
-    panel.appendChild(
-      GA.el("div", { class: "ga-modal-resize ga-modal-resize-right", onmousedown: start(1) }),
-    );
+    return GA.dragResize(panel, overlay, {
+      width: {
+        min: GA.config.MODAL_MIN_PX,
+        maxFrac: GA.config.MODAL_MAX_FRAC,
+        fallback: GA.config.MODAL_FALLBACK_PX,
+      },
+      onEnd: function (s) {
+        sessionWidth = s.w || sessionWidth;
+      },
+    });
   }
 
   function close() {

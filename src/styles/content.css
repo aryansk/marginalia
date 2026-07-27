@@ -1214,10 +1214,55 @@
 .ga-modal-resize:hover {
   background: var(--ga-surface-2);
 }
+.ga-modal-resize-y {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 1;
+}
+.ga-modal-resize-top {
+  top: 0;
+}
+.ga-modal-resize-bottom {
+  bottom: 0;
+}
+.ga-modal-resize-y:hover {
+  background: var(--ga-surface-2);
+}
+.ga-modal-resize-c {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  z-index: 2; /* corners win over the edge strips they overlap */
+}
+.ga-modal-resize-tl {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.ga-modal-resize-tr {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.ga-modal-resize-bl {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.ga-modal-resize-br {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+/* the drag cursor follows the grabbed handle's direction (GA.dragResize sets
+   the var on the overlay); ew-resize default keeps the modal pixel-identical */
 .ga-modal-resizing,
 .ga-modal-resizing * {
   user-select: none;
-  cursor: ew-resize;
+  cursor: var(--ga-resize-cursor, ew-resize);
 }
 .ga-modal-header {
   display: flex;
@@ -1342,6 +1387,12 @@
 }
 .ga-panel {
   width: min(560px, 100%);
+}
+/* a drag-set explicit height must go to the body (the scroll region), not
+   dead space above the footer. 1 1 auto — NOT flex:1 — so the content-sized
+   (no-drag) layout is byte-identical to today. */
+.ga-panel .ga-modal-body {
+  flex: 1 1 auto;
 }
 .ga-panel-tabs {
   display: flex;

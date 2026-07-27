@@ -19,6 +19,9 @@ calmer, roomier panel on top._
   namespace is now a little collapsible section — closed until you open it,
   already open where your picks live, and opened up by a search so results
   are never hidden behind a closed header.
+- **Stretch the threads panel.** Drag any edge or corner of the panel to make
+  it as wide or tall as you like — it stays put in the middle of the screen,
+  and keeps your chosen size until you leave the page.
 
 - **No more freezes.** Heavily-annotated conversations used to stutter and
   eventually hang (even on reload). The extension now does work only for

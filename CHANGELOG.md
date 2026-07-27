@@ -20,6 +20,10 @@ calmer, roomier panel on top. (Pending verification against
   Sections start closed, except the ones holding your current picks; a live
   search opens whatever it matched; your own opens/closes stick for the rest
   of the panel visit.
+- **Drag-resizable threads panel.** Drag any edge or corner to resize the
+  panel in both directions — it stays centered while you drag, and the chosen
+  size is remembered for the rest of the page session (the same convention as
+  the maximized thread view's width).
 
 ### Changed
 

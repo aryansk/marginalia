@@ -33,6 +33,10 @@ GA.config = {
   MODAL_MIN_PX: 420, // drag-resize floor for the thread modal
   MODAL_MAX_FRAC: 0.95, // drag-resize ceiling as a fraction of the viewport width
   MODAL_FALLBACK_PX: 820, // drag-start width when the modal has no measurable width yet (first paint / jsdom)
+  PANEL_FALLBACK_PX: 560, // panel drag-start width fallback (matches the CSS min(560px, 100%))
+  PANEL_MIN_H_PX: 320, // panel height drag floor — header + a few rows + the footer
+  PANEL_MAX_H_FRAC: 0.9, // panel height ceiling — matches .ga-modal's max-height: 90vh
+  PANEL_FALLBACK_H_PX: 520, // drag-start height when the panel has no measurable height yet (first paint / jsdom)
   BOX_MESSAGES_MIN_PX: 40, // layout clamp floor — a squeezed box keeps at least a sliver of messages visible
   CALM_SCROLL_BUDGET_PX: 60, // calm scrolling: follow ~3 lines of a new answer, then hold still
   STREAM_RENDER_SMALL_CHARS: 2048, // answers below this render every frame (snappy start)

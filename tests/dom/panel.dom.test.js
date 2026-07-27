@@ -162,3 +162,70 @@ describe("panel keyword search", () => {
     expect(row.textContent).toContain("<img");
   });
 });
+
+// The panel is flex-centered by the overlay, so a 2*delta size change keeps
+// the dragged edge under the cursor while the box stays centered — same
+// mechanism as the thread modal's width drag, extended to height + corners.
+describe("panel drag-resize", () => {
+  const drag = (target, from, to) => {
+    target.dispatchEvent(
+      new MouseEvent("mousedown", { button: 0, clientX: from.x, clientY: from.y, bubbles: true }),
+    );
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: to.x, clientY: to.y }));
+    document.dispatchEvent(new MouseEvent("mouseup", {}));
+  };
+  const panelEl = () => document.querySelector(".ga-panel");
+  const handle = (cls) => panelEl().querySelector(".ga-modal-resize-" + cls);
+
+  it("edges resize width and height by 2*delta from the config fallbacks", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    drag(handle("right"), { x: 500, y: 0 }, { x: 550, y: 0 });
+    expect(panelEl().style.width).toBe("660px"); // 560 + 2*50
+    drag(handle("bottom"), { x: 0, y: 500 }, { x: 0, y: 540 });
+    expect(panelEl().style.height).toBe("600px"); // 520 + 2*40
+    drag(handle("left"), { x: 500, y: 0 }, { x: 480, y: 0 }); // left edge, negative dx grows
+    expect(panelEl().style.width).toBe("700px"); // 660 + 2*20
+  });
+
+  it("corners drive both axes and clamp to [min, maxFrac*viewport]", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    // jsdom viewport is 1024x768
+    drag(handle("br"), { x: 500, y: 500 }, { x: 900, y: 100 });
+    expect(panelEl().style.width).toBe(Math.round(1024 * 0.95) + "px"); // max clamp
+    expect(panelEl().style.height).toBe("320px"); // min clamp (dragged up = shrink)
+    drag(handle("tl"), { x: 500, y: 500 }, { x: 520, y: 520 }); // toward center = shrink
+    expect(parseInt(panelEl().style.width, 10)).toBeLessThan(Math.round(1024 * 0.95));
+  });
+
+  it("all eight handles exist on the panel", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    ["left", "right", "top", "bottom", "tl", "tr", "bl", "br"].forEach((cls) => {
+      expect(handle(cls)).toBeTruthy();
+    });
+  });
+
+  it("the dragged size is remembered for the session (close -> reopen)", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    drag(handle("right"), { x: 500, y: 0 }, { x: 550, y: 0 });
+    drag(handle("bottom"), { x: 0, y: 500 }, { x: 0, y: 540 });
+    GA.panel.close();
+    GA.panel.open();
+    expect(panelEl().style.width).toBe("660px");
+    expect(panelEl().style.height).toBe("600px");
+  });
+
+  it("mouseup detaches the listeners and clears the resizing state", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    drag(handle("right"), { x: 500, y: 0 }, { x: 550, y: 0 });
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 900, clientY: 900 }));
+    expect(panelEl().style.width).toBe("660px"); // stray move after up: no effect
+    expect(
+      document.querySelector(".ga-modal-overlay").classList.contains("ga-modal-resizing"),
+    ).toBe(false);
+  });
+});

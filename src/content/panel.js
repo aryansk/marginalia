@@ -13,6 +13,8 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.panel = (function () {
   let dlg = null; // current dialog handle (GA.dialog) — close() targets it
   let filter = "open"; // "open" | "resolved" | "all" | "global" — persists across opens
+  let sessionSize = { w: 0, h: 0 }; // drag-resized panel size, remembered for this page session
+  let resizer = null; // GA.dragResize handle — ends an in-flight drag on close
   // Per-open view state shared by the build/render helpers below:
   // { query, body, count, searchInput, clearBtn, typeSeg, footer, chats }.
   // Set in open(), nulled when the dialog closes, so a query never leaks into
@@ -396,6 +398,8 @@ GA.panel = (function () {
     renderList();
 
     const panelEl = GA.el("div", { class: "ga-modal ga-panel" }, [built.header, view.body, footer]);
+    if (sessionSize.w) panelEl.style.width = sessionSize.w + "px";
+    if (sessionSize.h) panelEl.style.height = sessionSize.h + "px";
     dlg = GA.dialog.open({
       label: "All comment threads",
       content: panelEl,
@@ -422,9 +426,29 @@ GA.panel = (function () {
         return false;
       },
       onClose: function () {
+        if (resizer) {
+          resizer.end(); // an Esc/backdrop close mid-drag must detach the doc listeners
+          resizer = null;
+        }
         if (view && view.chats) view.chats.onClose(); // aborts any in-flight synthesis
         dlg = null;
         view = null;
+      },
+    });
+    resizer = GA.dragResize(panelEl, dlg.overlay, {
+      width: {
+        min: GA.config.MODAL_MIN_PX,
+        maxFrac: GA.config.MODAL_MAX_FRAC,
+        fallback: GA.config.PANEL_FALLBACK_PX,
+      },
+      height: {
+        min: GA.config.PANEL_MIN_H_PX,
+        maxFrac: GA.config.PANEL_MAX_H_FRAC,
+        fallback: GA.config.PANEL_FALLBACK_H_PX,
+      },
+      onEnd: function (s) {
+        sessionSize.w = s.w || sessionSize.w;
+        sessionSize.h = s.h || sessionSize.h;
       },
     });
   }

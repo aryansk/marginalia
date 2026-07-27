@@ -201,3 +201,76 @@ GA.toast = function (msg) {
     t.classList.remove("ga-toast-show");
   }, GA.config.TOAST_MS);
 };
+
+// Shared edge/corner drag-resize for the flex-centered dialogs (thread modal,
+// threads panel). The dialog is centered, so keeping the dragged edge under
+// the cursor means the size changes by 2*delta — and the box stays centered
+// through the whole drag for free. Mouse events, not pointer — no capture
+// needed and they run in jsdom. Sizes clamp to [min, maxFrac * viewport];
+// session memory is the caller's business (onEnd).
+//
+// opts: { width?: {min, maxFrac, fallback}, height?: {min, maxFrac, fallback},
+//         onEnd?({w, h}) }  — omit an axis to skip its handles entirely
+//         (the thread modal is width-only).
+// Returns { end } — tears down an in-flight drag (call from dialog onClose).
+GA.dragResize = function (panel, overlay, opts) {
+  let live = null; // the active drag's mouseup teardown
+  const clamp = (min, max, v) => Math.max(min, Math.min(max, Math.round(v)));
+  const startSize = (styleVal, rectVal, fallback) => parseInt(styleVal, 10) || rectVal || fallback;
+  function start(h) {
+    return function (e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const sX = e.clientX;
+      const sY = e.clientY;
+      const rect = panel.getBoundingClientRect();
+      const sW = h.sx ? startSize(panel.style.width, rect.width, opts.width.fallback) : 0;
+      const sH = h.sy ? startSize(panel.style.height, rect.height, opts.height.fallback) : 0;
+      const maxW = h.sx ? Math.round(window.innerWidth * opts.width.maxFrac) : 0;
+      const maxH = h.sy ? Math.round(window.innerHeight * opts.height.maxFrac) : 0;
+      function move(ev) {
+        if (h.sx)
+          panel.style.width = clamp(opts.width.min, maxW, sW + h.sx * 2 * (ev.clientX - sX)) + "px";
+        if (h.sy)
+          panel.style.height =
+            clamp(opts.height.min, maxH, sH + h.sy * 2 * (ev.clientY - sY)) + "px";
+      }
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        overlay.classList.remove("ga-modal-resizing");
+        overlay.style.removeProperty("--ga-resize-cursor");
+        live = null;
+        if (opts.onEnd)
+          opts.onEnd({
+            w: parseInt(panel.style.width, 10) || 0,
+            h: parseInt(panel.style.height, 10) || 0,
+          });
+      }
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+      overlay.classList.add("ga-modal-resizing");
+      // the "every descendant" drag cursor comes from a CSS var, per direction
+      overlay.style.setProperty("--ga-resize-cursor", h.cursor);
+      live = up;
+    };
+  }
+  [
+    { cls: "ga-modal-resize ga-modal-resize-left", sx: -1, sy: 0, cursor: "ew-resize" },
+    { cls: "ga-modal-resize ga-modal-resize-right", sx: 1, sy: 0, cursor: "ew-resize" },
+    { cls: "ga-modal-resize-y ga-modal-resize-top", sx: 0, sy: -1, cursor: "ns-resize" },
+    { cls: "ga-modal-resize-y ga-modal-resize-bottom", sx: 0, sy: 1, cursor: "ns-resize" },
+    { cls: "ga-modal-resize-c ga-modal-resize-tl", sx: -1, sy: -1, cursor: "nwse-resize" },
+    { cls: "ga-modal-resize-c ga-modal-resize-tr", sx: 1, sy: -1, cursor: "nesw-resize" },
+    { cls: "ga-modal-resize-c ga-modal-resize-bl", sx: -1, sy: 1, cursor: "nesw-resize" },
+    { cls: "ga-modal-resize-c ga-modal-resize-br", sx: 1, sy: 1, cursor: "nwse-resize" },
+  ].forEach(function (h) {
+    if ((h.sx && !opts.width) || (h.sy && !opts.height)) return;
+    panel.appendChild(GA.el("div", { class: h.cls, onmousedown: start(h) }));
+  });
+  return {
+    end() {
+      if (live) live();
+    },
+  };
+};
