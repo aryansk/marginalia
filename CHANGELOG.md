@@ -2,6 +2,15 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
+## Unreleased
+
+### Changed
+
+- **Deleting an empty thread no longer asks for confirmation.** The
+  "Delete this thread?" popover now appears only when there's something to
+  lose — a conversation in the thread, or unsent text in the composer. A
+  freshly opened thread deletes with one click (or Del).
+
 ## 0.4.0 — 2026-07-27
 
 The performance release, plus a threads-panel polish wave: the same extension

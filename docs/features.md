@@ -6,6 +6,13 @@ install and day-to-day usage instructions, see
 
 ---
 
+## Unreleased
+
+- **One-click delete for empty threads.** Deleting a thread you just opened
+  no longer asks "Delete this thread?" — the confirmation appears only when
+  there's something to lose (a conversation, or text you've typed but not
+  sent yet).
+
 ## 0.4.0 — Built for a hundred threads
 
 _The performance release plus a threads-panel polish pass: the same extension

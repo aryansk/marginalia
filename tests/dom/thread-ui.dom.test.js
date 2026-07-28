@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
 // A destroyed box (torn down on conversation switch) must ignore late work from
@@ -380,5 +380,63 @@ describe("streaming drives a same-frame relayout", () => {
     s.finish("final answer");
     await tick(); // endModel -> renderFinal -> onEnd
     expect(s.events.some((e) => e.kind === "resize" && e.opts && e.opts.now === true)).toBe(true);
+  });
+});
+
+// An empty thread (no conversation, nothing typed) deletes without the
+// confirm popover; anything worth losing still asks first.
+describe("delete confirmation", () => {
+  function makeBox(GA, thread, onDelete) {
+    const box = GA.ThreadBox(thread, { persist: () => {}, onDelete });
+    document.body.appendChild(box.el);
+    return box;
+  }
+  const trash = (box) => box.el.querySelector('.ga-iconbtn[title^="Delete thread"]');
+  const popover = (box) => box.el.querySelector(".ga-confirm");
+
+  it("an empty thread deletes immediately, no popover", () => {
+    const GA = makeGA();
+    const thread = { id: "d1", selector: { exact: "x" }, messages: [] };
+    const onDelete = vi.fn();
+    const box = makeBox(GA, thread, onDelete);
+    trash(box).click();
+    expect(popover(box).classList.contains("ga-confirm-show")).toBe(false);
+    expect(onDelete).toHaveBeenCalledWith(thread);
+  });
+
+  it("a thread with a conversation asks first; Yes deletes", () => {
+    const GA = makeGA();
+    const thread = {
+      id: "d2",
+      selector: { exact: "x" },
+      messages: [{ role: "user", text: "earlier question" }],
+    };
+    const onDelete = vi.fn();
+    const box = makeBox(GA, thread, onDelete);
+    trash(box).click();
+    expect(popover(box).classList.contains("ga-confirm-show")).toBe(true);
+    expect(onDelete).not.toHaveBeenCalled();
+    box.el.querySelector(".ga-confirm-yes").click();
+    expect(onDelete).toHaveBeenCalledWith(thread);
+  });
+
+  it("a typed-but-unsent draft still gets the confirmation", () => {
+    const GA = makeGA();
+    const thread = { id: "d3", selector: { exact: "x" }, messages: [] };
+    const onDelete = vi.fn();
+    const box = makeBox(GA, thread, onDelete);
+    box.el.querySelector(".ga-input").value = "typed but not sent";
+    trash(box).click();
+    expect(popover(box).classList.contains("ga-confirm-show")).toBe(true);
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("Del key on an empty focused box deletes immediately", () => {
+    const GA = makeGA();
+    const thread = { id: "d4", selector: { exact: "x" }, messages: [] };
+    const onDelete = vi.fn();
+    const box = makeBox(GA, thread, onDelete);
+    box.el.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    expect(onDelete).toHaveBeenCalledWith(thread);
   });
 });

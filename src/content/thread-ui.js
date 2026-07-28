@@ -581,6 +581,12 @@ GA.ThreadBox = function (thread, handlers) {
   }
 
   function askDelete() {
+    // A thread with no conversation and an empty composer has nothing to
+    // lose — delete it without the confirm popover.
+    if (!(thread.messages || []).length && !composer.draft().trim()) {
+      handlers.onDelete && handlers.onDelete(thread);
+      return;
+    }
     confirm.show();
   }
   function hideDelete() {
