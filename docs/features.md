@@ -6,7 +6,7 @@ install and day-to-day usage instructions, see
 
 ---
 
-## Unreleased
+## 0.4.1 — One question fewer
 
 - **One-click delete for empty threads.** Deleting a thread you just opened
   no longer asks "Delete this thread?" — the confirmation appears only when

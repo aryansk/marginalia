@@ -2,7 +2,9 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
-## Unreleased
+## 0.4.1 — 2026-07-28
+
+A one-change patch: less ceremony around deleting.
 
 ### Changed
 
