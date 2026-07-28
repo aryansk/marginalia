@@ -6,7 +6,7 @@ install and day-to-day usage instructions, see
 
 ---
 
-## Unreleased — Built for a hundred threads
+## 0.4.0 — Built for a hundred threads
 
 _The performance release plus a threads-panel polish pass: the same extension
 made fast enough for conversations carrying 100+ comment threads, with a

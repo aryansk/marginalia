@@ -2,12 +2,11 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
-## Unreleased
+## 0.4.0 — 2026-07-27
 
 The performance release, plus a threads-panel polish wave: the same extension
 made fast enough for conversations carrying 100+ comment threads, with a
-calmer, roomier panel on top. (Pending verification against
-`docs/perf-test.md` before this ships.)
+calmer, roomier panel on top.
 
 ### Added
 
