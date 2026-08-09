@@ -1,6 +1,7 @@
 # Marginalia
 
-> Just here to learn how to install and use Marginalia? 
+> Just here to learn how to install and use Marginalia?
+>
 > 1. [Marginalia Website](http://marginalia.midhun-krishna-usa.workers.dev/)
 > 2. See [`usage instructions`](ops/using.md)
 
