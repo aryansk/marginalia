@@ -13,6 +13,7 @@ export default defineConfig({
         "src/shared/**",
         "src/background/**",
         "src/content/**",
+        "src/onboarding/**",
         "src/{gemini,claude,openai,googleai,anthropic}/**",
       ],
       reporter: ["text", "html"],

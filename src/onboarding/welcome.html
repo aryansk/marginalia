@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Welcome to Marginalia</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236c3df4'/%3E%3Crect x='30' y='34' width='40' height='10' rx='4' fill='%23ffd803'/%3E%3Crect x='30' y='50' width='40' height='6' rx='3' fill='%23fff' opacity='.6'/%3E%3Crect x='30' y='60' width='28' height='6' rx='3' fill='%23fff' opacity='.6'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <span class="logo">
+          <span class="logo-mark"><span></span></span>
+          <span class="logo-word">marginalia</span>
+        </span>
+        <span class="installed-chip">Installed ✓</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- 1. Hero: headline + the landing page's CSS-only highlight→thread mock -->
+      <section class="hero">
+        <div>
+          <h1>Ask about <span class="hl">the confusing part</span> — right in the margin.</h1>
+          <p class="hero-sub">
+            Comment threads for ChatGPT, Claude &amp; Gemini — like Google Docs, but for AI answers.
+            Highlight it, ask about it, right there in the margin.
+          </p>
+        </div>
+        <div class="demo" id="demo" aria-hidden="true">
+          <div class="demo-answer">
+            <div class="demo-answer-label">CHATGPT · LONG ANSWER</div>
+            …the deposit is refundable only if you cancel within the
+            <mark id="demoMark">statutory cooling-off period</mark>, which varies by state. After
+            that window closes, the landlord may retain…
+            <div class="demo-skel"></div>
+            <div class="demo-skel"></div>
+          </div>
+          <div class="demo-thread">
+            <div class="demo-thread-label">💬 YOUR MARGIN THREAD</div>
+            <div class="demo-thread-q">wait — how long is that in California?</div>
+            <div class="demo-thread-a">
+              In California it's 3 business days for most contracts (Civil Code §1689.5) — some
+              door-to-door sales get 5.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Three-step strip -->
+      <section class="install">
+        <div class="section-inner">
+          <h2>How it works</h2>
+          <div class="grid3">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-title">Highlight</div>
+              <div class="step-body">
+                Select any part of an AI answer — the phrase you're unsure about.
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-title">Comment</div>
+              <div class="step-body">
+                Click the <b>Comment</b> pill that appears — or press
+                <!-- Rewritten by welcome.js when the user has rebound the shortcut. -->
+                <span id="shortcut-label"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd></span
+                >. Right-clicking the selection works too.
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-title">Ask in the margin</div>
+              <div class="step-body">
+                The reply streams in beside the text. Your main chat stays untouched.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Per-site readiness -->
+      <section class="section">
+        <h2>Where it works right now</h2>
+        <p class="section-sub">
+          Gemini and Claude work with the session you're already logged into — nothing to set up.
+          ChatGPT needs an API key.
+        </p>
+        <div class="site-card">
+          <div class="site-row">
+            <div class="site-head">
+              <span class="site-status">✅</span>
+              <span class="site-name">Gemini</span>
+              <a
+                class="cta-primary site-open"
+                href="https://gemini.google.com/app"
+                target="_blank"
+                rel="noopener"
+                >Open Gemini and try it</a
+              >
+            </div>
+            <p class="site-note">Works now with your logged-in session. No key needed.</p>
+          </div>
+          <div class="site-row">
+            <div class="site-head">
+              <span class="site-status">✅</span>
+              <span class="site-name">Claude</span>
+              <a
+                class="cta-secondary site-open"
+                href="https://claude.ai/new"
+                target="_blank"
+                rel="noopener"
+                >Open Claude</a
+              >
+            </div>
+            <p class="site-note">Works now with your logged-in session. No key needed.</p>
+          </div>
+          <div class="site-row">
+            <div class="site-head">
+              <span class="site-status">🔑</span>
+              <span class="site-name">ChatGPT</span>
+              <a
+                class="cta-secondary site-open"
+                href="https://chatgpt.com/"
+                target="_blank"
+                rel="noopener"
+                >Open ChatGPT</a
+              >
+            </div>
+            <p class="site-note">
+              Needs an OpenAI API key — chatgpt.com blocks extensions from its own backend, so
+              follow-ups go through the official API with your key.
+            </p>
+            <div class="key-row">
+              <input
+                type="password"
+                id="openai-key"
+                class="key-field"
+                placeholder="sk-… (your OpenAI API key)"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="OpenAI API key"
+              />
+              <span id="key-status" class="key-status" role="status"></span>
+            </div>
+            <p class="site-note">
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener"
+                >Get a key at platform.openai.com/api-keys ↗</a
+              >
+            </p>
+          </div>
+        </div>
+        <p class="settings-line">
+          <button id="open-settings" class="linklike">
+            All settings — models, context scope, backups →
+          </button>
+        </p>
+      </section>
+
+      <!-- 4. Trust block -->
+      <section class="section">
+        <div class="trust">
+          <h2>Private by construction 🔒</h2>
+          <p>
+            Your keys and threads never leave this browser: stored in local extension storage, never
+            synced, sent only to the AI provider you chose. No account. No analytics. Open source
+            (MIT).
+          </p>
+          <p class="trust-links">
+            <a href="https://github.com/midhunkrishna/marginalia" target="_blank" rel="noopener"
+              >Check the code yourself ↗</a
+            >
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script src="../shared/browser-polyfill.js"></script>
+    <script src="../shared/settings-schema.js"></script>
+    <script src="welcome.js"></script>
+  </body>
+</html>

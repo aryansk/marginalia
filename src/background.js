@@ -41,6 +41,18 @@ browser.runtime.onInstalled.addListener(setupMenus);
 browser.runtime.onStartup.addListener(setupMenus);
 setupMenus();
 
+// First-run onboarding: open the welcome page on a fresh INSTALL only — not on
+// extension updates ("update"), browser updates ("browser_update"), or startup.
+// (about:debugging / web-ext reloads fire "update", so reloads stay silent.)
+// tabs.create to an extension page needs no extra permission and no
+// web_accessible_resources entry.
+browser.runtime.onInstalled.addListener(function (details) {
+  if (!details || details.reason !== "install") return;
+  Promise.resolve(
+    browser.tabs.create({ url: browser.runtime.getURL("src/onboarding/welcome.html") }),
+  ).catch(function () {});
+});
+
 browser.contextMenus.onClicked.addListener(function (info, tab) {
   if (info.menuItemId === P.CONTEXT_MENU_ID && tab && tab.id != null) {
     browser.tabs.sendMessage(tab.id, { type: P.MSG_OPEN_FROM_CONTEXT }).catch(function () {});

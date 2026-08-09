@@ -202,6 +202,36 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(chrome.content_scripts[0].js).toEqual(fxJs);
   });
 
+  it("onboarding page ships whole: script order, fonts on disk, site URLs pinned to the registry", async () => {
+    // Ships automatically because build.js copies src/ recursively — but only
+    // if every referenced file actually lives under src/ (web/ never ships).
+    for (const rel of [
+      "src/onboarding/welcome.html",
+      "src/onboarding/welcome.css",
+      "src/onboarding/welcome.js",
+      "src/onboarding/fonts/space-grotesk-latin.woff2",
+      "src/onboarding/fonts/space-grotesk-latin-ext.woff2",
+    ]) {
+      expect(fs.existsSync(path.join(ROOT, rel)), rel + " should exist").toBe(true);
+    }
+    // Script order: polyfill (browser.* on Chrome pages) → schema → page script.
+    const html = read("src/onboarding/welcome.html");
+    const polyfillAt = html.indexOf('src="../shared/browser-polyfill.js"');
+    const schemaAt = html.indexOf('src="../shared/settings-schema.js"');
+    const pageAt = html.indexOf('src="welcome.js"');
+    expect(polyfillAt).toBeGreaterThanOrEqual(0);
+    expect(polyfillAt).toBeLessThan(schemaAt);
+    expect(schemaAt).toBeLessThan(pageAt);
+    // The hardcoded "Open <site>" links must match the site registry's
+    // new-chat URLs — sites.js stays the single source of truth.
+    const sites = (await import("../../src/core/sites.js")).default;
+    for (const id of Object.keys(sites.PROVIDERS)) {
+      expect(html).toContain('href="' + sites.PROVIDERS[id].newChat + '"');
+    }
+    // background.js opens the page by this exact path.
+    expect(read("src/background.js")).toContain("src/onboarding/welcome.html");
+  });
+
   it("release metadata stays in lockstep across both manifests and package.json", () => {
     // The version is hand-copied in three places and has drifted once before
     // (a release went out as 0.3.0 instead of 0.2.2). CI's package job also
