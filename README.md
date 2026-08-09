@@ -1,6 +1,8 @@
 # Marginalia
 
-> Just here to learn how to install and use Marginalia? See [`usage instructions`](ops/using.md)
+> Just here to learn how to install and use Marginalia? 
+> 1. [Marginalia Website](http://marginalia.midhun-krishna-usa.workers.dev/)
+> 2. See [`usage instructions`](ops/using.md)
 
 A browser extension (**Firefox + Chrome**) that adds **Google-Docs-style margin
 comment threads** to the major AI chat sites — [Gemini](https://gemini.google.com),
