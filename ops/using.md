@@ -7,7 +7,9 @@ stays beside the answer instead of changing the main chat.
 ## Start a thread
 
 1. Open an AI conversation on a supported site and select text in an answer.
-2. Click the floating **Comment** button that appears near the selection.
+2. Click the floating **Comment** button that appears near the selection. You
+   can also right-click the selection and choose **Ask about…**, or press the
+   default **Ctrl+Shift+H** shortcut. The shortcut is configurable in Settings.
 3. Type a question in the thread's **Ask a follow-up…** box and click **Ask**.
    Press Enter to submit, or Shift+Enter to add a new line. Cmd/Ctrl+Enter
    also submits.
@@ -17,6 +19,10 @@ stays beside the answer instead of changing the main chat.
 The selected text remains highlighted. Marginalia stores the thread for that
 site and conversation, so it can reappear after a reload or when you return to
 the conversation.
+
+![Selecting text opens the Comment pill](../images/selection.png)
+
+![A response streams into the margin thread](../images/response.png)
 
 ## Manage a thread
 
