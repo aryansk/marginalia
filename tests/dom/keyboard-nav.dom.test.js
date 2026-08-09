@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 // keyboard-nav.js owns the Alt-based thread shortcuts: Alt+↓/↑ cycle threads by
 // gutter order (scroll the anchor into view, activate, focus the box),
-// Alt+Shift+C toggles all collapsed (matched by PHYSICAL key — macOS remaps
-// e.key under Option+Shift), Alt+Shift+A toggles the panel; everything is
-// inert while typing in an editable field. Real GA.core.cycle does the math.
+// Alt+Shift+C toggles all collapsed, Alt+Shift+A toggles the panel, Alt+Shift+H
+// toggles highlight visibility (all three matched by PHYSICAL key — macOS
+// remaps e.key under Option+Shift); everything is inert while typing in an
+// editable field. Real GA.core.cycle does the math.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
@@ -24,6 +25,7 @@ function makeGA({ ids = ["a", "b", "c"], active = null } = {}) {
     }),
     get: (id) => boxes[id] || null,
     toggleAllCollapsed: vi.fn(),
+    toggleHighlightVisibility: vi.fn(),
   };
   GA.selection = { anchorEl: vi.fn((id) => anchors[id] || null) };
   GA.panel = { toggle: vi.fn() };
@@ -129,6 +131,19 @@ describe("keyboardNav — Alt+Shift toggles", () => {
     expect(e.defaultPrevented).toBe(true);
   });
 
+  it("Alt+Shift+H toggles highlight visibility, matched by e.code when macOS remaps e.key", () => {
+    const { GA } = makeGA();
+    const e = press({ key: "˙", code: "KeyH", altKey: true, shiftKey: true });
+    expect(GA.gutter.toggleHighlightVisibility).toHaveBeenCalledTimes(1);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it("Alt+Shift+H also matches by e.key on platforms that don't remap", () => {
+    const { GA } = makeGA();
+    press({ key: "H", altKey: true, shiftKey: true });
+    expect(GA.gutter.toggleHighlightVisibility).toHaveBeenCalledTimes(1);
+  });
+
   it("Shift suppresses arrow cycling (Alt+Shift+ArrowDown does nothing)", () => {
     const { GA } = makeGA();
     const e = press({ ...ALT_DOWN, shiftKey: true });
@@ -140,9 +155,11 @@ describe("keyboardNav — Alt+Shift toggles", () => {
   it("without Alt nothing fires", () => {
     const { GA } = makeGA();
     press({ key: "C", shiftKey: true });
+    press({ key: "H", shiftKey: true });
     press({ key: "ArrowDown" });
     expect(GA.gutter.setActive).not.toHaveBeenCalled();
     expect(GA.gutter.toggleAllCollapsed).not.toHaveBeenCalled();
+    expect(GA.gutter.toggleHighlightVisibility).not.toHaveBeenCalled();
     expect(GA.panel.toggle).not.toHaveBeenCalled();
   });
 });

@@ -34,7 +34,8 @@ docked normally, **maximized** to a full-screen modal (with its own composer),
 or **resolved** — archived but restorable, distinct from delete. An all-threads
 panel (**Alt + Shift + A**) lists everything with open/resolved filters and
 click-to-jump; **Alt + ↓/↑** cycles threads, **Alt + Shift + C** collapses or
-expands them all. Replies render markdown incl. tables and nested lists, with
+expands them all, and **Alt + Shift + H** hides or shows the highlight tint for
+re-reading clean text. Replies render markdown incl. tables and nested lists, with
 copy buttons on replies and code blocks. On narrow windows the margin collapses
 to a chip rail (chips open the modal); on very narrow ones highlights open the
 modal directly.

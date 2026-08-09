@@ -3,6 +3,7 @@
 //                                scrolling each highlight into view and
 //                                focusing its box;
 //   Alt+Shift+C                  toggle every thread collapsed/expanded;
+//   Alt+Shift+A                  toggle the all-threads panel;
 //   Alt+Shift+H                  toggle highlight tint visibility (per-session).
 // Alt-based so the host site's own shortcuts are untouched; inactive while
 // typing in any editable field (the sites' composers included).

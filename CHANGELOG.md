@@ -2,6 +2,16 @@
 
 Notable changes to Marginalia. Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 
+## Unreleased
+
+### Added
+
+- **Highlight visibility toggle.** A gutter eye button (stacked above the
+  all-threads button) and **Alt + Shift + H** hide the highlight tint for
+  re-reading a thread-heavy page, keeping a faint dotted underline so
+  hover-linking and clicking through to a thread still work. Per-page-session
+  only, not persisted.
+
 ## 0.4.1 — 2026-07-28
 
 A one-change patch: less ceremony around deleting.
