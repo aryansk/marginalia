@@ -11,6 +11,8 @@ GA.gutter = (function () {
   let drawer = null;
   let badge = null;
   let panelBtn = null;
+  let highlightVisBtn = null;
+  let highlightsOff = false; // per-session only, never persisted (see toggleHighlightVisibility)
   let countEl = null;
   let aboveCue = null;
   let belowCue = null;
@@ -96,11 +98,26 @@ GA.gutter = (function () {
       },
       GA.icons.make("list"),
     );
+    highlightVisBtn = GA.el(
+      "button",
+      {
+        class: "ga-panel-btn ga-highlights-toggle-btn",
+        title: "Hide highlight tint (Alt+Shift+H)",
+        "aria-label": "Toggle highlight visibility",
+        "aria-pressed": "false",
+        onclick: function (e) {
+          e.stopPropagation();
+          toggleHighlightVisibility();
+        },
+      },
+      GA.icons.make("eye"),
+    );
     container.appendChild(drawer);
     container.appendChild(badge);
     container.appendChild(aboveCue);
     container.appendChild(belowCue);
     container.appendChild(panelBtn);
+    container.appendChild(highlightVisBtn);
     document.body.appendChild(container);
     // No scroll listener of our own: the reanchorer owns the single scroll
     // entry point and calls onAnchorsMoved from its coalesced frame.
@@ -223,6 +240,22 @@ GA.gutter = (function () {
     scheduleLayout({ animate: true });
   }
 
+  // One-click show/hide for the page's highlight tints (the Hypothesis
+  // convention): toggles data-ga-highlights="off" on <html>, which content.css
+  // uses to drop the background tint while keeping a faint dotted underline so
+  // hover-linking and clicking through to a thread still work. Per-page-session
+  // only — deliberately not persisted (see the issue's "why not sticky" note).
+  function toggleHighlightVisibility() {
+    highlightsOff = !highlightsOff;
+    if (highlightsOff) document.documentElement.setAttribute("data-ga-highlights", "off");
+    else document.documentElement.removeAttribute("data-ga-highlights");
+    highlightVisBtn.setAttribute("aria-pressed", highlightsOff ? "true" : "false");
+    highlightVisBtn.title = highlightsOff
+      ? "Show highlight tint (Alt+Shift+H)"
+      : "Hide highlight tint (Alt+Shift+H)";
+    GA.icons.swap(highlightVisBtn, highlightsOff ? "eye-off" : "eye");
+  }
+
   // Hover linking (page highlight -> box): outline + raise the hovered
   // thread's box without changing focus.
   function hoverThread(id, on) {
@@ -313,6 +346,7 @@ GA.gutter = (function () {
     const animate = state.animateNext;
     state.animateNext = false;
     panelBtn.style.display = registry.size ? "flex" : "none";
+    highlightVisBtn.style.display = registry.size ? "flex" : "none";
     if (!registry.size) {
       state.lastSig = null;
       updateCluster(0);
@@ -502,6 +536,7 @@ GA.gutter = (function () {
     mode,
     orderedIds,
     toggleAllCollapsed,
+    toggleHighlightVisibility,
     hoverThread,
     relayout,
     scheduleLayout,

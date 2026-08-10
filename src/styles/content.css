@@ -162,6 +162,22 @@
   background: rgba(var(--ga-hl-resolved), 0.12);
   border-bottom: 1px dotted rgba(var(--ga-hl-resolved), 0.6);
 }
+/* Highlight visibility toggle (Alt+Shift+H / the gutter eye button): drop the
+   tint but keep a faint dotted underline, so hover-linking to the gutter box
+   and clicking through to a thread still work while re-reading clean text. */
+:root[data-ga-highlights="off"] .ga-highlight {
+  background: transparent;
+  border-bottom: 1px dotted rgba(var(--ga-hl), 0.35);
+}
+:root[data-ga-highlights="off"] .ga-highlight:hover,
+:root[data-ga-highlights="off"] .ga-highlight-hover,
+:root[data-ga-highlights="off"] .ga-highlight-active {
+  background: rgba(var(--ga-hl), 0.32);
+}
+:root[data-ga-highlights="off"] .ga-highlight-resolved {
+  background: transparent;
+  border-bottom: 1px dotted rgba(var(--ga-hl-resolved), 0.35);
+}
 /* label-tinted highlight: repoint the tint triplet so the idle/hover/active
    alphas above all follow — one override instead of three variants */
 .ga-highlight-label {
@@ -1384,6 +1400,15 @@
   color: var(--ga-fg);
   border-color: var(--ga-accent);
   box-shadow: var(--ga-shadow-md);
+}
+/* Stacked above the all-threads button rather than beside it — the gutter's
+   right edge is already tight against the host page's own chrome. */
+.ga-highlights-toggle-btn {
+  bottom: 58px;
+}
+.ga-highlights-toggle-btn[aria-pressed="true"] {
+  color: var(--ga-accent-strong);
+  border-color: var(--ga-accent);
 }
 .ga-panel {
   width: min(560px, 100%);

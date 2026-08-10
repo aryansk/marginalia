@@ -2,7 +2,9 @@
 //   Alt+ArrowDown / Alt+ArrowUp  cycle threads by position (orphans last),
 //                                scrolling each highlight into view and
 //                                focusing its box;
-//   Alt+Shift+C                  toggle every thread collapsed/expanded.
+//   Alt+Shift+C                  toggle every thread collapsed/expanded;
+//   Alt+Shift+A                  toggle the all-threads panel;
+//   Alt+Shift+H                  toggle highlight tint visibility (per-session).
 // Alt-based so the host site's own shortcuts are untouched; inactive while
 // typing in any editable field (the sites' composers included).
 var GA = (typeof GA !== "undefined" && GA) || {};
@@ -46,6 +48,9 @@ GA.keyboardNav = (function () {
       } else if (e.shiftKey && (e.code === "KeyA" || e.key === "A" || e.key === "a")) {
         e.preventDefault();
         GA.panel.toggle();
+      } else if (e.shiftKey && (e.code === "KeyH" || e.key === "H" || e.key === "h")) {
+        e.preventDefault();
+        GA.gutter.toggleHighlightVisibility();
       }
     });
   }
