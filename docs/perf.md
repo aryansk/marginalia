@@ -1,6 +1,8 @@
-# Performance program — pending items & status
+# Performance program — completed phases & status
 
 Goal: lightning-fast at 100+ threads × 20+ messages on one conversation.
+All six phases below shipped in the 0.4.0 performance release. This file is
+kept as the implementation record; it is no longer an active work queue.
 Hard rule: every phase is transparent — zero change in UI, UX, functionality,
 or stored-data formats. One phase = one commit, measured before moving on
 (debug setting on → `[marginalia perf]` summaries in the console).
@@ -19,10 +21,11 @@ rect reads per frame. No leaks; session memory is clean.
 | 1   | Re-anchor hot path O(changed): linear findTurns dedup, shared per-pass turns+text cache, futile-retry skip, self-mutation filter, connectivity-first orphan probe (throttled rect sweep), single scroll entry (+ignore extension-internal scrolls, passive listeners) | shipped | reanchor measure ≈0 on stable frames; O(changed) during streams  |
 | 2   | Startup proportional to visible: sweepDrafts getKeys (guarded), shared-cache restore, lazy message render (chips none; expanded renders at first measure until one viewport is covered + idle fill; flush on expand/scroll-up/refresh/destroy)                        | shipped | load marks O(T + visible); no perceptible load stall             |
 | 3   | Delta capture: fingerprint no-op pre-check (baseline advances only after successful save; external record writers invalidate it), merge-reported changed flag (write only on change)                                                                                  | shipped | capture ≈O(new turns); zero capture work on scroll               |
-| 4   | Streaming render O(answer): tail-only re-parse (stable = blocks before last two at a blank-line boundary; equivalence fuzz test lands FIRST), TeX memo (mode+tex key), adaptive flush cadence with trailing flush                                                     | pending | flush time flat as answer grows                                  |
-| 5   | Layout reads O(change): frame-local rect cache with mutation generation counter, anchored-mode settle-only cues, relayout aligned to render window                                                                                                                    | pending | ~0 rect reads on scroll frames (anchored); ≤N on mutation frames |
+| 4   | Streaming render O(answer): tail-only re-parse (stable = blocks before last two at a blank-line boundary; equivalence fuzz test lands FIRST), TeX memo (mode+tex key), adaptive flush cadence with trailing flush                                                     | shipped | flush time flat as answer grows                                  |
+| 5   | Layout reads O(change): frame-local rect cache with mutation generation counter, anchored-mode settle-only cues, relayout aligned to render window                                                                                                                    | shipped | ~0 rect reads on scroll frames (anchored); ≤N on mutation frames |
 
-Then: version bump + CHANGELOG ("performance release"), single entry.
+Release outcome: the version bump and single CHANGELOG performance-release
+entry are recorded in `CHANGELOG.md` under 0.4.0.
 
 ## Cross-cutting guards
 
@@ -90,5 +93,11 @@ Full manual test script (per-phase + end-to-end): `docs/perf-test.md`.
 
 (recorded per phase as they ship; baseline first)
 
-- Baseline (pre-P1), real conversation: TBD after Phase 0 ships — capture
-  `[marginalia perf]` summaries while streaming + on load.
+- The repository contains release-level evidence rather than numeric baseline
+  measurements: the 0.4.0 entry in `CHANGELOG.md` records the shipped
+  re-anchor, startup, streaming, capture, and layout improvements, plus the
+  debug summaries used to inspect them.
+- The original numeric baseline was not recorded in this document. It is
+  intentionally described as **not captured**, rather than left as active
+  `TBD` work. Use `docs/perf-test.md` if the program is reopened and new
+  measurements are collected.

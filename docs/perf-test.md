@@ -1,9 +1,9 @@
 # Performance test script
 
-Manual verification for the perf program (phases in `docs/pending/perf.md`).
+Manual verification for the perf program (phases in `docs/perf.md`).
 Run the full script once every phase has shipped; individual phase sections
 also work standalone right after that phase lands. Record the numbers you
-see in the Measurements section of `docs/pending/perf.md`.
+see in the Measurements section of `docs/perf.md`.
 
 Every check here is a NO-CHANGE check on behavior: if any step looks
 different from before the program (not just slower/faster), that phase has a
@@ -154,7 +154,7 @@ OFF for feel:
 
 ## Recording results
 
-Append to `docs/pending/perf.md` → Measurements, per phase:
+Append to `docs/perf.md` → Measurements, per phase:
 
 ```
 - P<n> (<commit>), <date>, <conversation size: N threads / T turns>:
