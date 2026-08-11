@@ -119,10 +119,11 @@ GA.streamText = async function (res, stream, onChunk, failMsg, budget) {
   return finalText;
 };
 
-// Build a helpful message from a failed API response. Prefer the API's
-// error.message; fall back to the raw body when it isn't JSON (instead of a bare
-// "HTTP 500"), so failures stay diagnosable.
-GA.apiError = async function (name, res) {
+// Structured view of a failed API response: { status, detail, message }.
+// Prefer the API's error.message; fall back to the raw body when it isn't JSON
+// (instead of a bare "HTTP 500"), so failures stay diagnosable. The numeric
+// status lets callers branch (401 vs 404) without regexing the message.
+GA.apiErrorInfo = async function (name, res) {
   let detail = "";
   try {
     const body = await res.text();
@@ -134,7 +135,12 @@ GA.apiError = async function (name, res) {
     }
   } catch (e) {}
   detail = detail ? String(detail).trim() : "";
-  return (
-    name + " API error (HTTP " + res.status + ")" + (detail ? ": " + detail.slice(0, 200) : ".")
-  );
+  const message =
+    name + " API error (HTTP " + res.status + ")" + (detail ? ": " + detail.slice(0, 200) : ".");
+  return { status: res.status, detail: detail, message: message };
+};
+
+// Message-only convenience kept for the streaming factory's throw path.
+GA.apiError = async function (name, res) {
+  return (await GA.apiErrorInfo(name, res)).message;
 };

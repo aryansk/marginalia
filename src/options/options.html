@@ -65,14 +65,21 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <input
-            type="text"
-            id="openai-model"
-            class="model"
-            placeholder="gpt-4o-mini"
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="model-cell">
+            <select id="openai-model-select" class="model" hidden></select>
+            <input
+              type="text"
+              id="openai-model"
+              class="model"
+              placeholder="gpt-4o-mini"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="test-row">
+            <button id="openai-test" class="ghost test" type="button">Test</button>
+            <span id="openai-test-status" class="status test-status" aria-live="polite"></span>
+          </div>
         </div>
         <div class="provider">
           <h3>Gemini — Google AI</h3>
@@ -84,14 +91,21 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <input
-            type="text"
-            id="gemini-model"
-            class="model"
-            placeholder="gemini-2.5-flash"
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="model-cell">
+            <select id="gemini-model-select" class="model" hidden></select>
+            <input
+              type="text"
+              id="gemini-model"
+              class="model"
+              placeholder="gemini-2.5-flash"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="test-row">
+            <button id="gemini-test" class="ghost test" type="button">Test</button>
+            <span id="gemini-test-status" class="status test-status" aria-live="polite"></span>
+          </div>
         </div>
         <div class="provider">
           <h3>Claude — Anthropic</h3>
@@ -103,14 +117,21 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <input
-            type="text"
-            id="anthropic-model"
-            class="model"
-            placeholder="claude-sonnet-4-6"
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="model-cell">
+            <select id="anthropic-model-select" class="model" hidden></select>
+            <input
+              type="text"
+              id="anthropic-model"
+              class="model"
+              placeholder="claude-sonnet-4-6"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="test-row">
+            <button id="anthropic-test" class="ghost test" type="button">Test</button>
+            <span id="anthropic-test-status" class="status test-status" aria-live="polite"></span>
+          </div>
         </div>
         <p id="apikeys-status" class="status"></p>
       </section>
@@ -159,7 +180,9 @@
         the official API instead. For personal use.
       </p>
     </main>
+    <script src="../shared/browser-polyfill.js"></script>
     <script src="../shared/settings-schema.js"></script>
+    <script src="../shared/protocol.js"></script>
     <script src="../core/backup.js"></script>
     <script src="options.js"></script>
   </body>

@@ -259,5 +259,25 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(at("src/background/api-client-factory.js")).toBeLessThan(at("src/openai/client.js"));
     // dispatch reads the registry
     expect(at("src/background/registry.js")).toBeLessThan(at("src/background/clients.js"));
+    // key-test needs protocol, api-util and the three payloads, all earlier
+    expect(at("src/background/key-test.js")).toBe(at("src/background/clients.js") + 1);
+    expect(at("src/background/key-test.js")).toBeLessThan(at("src/background.js"));
+    expect(at("src/background/api-util.js")).toBeLessThan(at("src/background/key-test.js"));
+    expect(fs.existsSync(path.join(ROOT, "src/background/key-test.js"))).toBe(true);
+  });
+
+  it("options page loads polyfill then protocol ahead of options.js (key-test messaging)", () => {
+    // Script order: polyfill (browser.* on Chrome pages) → schema → protocol →
+    // backup → options.js. The Test button sends MSG_TEST_KEY/MSG_LIST_MODELS
+    // via browser.runtime.sendMessage, so polyfill + protocol must precede it.
+    const html = read("src/options/options.html");
+    const polyfillAt = html.indexOf('src="../shared/browser-polyfill.js"');
+    const schemaAt = html.indexOf('src="../shared/settings-schema.js"');
+    const protocolAt = html.indexOf('src="../shared/protocol.js"');
+    const pageAt = html.indexOf('<script src="options.js"></script>');
+    expect(polyfillAt).toBeGreaterThanOrEqual(0);
+    expect(polyfillAt).toBeLessThan(schemaAt);
+    expect(schemaAt).toBeLessThan(protocolAt);
+    expect(protocolAt).toBeLessThan(pageAt);
   });
 });

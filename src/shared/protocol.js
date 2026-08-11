@@ -14,6 +14,8 @@ GA.protocol = {
   MSG_OPEN_FROM_CONTEXT: "ga-open-from-context", // bg -> content (context-menu click)
   MSG_READ_TOKENS: "ga-read-tokens", // content -> bg: read WIZ_global_data in MAIN world
   MSG_OPEN_OPTIONS: "ga-open-options", // content -> bg: open the extension options page
+  MSG_TEST_KEY: "ga-test-key", // options -> bg: {provider, key, model} minimal live request
+  MSG_LIST_MODELS: "ga-list-models", // options -> bg: {provider, key} fetch model ids
   CONTEXT_MENU_ID: "ga-ask",
 };
 
