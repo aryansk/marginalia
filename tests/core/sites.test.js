@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import sites from "../../src/core/sites.js";
 
-const { providerForHost, sessionIdFromPath, responseSelectors } = sites;
+const { providerForHost, sessionIdFromPath, responseSelectors, conversationUrl } = sites;
 
 describe("providerForHost", () => {
   it("maps each site's host(s) to a provider id", () => {
@@ -86,5 +86,36 @@ describe("responseSelectors", () => {
 
   it("returns [] for an unknown provider", () => {
     expect(responseSelectors("nope")).toEqual([]);
+  });
+});
+
+describe("conversationUrl", () => {
+  it("builds each site's canonical chat route from an id", () => {
+    expect(conversationUrl("gemini", "4256384b373874")).toBe(
+      "https://gemini.google.com/app/4256384b373874",
+    );
+    expect(conversationUrl("chatgpt", "abc-123")).toBe("https://chatgpt.com/c/abc-123");
+    expect(conversationUrl("claude", "u-u-i-d")).toBe("https://claude.ai/chat/u-u-i-d");
+  });
+
+  it("routes a Gem conversation id (gemId/chatId) under /gem/", () => {
+    expect(conversationUrl("gemini", "g1/c2")).toBe("https://gemini.google.com/gem/g1/c2");
+  });
+
+  it("round-trips with sessionIdFromPath", () => {
+    for (const [p, id] of [
+      ["gemini", "xyz789"],
+      ["gemini", "g1/c2"],
+      ["chatgpt", "abc"],
+      ["claude", "def"],
+    ]) {
+      expect(sessionIdFromPath(p, new URL(conversationUrl(p, id)).pathname)).toBe(id);
+    }
+  });
+
+  it("returns null for unknown providers or empty ids", () => {
+    expect(conversationUrl("bing", "x")).toBeNull();
+    expect(conversationUrl("gemini", "")).toBeNull();
+    expect(conversationUrl("gemini", null)).toBeNull();
   });
 });

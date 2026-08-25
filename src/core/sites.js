@@ -21,6 +21,7 @@ GA.core.sites = (function () {
       label: "Gemini",
       hosts: ["gemini.google.com"],
       newChat: "https://gemini.google.com/app",
+      chat: "https://gemini.google.com/app/", // + <id>; Gem chats use /gem/<gemId>/<chatId>
       // /app/<id> — matches anywhere so /u/0/app/<id> works; query/hash excluded.
       // /gem/<gemId>/<chatId> — a conversation inside a Gem; the bare Gem lobby
       // (/gem/<gemId>) is deliberately NOT a session (it's a new-chat page).
@@ -42,6 +43,7 @@ GA.core.sites = (function () {
       label: "ChatGPT",
       hosts: ["chatgpt.com", "chat.openai.com"],
       newChat: "https://chatgpt.com/",
+      chat: "https://chatgpt.com/c/",
       // /c/<conversation-uuid> — also matches project chats /g/g-…/c/<id>.
       sessionRes: [/\/c\/([^/?#]+)/],
       responseSelectors: ['[data-message-author-role="assistant"]', "div.markdown", ".agent-turn"],
@@ -56,6 +58,7 @@ GA.core.sites = (function () {
       label: "Claude",
       hosts: ["claude.ai"],
       newChat: "https://claude.ai/new",
+      chat: "https://claude.ai/chat/",
       // /chat/<conversation-uuid> — unanchored, so project-scoped chats
       // (/project/<projectId>/chat/<id>) resolve to the same chat id.
       sessionRes: [/\/chat\/([^/?#]+)/],
@@ -84,6 +87,20 @@ GA.core.sites = (function () {
   function newChatUrl(provider) {
     const def = PROVIDERS[provider];
     return (def && def.newChat) || null;
+  }
+
+  // The canonical URL of an existing conversation — the inverse of
+  // sessionIdFromPath, minus any account prefix (/u/0/) or project path the
+  // original URL carried. Callers prefer the URL captured with the transcript
+  // and fall back to this. Null for an unknown provider or empty id.
+  function conversationUrl(provider, id) {
+    const def = PROVIDERS[provider];
+    const cid = String(id == null ? "" : id);
+    if (!def || !def.chat || !cid) return null;
+    if (provider === "gemini" && cid.indexOf("/") !== -1) {
+      return "https://gemini.google.com/gem/" + cid.split("/").map(encodeURIComponent).join("/");
+    }
+    return def.chat + encodeURIComponent(cid);
   }
 
   // Map a hostname to a provider id. Matches the host exactly or as a subdomain
@@ -139,6 +156,7 @@ GA.core.sites = (function () {
   return {
     providerLabel,
     newChatUrl,
+    conversationUrl,
     providerForHost,
     sessionIdFromPath,
     responseSelectors,

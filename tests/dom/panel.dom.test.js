@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
 // Panel keyword search (T-003): the all-threads panel gains a search box whose
@@ -7,24 +7,30 @@ import { loadGA } from "../helpers/loadGA.js";
 // against stubbed threadController / selection / gutter collaborators.
 
 function makeGA(threads, opts = {}) {
-  const GA = loadGA([
-    "src/shared/settings-schema.js",
-    "src/shared/config.js",
-    "src/core/sites.js",
-    "src/core/markdown-ast.js",
-    "src/core/thread-search.js",
-    "src/core/turn-id.js",
-    "src/core/outline.js",
-    "src/content/util.js",
-    "src/content/icons.js",
-    "src/content/ui-bits.js",
-    "src/content/dialog.js",
-    "src/content/undo-stack.js",
-    "src/content/composer.js",
-    "src/content/calm-scroll.js",
-    "src/content/panel-global.js",
-    "src/content/panel.js",
-  ]);
+  const nav = { assign: vi.fn(), href: "https://gemini.google.com/app/abc", pathname: "/app/abc" };
+  const GA = loadGA(
+    [
+      "src/shared/settings-schema.js",
+      "src/shared/config.js",
+      "src/core/sites.js",
+      "src/core/markdown-ast.js",
+      "src/core/thread-search.js",
+      "src/core/global-search.js",
+      "src/core/turn-id.js",
+      "src/core/outline.js",
+      "src/content/util.js",
+      "src/content/icons.js",
+      "src/content/ui-bits.js",
+      "src/content/dialog.js",
+      "src/content/undo-stack.js",
+      "src/content/composer.js",
+      "src/content/calm-scroll.js",
+      "src/content/panel-global.js",
+      "src/content/panel.js",
+    ],
+    { location: nav },
+  );
+  GA.location = nav;
   GA.threadController = {
     threads: () => threads,
     expandThreadById: () => {},
@@ -33,7 +39,10 @@ function makeGA(threads, opts = {}) {
   GA.gutter = { get: () => null, setActive: () => {}, mode: () => "normal" };
   GA.provider = opts.provider || "gemini";
   GA.getSessionId = () => (opts.session === undefined ? "gemini:abc" : opts.session);
-  GA.store = { loadConvo: opts.loadConvo || (async () => null) };
+  GA.store = {
+    loadConvo: opts.loadConvo || (async () => null),
+    listThreadBuckets: opts.listThreadBuckets || (async () => []),
+  };
   GA.turns = {
     findTurns: () => opts.live || [],
     fingerprintOf: (el) => GA.core.turnId.fingerprint(el.textContent),
@@ -470,5 +479,80 @@ describe("Outline tab", () => {
     const row = outlineRows()[0];
     expect(row.querySelector("img")).toBeNull();
     expect(row.textContent).toContain("<img");
+  });
+});
+
+// One search box, two scopes: [This chat | All chats] sits in the search row
+// on every tab but Across chats (which is already every chat).
+describe("search scope: All chats", () => {
+  const scopeBtn = (key) => document.querySelector('.ga-panel-seg-btn[data-scope="' + key + '"]');
+  const scopeSeg = () => scopeBtn("chat").parentNode;
+  const BUCKETS = [
+    {
+      session: "gemini:abc", // this chat
+      threads: [{ id: "t1", selector: { exact: "The Higgs boson" }, messages: [] }],
+    },
+    {
+      session: "chatgpt:other",
+      threads: [{ id: "o1", selector: { exact: "Higgs elsewhere" }, messages: [] }],
+    },
+  ];
+
+  it("is visible on the status and Outline tabs, hidden on Across chats", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    expect(scopeSeg().classList.contains("ga-panel-seg-on")).toBe(true);
+    expect(scopeBtn("chat").getAttribute("aria-pressed")).toBe("true");
+    tab("outline").click();
+    expect(scopeSeg().classList.contains("ga-panel-seg-on")).toBe(true);
+    tab("global").click();
+    expect(scopeSeg().classList.contains("ga-panel-seg-on")).toBe(false);
+  });
+
+  it("with a query, All chats lists hits from every conversation; this chat's jump in place", async () => {
+    const GA = makeGA(THREADS, { listThreadBuckets: async () => BUCKETS });
+    GA.panel.open();
+    scopeBtn("all").click();
+    expect(searchInput().placeholder).toBe("Search all chats…");
+    expect(rows().length).toBe(2); // empty query → the tab's own rows, unchanged
+    type(searchInput(), "higgs");
+    expect(document.querySelector(".ga-modal-empty").textContent).toBe("Loading…");
+    await tick();
+    expect(document.querySelector(".ga-panel-nav-notice")).not.toBeNull();
+    const all = rows();
+    expect(all.length).toBe(2);
+    expect(document.querySelector(".ga-panel-count").textContent).toBe("2 of 2");
+    // the hit from THIS chat is a normal list row (jumps in place)…
+    expect(all[0].classList.contains("ga-panel-row-nav")).toBe(false);
+    expect(all[0].textContent).toContain("The Higgs boson");
+    // …the other one navigates
+    expect(all[1].classList.contains("ga-panel-row-nav")).toBe(true);
+    all[1].click();
+    await tick();
+    expect(GA.location.assign).toHaveBeenCalledWith("https://chatgpt.com/c/other");
+    expect(document.querySelector(".ga-modal-overlay")).toBeNull(); // closed before leaving
+  });
+
+  it("no hits → explicit empty state; Escape clears the query but keeps the scope", async () => {
+    const GA = makeGA(THREADS, { listThreadBuckets: async () => BUCKETS });
+    GA.panel.open();
+    scopeBtn("all").click();
+    type(searchInput(), "zzz");
+    await tick();
+    expect(document.querySelector(".ga-modal-empty").textContent).toMatch(/any conversation/);
+    searchInput().focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(searchInput().value).toBe("");
+    expect(scopeBtn("all").getAttribute("aria-pressed")).toBe("true");
+    expect(rows().length).toBe(2);
+  });
+
+  it("scope resets to This chat on reopen", () => {
+    const GA = makeGA(THREADS);
+    GA.panel.open();
+    scopeBtn("all").click();
+    GA.panel.close();
+    GA.panel.open();
+    expect(scopeBtn("chat").getAttribute("aria-pressed")).toBe("true");
   });
 });

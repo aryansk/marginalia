@@ -17,7 +17,7 @@ GA.panel = (function () {
   let sessionSize = { w: 0, h: 0 }; // drag-resized panel size, remembered for this page session
   let resizer = null; // GA.dragResize handle — ends an in-flight drag on close
   // Per-open view state shared by the build/render helpers below:
-  // { query, body, count, searchInput, clearBtn, typeSeg, chats, outline }.
+  // { query, scope, body, count, searchInput, clearBtn, scopeSeg, typeSeg, chats, outline }.
   // Set in open(), nulled when the dialog closes, so a query never leaks into
   // the next open — unlike the deliberately persistent `filter`.
   let view = null;
@@ -319,10 +319,60 @@ GA.panel = (function () {
     }
   }
 
+  // ---- "All chats" search scope (issue #4) -------------------------------
+  // One search box, two scopes. With scope=all and a query, every tab shows
+  // hits from every conversation; picking one opens that conversation. Hits
+  // from THIS conversation jump in place instead, like the list rows.
+  function renderAllChatsResults() {
+    const hits = view.chats.search(view.query);
+    if (!hits) {
+      view.chats.ensureBuckets(); // its resolution calls requestRender → back here
+      view.body.appendChild(GA.el("div", { class: "ga-modal-empty", text: "Loading…" }));
+      return;
+    }
+    setCount(hits.length, view.chats.state.total);
+    if (!hits.length) {
+      view.body.appendChild(
+        GA.el("div", { class: "ga-modal-empty", text: "No threads match in any conversation." }),
+      );
+      return;
+    }
+    view.body.appendChild(
+      GA.el("div", {
+        class: "ga-panel-nav-notice",
+        text: "Results from every chat — picking one from another chat opens that conversation.",
+      }),
+    );
+    const here = GA.getSessionId();
+    hits.forEach((hit) => {
+      if (hit.session === here) {
+        const live = GA.threadController.threads().find((t) => t.id === hit.record.id);
+        if (live) {
+          view.body.appendChild(renderThreadRow(live));
+          return;
+        }
+      }
+      view.body.appendChild(
+        view.chats.renderNavRow(hit, {
+          onNavigate: function (h) {
+            view.chats.urlFor(h.session).then((url) => {
+              close();
+              if (url && url !== location.href) location.assign(url);
+            });
+          },
+        }),
+      );
+    });
+  }
+
   function renderList() {
     view.body.textContent = "";
     if (filter === "global") {
       view.chats.render(view.body);
+      return;
+    }
+    if (view.scope === "all" && view.query) {
+      renderAllChatsResults();
       return;
     }
     if (filter === "outline") {
@@ -451,19 +501,64 @@ GA.panel = (function () {
   // exists on All chats, and the search placeholder follows the mode.
   function updateChrome() {
     const global = filter === "global";
+    // Across chats is already every conversation and shows the type
+    // segments instead; the scope segments belong to every other tab.
     view.typeSeg.classList.toggle("ga-panel-seg-on", global);
-    view.searchInput.placeholder =
-      filter === "outline"
-        ? "Filter outline…"
-        : !global
-          ? "Search threads…"
-          : view.chats.state.type === "labels"
-            ? "Search labels…"
-            : "Search all threads…";
+    view.scopeSeg.classList.toggle("ga-panel-seg-on", !global);
+    view.searchInput.placeholder = global
+      ? view.chats.state.type === "labels"
+        ? "Search labels…"
+        : "Search all threads…"
+      : view.scope === "all"
+        ? "Search all chats…"
+        : filter === "outline"
+          ? "Filter outline…"
+          : "Search threads…";
     view.chats.updateFooter();
   }
 
+  // A two-button segmented control (the shared look for search-row modes).
+  function segControl(label, items, current, onPick) {
+    const seg = GA.el("div", { class: "ga-panel-seg", role: "group", "aria-label": label });
+    items.forEach(([key, text]) => {
+      seg.appendChild(
+        GA.el("button", {
+          class: "ga-panel-seg-btn" + (key === current ? " ga-panel-seg-btn-on" : ""),
+          type: "button",
+          text,
+          "data-key": key,
+          "aria-pressed": key === current ? "true" : "false",
+          onclick: function () {
+            Array.from(seg.children).forEach((b) => {
+              const on = b.dataset.key === key;
+              b.classList.toggle("ga-panel-seg-btn-on", on);
+              b.setAttribute("aria-pressed", on ? "true" : "false");
+            });
+            onPick(key);
+          },
+        }),
+      );
+    });
+    return seg;
+  }
+
   function buildSearch() {
+    // This chat | All chats — where the query looks. Lives in the search row
+    // (not the tabs) because it changes what the box searches, not the view.
+    view.scopeSeg = segControl(
+      "Search scope",
+      [
+        ["chat", "This chat"],
+        ["all", "All chats"],
+      ],
+      view.scope,
+      (key) => {
+        view.scope = key;
+        updateChrome();
+        renderList();
+      },
+    );
+    Array.from(view.scopeSeg.children).forEach((b) => (b.dataset.scope = b.dataset.key));
     // Threads|Labels as a SEGMENTED control, not a dropdown: both modes stay
     // visible, so the labels path can't hide behind a closed select.
     view.typeSeg = GA.el("div", {
@@ -521,6 +616,7 @@ GA.panel = (function () {
     );
     view.count = GA.el("div", { class: "ga-panel-count", "aria-live": "polite" });
     return GA.el("div", { class: "ga-panel-search" }, [
+      view.scopeSeg,
       view.typeSeg,
       view.searchInput,
       view.clearBtn,
@@ -594,6 +690,8 @@ GA.panel = (function () {
     close();
     view = {
       query: "",
+      scope: "chat", // "chat" | "all" — search scope; reset per open (the box opens empty)
+      scopeSeg: null,
       body: null,
       count: null,
       searchInput: null,

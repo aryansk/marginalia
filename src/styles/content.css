@@ -1503,6 +1503,7 @@
   flex: 1 1 100%;
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* scope segments + input must wrap, not clip, on a narrow modal */
   gap: 8px;
 }
 .ga-panel-search-input {
@@ -1694,6 +1695,16 @@
 .ga-panel-seg-btn.ga-panel-seg-btn-on {
   color: var(--ga-accent-strong);
   background: rgba(var(--ga-accent-rgb), 0.12);
+}
+/* "All chats" scope results: rows that NAVIGATE — the arrow lights up on
+   hover and a notice above the list says so before the first click. */
+.ga-panel-nav-notice {
+  font-size: 11px;
+  color: var(--ga-muted);
+  padding: 2px 2px 4px;
+}
+.ga-panel-row-nav:hover .ga-panel-nav-glyph {
+  color: var(--ga-accent-strong);
 }
 /* themed checkbox: the input is the square (appearance:none), the check mark
    is a DOM svg sibling — never a CSS url() image, which a host page's CSP
