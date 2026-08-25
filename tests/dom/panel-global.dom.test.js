@@ -19,6 +19,7 @@ function makeGA() {
       "src/core/thread-search.js",
       "src/core/global-search.js",
       "src/core/turn-id.js",
+      "src/core/outline.js",
       "src/core/bundle-prompt.js",
       "src/core/markdown-ast.js",
       "src/content/util.js",
@@ -154,8 +155,10 @@ describe("All chats — threads mode", () => {
     expect(rowByText("quantum decay")).toBeTruthy();
     expect(rowByText("css anchors")).toBeTruthy();
     expect(rowByText("labeled passage")).toBeFalsy();
-    // old tabs still render the per-conversation view
-    document.querySelector('[data-filter="open"]').click();
+    // the status dropdown still renders the per-conversation view
+    const status = document.querySelector('[data-filter="status"]');
+    status.value = "open";
+    status.dispatchEvent(new Event("change"));
     expect(document.querySelector(".ga-modal-empty").textContent).toContain("No threads here");
   });
 

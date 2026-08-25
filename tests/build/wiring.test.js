@@ -149,6 +149,9 @@ describe("background wiring stays in sync across Firefox + Chrome", () => {
     expect(fxJs.indexOf("src/core/global-search.js")).toBe(
       fxJs.indexOf("src/core/bundle-prompt.js") + 1,
     );
+    // outline (turn/thread grouping shared by transcript, bundle-prompt and the panel) closes the core block
+    expect(fxJs.indexOf("src/core/outline.js")).toBe(fxJs.indexOf("src/core/global-search.js") + 1);
+    expect(crJs.indexOf("src/core/outline.js")).toBe(fxJs.indexOf("src/core/outline.js"));
     // the label chip loads right after the thread box, before the surfaces that mount it
     expect(fxJs.indexOf("src/content/label-ui.js")).toBe(
       fxJs.indexOf("src/content/thread-ui.js") + 1,

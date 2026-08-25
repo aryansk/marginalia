@@ -1,7 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { loadGA } from "../helpers/loadGA.js";
 
-const GA = loadGA(["src/core/turn-id.js", "src/core/compress.js", "src/core/bundle-prompt.js"]);
+const GA = loadGA([
+  "src/core/turn-id.js",
+  "src/core/compress.js",
+  "src/core/outline.js",
+  "src/core/bundle-prompt.js",
+]);
 const { resolveTurn, resolveFromDecoded, resolveText, threadContent, compose, downloadDoc } =
   GA.core.bundlePrompt;
 const { fingerprint } = GA.core.turnId;
