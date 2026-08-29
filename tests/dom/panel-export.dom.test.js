@@ -25,6 +25,7 @@ function makeGA({ session = "gemini:abc", record = null, threads = [] } = {}) {
       "src/core/thread-search.js",
       "src/core/turn-id.js",
       "src/core/compress.js",
+      "src/core/outline.js",
       "src/core/transcript.js",
       "src/content/util.js",
       "src/content/icons.js",

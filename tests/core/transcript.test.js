@@ -3,7 +3,7 @@ import { loadGA } from "../helpers/loadGA.js";
 
 // transcript.js is pure and binds only to GA.core.turnId — load exactly that
 // pair, the same order the manifests use.
-const GA = loadGA(["src/core/turn-id.js", "src/core/transcript.js"]);
+const GA = loadGA(["src/core/turn-id.js", "src/core/outline.js", "src/core/transcript.js"]);
 const { build } = GA.core.transcript;
 const fpOf = (text) => GA.core.turnId.fingerprint(text);
 

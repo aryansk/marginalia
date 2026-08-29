@@ -30,6 +30,7 @@ const FILES = [
   "src/core/convo-merge.js",
   "src/core/backup.js",
   "src/core/compress.js",
+  "src/core/outline.js",
   "src/core/transcript.js",
   "src/content/store.js",
   "src/content/convo-capture.js",

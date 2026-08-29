@@ -95,6 +95,7 @@
         "src/core/labels.js",
         "src/core/bundle-prompt.js",
         "src/core/global-search.js",
+        "src/core/outline.js",
         "src/content/util.js",
         "src/content/frame.js",
         "src/content/perf.js",

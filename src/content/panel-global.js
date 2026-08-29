@@ -6,7 +6,9 @@
 // this sub-feature owns its own per-open state.
 //
 // GA.panelGlobal.create(ctx) -> one instance per panel open:
-//   { state, buildFooter(), render(bodyEl), updateFooter(), setType(t), onClose() }
+//   { state, buildFooter(), render(bodyEl), updateFooter(), setType(t), onClose(),
+//     ensureBuckets(), search(q), urlFor(session), renderNavRow(hit, {onNavigate}) }
+//   — the last four back the shell's "All chats" search scope (issue #4).
 // ctx (provided by panel.js, which owns the chrome): { isActive(), query(),
 //   setCount(shown, total), clearCount(), requestRender(), download(md, base) }.
 //
@@ -184,6 +186,71 @@ GA.panelGlobal = (function () {
         main,
         meta: [convoBadge(hit.session)],
       });
+    }
+
+    // ---- scoped search from the panel's own tabs (issue #4) ----------------
+    // The shell's search box can widen its scope to every conversation
+    // without leaving the current tab. These entry points let it reuse this
+    // instance's bucket cache and row look while keeping the synthesis
+    // selection model out of it: a scoped result NAVIGATES, it doesn't pick.
+
+    // Hits for `query` across all buckets, or null until the listing lands
+    // (the caller shows a loading state and calls ensureBuckets()).
+    function search(query) {
+      if (!state.buckets) return null;
+      return GA.core.globalSearch.searchThreads(state.buckets, query);
+    }
+
+    // Where a hit's conversation lives: the URL captured with its transcript
+    // (keeps /u/<n>/ and project paths intact), else the canonical route.
+    function urlFor(session) {
+      return rawConvoFor(session).then((raw) => {
+        if (raw && raw.url) return String(raw.url);
+        const s = String(session);
+        const at = s.indexOf(":");
+        return GA.core.sites.conversationUrl(s.slice(0, at), s.slice(at + 1));
+      });
+    }
+
+    // A result row that opens its conversation. No checkbox: the arrow glyph,
+    // the conversation badge and the hover title all say "this leaves the page".
+    function renderNavRow(hit, opts) {
+      const t = hit.record;
+      const isLabel = t.kind === "label";
+      const exact = t.selector && t.selector.exact;
+      const row = GA.el(
+        "div",
+        {
+          class: "ga-panel-row ga-panel-row-nav",
+          role: "button",
+          tabindex: "0",
+          title: "Opens this conversation (leaves the current page)",
+          "aria-label":
+            "Open conversation for " + (isLabel ? "labeled answer: " : "thread: ") + exact,
+        },
+        [
+          GA.el("div", { class: "ga-panel-row-main" }, [
+            GA.el("div", { class: "ga-panel-snippet" }, [
+              isLabel ? GA.labelGlyph({ on: true }) : null,
+              GA.el("span", { text: GA.truncate(exact, GA.config.PANEL_SNIPPET_CHARS) }),
+            ]),
+            GA.el("div", { class: "ga-panel-question", text: GA.recordQuestionText(t) }),
+          ]),
+          GA.el("div", { class: "ga-panel-row-meta" }, [
+            convoBadge(hit.session),
+            GA.el("span", { class: "ga-panel-jump ga-panel-nav-glyph" }, GA.icons.make("jump")),
+          ]),
+        ],
+      );
+      const go = () => opts.onNavigate(hit);
+      row.addEventListener("click", go);
+      row.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          go();
+        }
+      });
+      return row;
     }
 
     // ---- render ------------------------------------------------------------
@@ -576,6 +643,10 @@ GA.panelGlobal = (function () {
       buildFooter,
       render,
       updateFooter,
+      ensureBuckets,
+      search,
+      urlFor,
+      renderNavRow,
       setType(t) {
         state.type = t;
       },
