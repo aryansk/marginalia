@@ -1466,12 +1466,44 @@
   border-color: var(--ga-accent);
   background: rgba(var(--ga-accent-rgb), 0.1);
 }
+/* The status dropdown IS the threads tab: a native <select> wearing the pill
+   look. Its chevron is a DOM svg sibling (see panel.js), so the select just
+   leaves room for it. */
+.ga-panel-status-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ga-panel-status {
+  padding-right: 24px;
+  font-family: inherit;
+}
+.ga-panel-status option {
+  color: initial;
+  background: initial;
+}
+.ga-panel-status-chev {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  pointer-events: none;
+  color: var(--ga-muted);
+}
+.ga-panel-status-chev svg {
+  width: 11px;
+  height: 11px;
+}
+.ga-panel-tab-on + .ga-panel-status-chev {
+  color: var(--ga-accent-strong);
+}
 /* search bar wraps to its own full-width line inside the header. Colours come
    from the shared --ga-* variables, so it reads correctly in light and dark. */
 .ga-panel-search {
   flex: 1 1 100%;
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* scope segments + input must wrap, not clip, on a narrow modal */
   gap: 8px;
 }
 .ga-panel-search-input {
@@ -1572,6 +1604,60 @@
   outline: 2px solid var(--ga-accent);
   outline-offset: 1px;
 }
+/* ---------- Outline tab: one row per exchange, threads nested as chips ----- */
+.ga-outline-row .ga-panel-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ga-outline-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.ga-outline-head .ga-panel-snippet {
+  min-width: 0;
+}
+.ga-outline-hint {
+  flex: none;
+  font-size: 11px;
+  color: var(--ga-muted);
+}
+.ga-outline-unmounted {
+  opacity: 0.55;
+  cursor: default;
+}
+.ga-outline-unmounted:hover {
+  border-color: var(--ga-border);
+  background: transparent;
+}
+.ga-outline-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 14px;
+}
+.ga-outline-chip {
+  appearance: none;
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* .ga-tag gives the warn palette; a chip is a landmark, not a warning */
+  color: var(--ga-accent-strong);
+  background: rgba(var(--ga-accent-rgb), 0.1);
+  border: 1px solid transparent;
+}
+.ga-outline-chip:hover {
+  border-color: var(--ga-accent);
+}
+.ga-outline-chip-resolved {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
 
 /* ---------- All-chats tab: mode segments, selection rows, synthesis foot ---- */
 /* Threads|Labels segmented control: both modes stay VISIBLE (a dropdown hid
@@ -1609,6 +1695,16 @@
 .ga-panel-seg-btn.ga-panel-seg-btn-on {
   color: var(--ga-accent-strong);
   background: rgba(var(--ga-accent-rgb), 0.12);
+}
+/* "All chats" scope results: rows that NAVIGATE — the arrow lights up on
+   hover and a notice above the list says so before the first click. */
+.ga-panel-nav-notice {
+  font-size: 11px;
+  color: var(--ga-muted);
+  padding: 2px 2px 4px;
+}
+.ga-panel-row-nav:hover .ga-panel-nav-glyph {
+  color: var(--ga-accent-strong);
 }
 /* themed checkbox: the input is the square (appearance:none), the check mark
    is a DOM svg sibling — never a CSS url() image, which a host page's CSP
@@ -1867,6 +1963,7 @@
 .ga-adder:focus-visible,
 .ga-retry-btn:focus-visible,
 .ga-panel-tab:focus-visible,
+.ga-outline-chip:focus-visible,
 .ga-panel-action:focus-visible,
 .ga-panel-seg-btn:focus-visible,
 .ga-panel-group-btn:focus-visible,
@@ -1889,6 +1986,7 @@
   .ga-panel-btn,
   .ga-panel-row,
   .ga-panel-tab,
+  .ga-outline-chip,
   .ga-panel-action,
   .ga-panel-seg-btn,
   .ga-panel-search-input,

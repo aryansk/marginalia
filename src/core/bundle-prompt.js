@@ -52,20 +52,8 @@ GA.core.bundlePrompt = (function () {
   // text CONTAINS the recorded quote (transcript.js's placement evidence).
   function resolveFromDecoded(decodedTurns, record) {
     const turns = Array.isArray(decodedTurns) ? decodedTurns.filter(Boolean) : [];
-    const fp = record && record.anchor && record.anchor.turn;
-    if (fp) {
-      for (const t of turns) {
-        if (GA.core.turnId.sameFingerprint(fp, t.fp)) return t.text || null;
-      }
-    }
-    const exact = norm(record && record.selector ? record.selector.exact : "");
-    if (!exact) return null;
-    const role = record && record.anchor && record.anchor.role;
-    for (const t of turns) {
-      if (role && t.role !== role) continue;
-      if (norm(t.text).indexOf(exact) !== -1) return t.text || null;
-    }
-    return null;
+    const at = GA.core.outline.locateThread(record, turns);
+    return at === -1 ? null : turns[at].text || null;
   }
 
   // resolveText(rawConvo, getDecoded, record) -> Promise<string>. The WHOLE

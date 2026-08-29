@@ -19,6 +19,7 @@ function makeGA() {
       "src/core/thread-search.js",
       "src/core/global-search.js",
       "src/core/turn-id.js",
+      "src/core/outline.js",
       "src/core/bundle-prompt.js",
       "src/core/markdown-ast.js",
       "src/content/util.js",
@@ -137,16 +138,13 @@ describe("All chats — threads mode", () => {
   it("shows the mode segments only on the global tab and lists threads across conversations", async () => {
     const GA = makeGA();
     GA.panel.open();
-    expect(document.querySelector(".ga-panel-seg").classList.contains("ga-panel-seg-on")).toBe(
-      false,
-    );
+    const typeSeg = () => document.querySelector('.ga-panel-seg[aria-label^="What to search"]');
+    expect(typeSeg().classList.contains("ga-panel-seg-on")).toBe(false);
     document.querySelector('[data-filter="global"]').click();
-    expect(document.querySelector(".ga-panel-seg").classList.contains("ga-panel-seg-on")).toBe(
-      true,
-    );
+    expect(typeSeg().classList.contains("ga-panel-seg-on")).toBe(true);
     // both modes are VISIBLE segments — labels mode is not hidden in a dropdown
     expect(
-      Array.from(document.querySelectorAll(".ga-panel-seg-btn"), (b) => b.textContent),
+      Array.from(typeSeg().querySelectorAll(".ga-panel-seg-btn"), (b) => b.textContent),
     ).toEqual(["Threads", "Labels"]);
     await tick();
     // conversation threads from BOTH sessions; the standalone label is not a thread
@@ -154,8 +152,10 @@ describe("All chats — threads mode", () => {
     expect(rowByText("quantum decay")).toBeTruthy();
     expect(rowByText("css anchors")).toBeTruthy();
     expect(rowByText("labeled passage")).toBeFalsy();
-    // old tabs still render the per-conversation view
-    document.querySelector('[data-filter="open"]').click();
+    // the status dropdown still renders the per-conversation view
+    const status = document.querySelector('[data-filter="status"]');
+    status.value = "open";
+    status.dispatchEvent(new Event("change"));
     expect(document.querySelector(".ga-modal-empty").textContent).toContain("No threads here");
   });
 
@@ -492,5 +492,58 @@ describe("All chats — synthesis", () => {
     expect(writeText).toHaveBeenCalledWith("the synthesis");
     expect(opened).toHaveBeenCalledWith("https://gemini.google.com/app", "_blank");
     expect(document.querySelector(".ga-toast").textContent).toContain("paste into the new chat");
+  });
+});
+
+// The shell's search box can widen to every conversation from any tab; the
+// instance backs that with search()/urlFor()/renderNavRow() (issue #4).
+describe("scoped search helpers", () => {
+  it("search() is null until the bucket listing lands, then returns hits", async () => {
+    const GA = makeGA();
+    const chats = GA.panelGlobal.create({
+      isActive: () => false,
+      query: () => "",
+      setCount() {},
+      clearCount() {},
+      requestRender() {},
+      download() {},
+    });
+    expect(chats.search("css")).toBeNull();
+    chats.ensureBuckets();
+    await tick();
+    expect(chats.search("css").map((h) => h.record.id)).toEqual(["t2"]);
+    expect(chats.search("").map((h) => h.record.id)).toEqual(["t1", "t2"]); // labels are not threads
+  });
+
+  it("urlFor prefers the captured URL and falls back to the canonical route", async () => {
+    const GA = makeGA();
+    GA.store.loadConvo = vi.fn(async (session) =>
+      session === "gemini:one" ? { url: "https://gemini.google.com/u/1/app/one" } : null,
+    );
+    const chats = GA.panelGlobal.create({ requestRender() {} });
+    expect(await chats.urlFor("gemini:one")).toBe("https://gemini.google.com/u/1/app/one");
+    expect(await chats.urlFor("chatgpt:two")).toBe("https://chatgpt.com/c/two");
+    expect(await chats.urlFor("gemini:gem1/chat2")).toBe(
+      "https://gemini.google.com/gem/gem1/chat2",
+    );
+  });
+
+  it("renderNavRow has no checkbox and fires onNavigate on click and Enter", () => {
+    const GA = makeGA();
+    const chats = GA.panelGlobal.create({ requestRender() {} });
+    const seen = [];
+    const hit = {
+      session: "chatgpt:two",
+      record: { id: "t2", selector: { exact: "css anchors" } },
+    };
+    const row = chats.renderNavRow(hit, { onNavigate: (h) => seen.push(h) });
+    document.body.appendChild(row);
+    expect(row.querySelector("input")).toBeNull();
+    expect(row.getAttribute("aria-label")).toMatch(/^Open conversation/);
+    expect(row.querySelector(".ga-panel-nav-glyph svg")).not.toBeNull();
+    expect(row.textContent).toContain("css anchors");
+    row.click();
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(seen).toEqual([hit, hit]);
   });
 });

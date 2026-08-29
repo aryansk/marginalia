@@ -24,8 +24,6 @@ var GA = (typeof GA !== "undefined" && GA) || {};
 GA.core = GA.core || {};
 
 GA.core.transcript = (function () {
-  const ROLE_HEADING = { user: "You", model: "Assistant" };
-
   function norm(text) {
     return GA.core.turnId.normalize(text);
   }
@@ -68,44 +66,10 @@ GA.core.transcript = (function () {
   }
 
   // ---- turns ------------------------------------------------------------
-  function sortedTurns(convo) {
-    const raw = convo && Array.isArray(convo.turns) ? convo.turns : [];
-    return raw
-      .filter((t) => !!t && typeof t === "object")
-      .map((t, i) => ({ t, i }))
-      .sort((a, b) => {
-        const ao = typeof a.t.order === "number" ? a.t.order : Infinity;
-        const bo = typeof b.t.order === "number" ? b.t.order : Infinity;
-        return ao - bo || a.i - b.i;
-      })
-      .map((e) => e.t);
-  }
-
-  // Fix F3. Compare each turn against the LAST KEPT one so a chain of
-  // partials (A, AB, ABC) collapses to its longest form. Scope is deliberate:
-  // consecutive + same (truthy) role + strict prefix ONLY — no fuzzy matching,
-  // no deduping across gaps, identical texts both survive (repeated identical
-  // messages are legitimate and survive capture's multiset merge).
-  function dedupeTurns(turns) {
-    const kept = [];
-    for (const cur of turns) {
-      const prev = kept[kept.length - 1];
-      if (prev && prev.role && prev.role === cur.role) {
-        const a = norm(prev.text);
-        const b = norm(cur.text);
-        if (a && b && a !== b) {
-          if (b.indexOf(a) === 0)
-            kept.pop(); // prev was a stale partial of cur
-          else if (a.indexOf(b) === 0) continue; // cur is a stale partial of prev
-        }
-      }
-      kept.push(cur);
-    }
-    return kept;
-  }
-
+  // Turn ordering, prefix-dedupe (fix F3) and thread placement are shared
+  // with the Outline tab and the bundle prompt — see core/outline.js.
   function headingFor(role) {
-    return ROLE_HEADING[role] || "Message";
+    return GA.core.outline.ROLE_LABEL[role] || "Message";
   }
 
   // ---- threads ------------------------------------------------------------
@@ -127,62 +91,20 @@ GA.core.transcript = (function () {
     return quote("[!note] Annotation\n" + parts.join("\n\n"));
   }
 
-  // Placement fallback (stale-anchor recovery): a thread created while its
-  // turn was still streaming recorded the PARTIAL turn's fingerprint. The
-  // capture-side stale-partial upgrade replaces that fingerprint in the index
-  // with the completed turn's, and render-time prefix-dedupe can drop the
-  // partial too — either way the fp match misses. The quoted text still
-  // identifies the turn: place the thread under the FIRST turn (of the
-  // anchor's recorded role, when present) whose text CONTAINS the quote.
-  // Containment of the exact quote is strong evidence; anything weaker keeps
-  // falling through to Unanchored notes.
-  function quoteFallback(thread, turns) {
-    const exact = norm(thread && thread.selector ? thread.selector.exact : "");
-    if (!exact) return -1;
-    const role = thread.anchor && thread.anchor.role;
-    for (let i = 0; i < turns.length; i++) {
-      if (role && turns[i].role !== role) continue;
-      if (norm(turns[i].text).indexOf(exact) !== -1) return i;
-    }
-    return -1;
-  }
-
-  // Deterministic order for threads sharing a turn and for the unanchored
-  // list: createdAt, then original array position for ties/missing stamps.
-  function orderedThreads(threads) {
-    const list = Array.isArray(threads) ? threads.filter(Boolean) : [];
-    return list
-      .map((th, i) => ({ th, i }))
-      .sort((a, b) => {
-        const ca = typeof a.th.createdAt === "number" ? a.th.createdAt : Infinity;
-        const cb = typeof b.th.createdAt === "number" ? b.th.createdAt : Infinity;
-        return ca - cb || a.i - b.i;
-      })
-      .map((e) => e.th);
-  }
-
   // ---- document -----------------------------------------------------------
   function build(convo, threads) {
     const record = convo && typeof convo === "object" ? convo : {};
-    const turns = dedupeTurns(sortedTurns(record));
-    const ordered = orderedThreads(threads);
+    const outline = GA.core.outline;
+    const turns = outline.dedupeTurns(outline.sortedTurns(record));
+    const ordered = outline.orderedThreads(threads);
 
     // Attach each thread to the FIRST surviving turn whose fp matches its
-    // recorded anchor fingerprint; everything else trails as unanchored.
+    // recorded anchor fingerprint (quote containment as the stale-anchor
+    // fallback); everything else trails as unanchored.
     const byTurn = new Map();
     const unanchored = [];
     for (const th of ordered) {
-      const fp = th.anchor && th.anchor.turn;
-      let at = -1;
-      if (fp) {
-        for (let j = 0; j < turns.length; j++) {
-          if (GA.core.turnId.sameFingerprint(fp, turns[j].fp)) {
-            at = j;
-            break;
-          }
-        }
-      }
-      if (at === -1) at = quoteFallback(th, turns);
+      const at = outline.locateThread(th, turns);
       if (at === -1) {
         unanchored.push(th);
       } else {
